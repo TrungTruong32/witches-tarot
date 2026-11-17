@@ -342,6 +342,27 @@
     .facts-box summary { cursor: pointer; font-weight: 600; color: var(--accent2); }
     .facts-box .facts-body { margin-top: 6px; overflow-wrap: anywhere; }
     .facts-box.facts-static { margin: 8px 0; }
+    /* Các lá trong trải bài trôi mờ phía sau khung diễn giải AI (lúc AI đang đọc & sau khi có câu trả lời) */
+    #aiSection { position: relative; overflow: hidden; isolation: isolate; transition: min-height .8s var(--soft, ease); }
+    #aiSection.bg-on { min-height: 380px; }   /* đủ chỗ cho các lá trôi ngay cả khi câu trả lời mới có vài dòng */
+    #aiSection > :not(.ai-cards-bg) { position: relative; z-index: 1; }
+    .ai-cards-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+      opacity: 0; transition: opacity 1.2s var(--soft, ease);
+      -webkit-mask-image: radial-gradient(ellipse 85% 75% at 50% 45%, #000 40%, transparent 100%);
+              mask-image: radial-gradient(ellipse 85% 75% at 50% 45%, #000 40%, transparent 100%); }
+    .ai-cards-bg.on { opacity: 1; }
+    .aibg-card { position: absolute; width: var(--w, 96px); aspect-ratio: 300 / 525; margin-left: calc(var(--w, 96px) / -2);
+      border-radius: 9px; overflow: hidden; background: var(--cardback); box-shadow: 0 10px 30px rgba(0,0,0,.45);
+      opacity: .14; filter: blur(1.4px) saturate(.85); transition: opacity 1.1s ease, filter 1.1s ease, box-shadow 1.1s ease; will-change: transform; }
+    .aibg-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .aibg-card img.rev { transform: rotate(180deg); }
+    .ai-cards-bg.thinking .aibg-card { opacity: .24; filter: blur(.8px) saturate(.95); }
+    .ai-cards-bg.thinking .aibg-card.lit { opacity: .55; filter: blur(0) saturate(1.1);
+      box-shadow: 0 0 26px color-mix(in srgb, var(--accent2) 70%, transparent), 0 10px 30px rgba(0,0,0,.45); }
+    .ai-cards-bg.done .aibg-card { opacity: .16; filter: blur(1.5px) saturate(.85); }
+    :root[data-theme="light"] .ai-cards-bg .aibg-card { box-shadow: 0 8px 22px rgba(60,40,120,.25); }
+    @media (max-width: 600px) { .aibg-card { --w: 70px; } #aiSection.bg-on { min-height: 300px; } }
+    @media (prefers-reduced-motion: reduce) { .aibg-card { transition: none; } }
     .fallback-note { white-space: pre-wrap; font-size: .88rem; color: var(--muted); border-left: 3px solid #e0a84f; padding: 4px 10px; margin-bottom: 10px; }
     .chk-row { display: flex; align-items: center; gap: 8px; cursor: pointer; }
     .chk-row input { width: auto; margin: 0; }
@@ -781,7 +802,8 @@
           </div>
         </div>
         <div class="panel">
-          <div class="section">
+          <div class="section" id="aiSection">
+            <div id="aiCardsBg" class="ai-cards-bg" aria-hidden="true"></div>
             <div class="reading-head">
               <h3 id="readingProvider" style="margin:0;">Diễn giải của AI</h3>
               <button id="ttsBtn" title="Đọc bài giải" style="display:none;">🔊 Đọc</button>
@@ -2410,6 +2432,9 @@
     }
     function renderSpread(animate) {
       updateFactsBox();
+      // Trải bài đổi khi nền lá-trôi đang hiện → dựng lại theo trải bài mới (rỗng thì tắt)
+      const bg = $('aiCardsBg');
+      if (aiBg && bg && bg.classList.contains('on') && aiBgKey() !== aiBg.key) aiBgMode(spread.length ? (bg.classList.contains('thinking') ? 'thinking' : 'done') : 'off');
       spreadList.innerHTML = '';
       if (!spread.length) {
         spreadList.innerHTML = '<div class="empty-spread">' + (lang === 'en' ? 'No cards yet. Use the search above to add some.' : 'Chưa có lá bài nào. Dùng ô tìm kiếm phía trên để thêm.') + '</div>';
@@ -2456,7 +2481,7 @@
       else if (e.key === 'Enter' && !e.isComposing) { if (items[pickerActive]) { e.preventDefault(); items[pickerActive].click(); } }
       else if (e.key === 'Escape') { pickerInput.value = ''; pickerResults.innerHTML = ''; }
     });
-    clearSpreadBtn.addEventListener('click', () => { spread = []; renderSpread(); });
+    clearSpreadBtn.addEventListener('click', () => { spread = []; renderSpread(); aiBgMode('off'); });
 
     // ---------- settings ----------
     const SETTINGS_KEY = 'witchesTarotAI';
@@ -3086,6 +3111,76 @@
       return raw;
     }
 
+    // ===== Nền "lá bài trôi" sau khung diễn giải AI =====
+    // Dành cho người bốc bài thật rồi tìm lá trong app: các lá của trải bài trôi mờ phía sau câu trả lời.
+    // 'thinking' = AI đang đọc → trôi nhanh hơn, lần lượt từng lá sáng lên; 'done' = trôi chậm, rất mờ.
+    var aiBg = { cards: [], anims: [], litTimer: null, lit: -1, key: '' };   // var: renderSpread có thể chạy trước dòng này lúc khởi động
+    function aiBgKey() { return spread.map(c => (c.id != null ? c.id : c.ten) + (c.orientation === 'nguoc' ? 'r' : '')).join('|'); }
+    function aiBgBuild() {
+      const box = $('aiCardsBg');
+      if (!box) return false;
+      const key = aiBgKey();
+      if (key === aiBg.key && aiBg.cards.length) return true;   // trải bài không đổi → giữ nguyên, không giật
+      aiBgClear(true);
+      aiBg.key = key;
+      const list = spread.slice(0, 12);
+      if (!list.length) return false;
+      const reduce = prefersReduced();
+      const n = list.length, rnd = (a, b) => a + Math.random() * (b - a);
+      list.forEach((c, i) => {
+        const el = document.createElement('div');
+        el.className = 'aibg-card';
+        // rải đều theo chiều ngang, so le lên xuống; nhiều lá thì nhỏ lại chút
+        el.style.left = ((i + 0.5) / n * 84 + 8).toFixed(1) + '%';
+        el.style.top = (i % 2 ? rnd(34, 58) : rnd(6, 28)).toFixed(1) + '%';
+        if (n > 6) el.style.setProperty('--w', '78px');
+        el.innerHTML = c.image_url ? '<img src="' + escapeHtml(c.image_url) + '" class="' + (c.orientation === 'nguoc' ? 'rev' : '') + '" alt="" loading="eager" decoding="async" />' : '';
+        box.appendChild(el);
+        aiBg.cards.push(el);
+        const r0 = rnd(-12, 12);
+        if (reduce) { el.style.transform = `rotate(${r0}deg)`; return; }
+        const dx = rnd(-46, 46), dy = rnd(-40, 40), r1 = r0 + rnd(-10, 10);
+        const a = el.animate([
+          { transform: `translate(0px, 0px) rotate(${r0}deg)` },
+          { transform: `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) rotate(${r1.toFixed(1)}deg)` },
+          { transform: `translate(${(-dx * 0.6).toFixed(1)}px, ${(dy * 0.5).toFixed(1)}px) rotate(${(r0 - (r1 - r0) * 0.5).toFixed(1)}deg)` }
+        ], { duration: rnd(16000, 26000), iterations: Infinity, direction: 'alternate', easing: 'ease-in-out', delay: -rnd(0, 16000) });
+        aiBg.anims.push(a);
+      });
+      return true;
+    }
+    function aiBgClear(keepBox) {
+      clearInterval(aiBg.litTimer); aiBg.litTimer = null; aiBg.lit = -1;
+      aiBg.anims.forEach(a => { try { a.cancel(); } catch {} });
+      aiBg.anims = []; aiBg.cards = []; aiBg.key = '';
+      const box = $('aiCardsBg');
+      if (box) { box.innerHTML = ''; if (!keepBox) box.className = 'ai-cards-bg'; }
+    }
+    function aiBgMode(mode) {
+      const box = $('aiCardsBg');
+      if (!box) return;
+      const sec = $('aiSection');
+      if (mode === 'off' || !aiBgBuild()) { box.classList.remove('on', 'thinking', 'done'); if (sec) sec.classList.remove('bg-on'); aiBgClear(); return; }
+      if (sec) sec.classList.add('bg-on');
+      const thinking = mode === 'thinking';
+      box.classList.add('on');
+      box.classList.toggle('thinking', thinking);
+      box.classList.toggle('done', !thinking);
+      aiBg.anims.forEach(a => { a.playbackRate = thinking ? 2.4 : 1; });
+      clearInterval(aiBg.litTimer); aiBg.litTimer = null;
+      aiBg.cards.forEach(el => el.classList.remove('lit'));
+      if (thinking && aiBg.cards.length) {
+        // AI "đọc" lần lượt từng lá: lá đang được đọc sáng lên rồi chuyển sang lá kế
+        const step = () => {
+          if (aiBg.lit >= 0 && aiBg.cards[aiBg.lit]) aiBg.cards[aiBg.lit].classList.remove('lit');
+          aiBg.lit = (aiBg.lit + 1) % aiBg.cards.length;
+          aiBg.cards[aiBg.lit].classList.add('lit');
+        };
+        step();
+        aiBg.litTimer = setInterval(step, prefersReduced() ? 2600 : 1500);
+      }
+    }
+
     let chatMessages = [];   // lịch sử hội thoại của lượt trải bài hiện tại
     let lastAnswerText = '';  // bài giải mới nhất (để xuất ảnh chia sẻ)
     async function interpret() {
@@ -3105,6 +3200,7 @@
         { role: 'system', content: buildSystemPrompt(deckLabel) },
         { role: 'user', content: buildUserPrompt() }
       ];
+      aiBgMode('thinking');
       try {
         const answer = await streamInto(aiOutput, chatMessages);
         if (answer) {
@@ -3129,6 +3225,7 @@
         if (fbNote) aiOutput.prepend(fbNote);
       } finally {
         interpretBtn.disabled = spread.length === 0;
+        aiBgMode('done');
       }
     }
     // Hỏi tiếp trong cùng ngữ cảnh trải bài
@@ -3145,6 +3242,7 @@
       aDiv.className = 'chat-a ai-output';
       $('chatLog').appendChild(aDiv);
       chatMessages.push({ role: 'user', content: q });
+      aiBgMode('thinking');
       try {
         const ans = await streamInto(aDiv, chatMessages);
         if (ans) {
@@ -3159,6 +3257,7 @@
         aDiv.textContent = '⚠️ Lỗi: ' + e.message;
         chatMessages.pop();
       } finally {
+        aiBgMode('done');
         $('chatSend').disabled = false;
         aDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
@@ -3604,6 +3703,7 @@
       aiOutput.classList.remove('ai-hint');
       aiOutput.innerHTML = renderMarkdown(it.text || '');
       lastAnswerText = it.text || '';
+      aiBgMode(it.text && spread.length ? 'done' : 'off');   // mở lại lượt cũ: các lá trôi mờ sau bài giải
       $('shareImgBtn').style.display = 'inline-block';
       $('shareLinkBtn').style.display = 'inline-block';
       // Bỏ hội thoại hỏi-tiếp của lượt trước, kẻo câu hỏi kế tiếp bị trả lời theo ngữ cảnh cũ
