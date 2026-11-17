@@ -4,3 +4,6 @@ node_modules/
 .codegraph/
 # notebook thử nghiệm — chứa API key, KHÔNG commit
 test.ipynb
+
+# Supabase CLI cache
+supabase/.temp/
