@@ -2,12 +2,12 @@
 // QUAN TRỌNG: bump 'v1'→'v2'… mỗi khi ĐỔI asset cache-first (tarot.db, icon, cardback),
 // nếu không người dùng đã cài sẽ kẹt bản cũ mãi. Đổi riêng HTML thì KHÔNG cần bump
 // (HTML dùng network-first).
-const CACHE = 'wtarot-v4';
+const CACHE = 'wtarot-v5';
 
 // Vỏ ứng dụng: HTML, DB, icon, mặt lưng bài.
 const SHELL = [
   '/', '/witches_tarot.html', '/tarot.db', '/manifest.webmanifest',
-  '/icon-192.png', '/icon-512.png', '/icon-maskable.png', '/apple-touch-icon.png', '/cardback.png'
+  '/icon-192.png', '/icon-512.png', '/icon-maskable.png', '/apple-touch-icon.png', '/cardback.png', '/cardback-witches.webp'
 ];
 
 self.addEventListener('install', e => {
