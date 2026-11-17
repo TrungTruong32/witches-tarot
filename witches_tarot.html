@@ -4061,8 +4061,10 @@
         onStart() {},
         onPicked(cards) {
           spread = cards.map(toSpreadCard); renderSpread(true);
-          // Thu bánh xe lại sau khi lật xong để trải bài (kèm vị trí) hiện ngay bên dưới
-          setTimeout(() => { $('spreadFan').style.display = 'none'; spreadList.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, prefersReduced() ? 0 : 1600);
+          // Thu bánh xe lại sau khi lật xong để trải bài (kèm vị trí) hiện ngay bên dưới.
+          // Chốt mã lượt: nếu trong lúc chờ đã bắt đầu lượt bốc mới thì không ẩn bánh xe của lượt mới.
+          const s = DRAW_CTX.reading.session;
+          setTimeout(() => { if (DRAW_CTX.reading.session !== s) return; $('spreadFan').style.display = 'none'; spreadList.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, prefersReduced() ? 0 : 1600);
         },
         doneMsg: k => lang === 'en'
           ? '✓ Drew ' + k + ' card' + (k > 1 ? 's' : '') + ' into the spread. Set Upright/Reversed if needed, then tap “Interpret”.'
