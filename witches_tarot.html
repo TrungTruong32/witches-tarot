@@ -209,6 +209,9 @@
     textarea { resize: vertical; min-height: 64px; }
     .picker-results { display: grid; gap: 6px; margin-top: 8px; max-height: 240px; overflow-y: auto; }
     .picker-item { text-align: left; padding: 9px 12px; font-size: .92rem; }
+    .picker-item.active { border-color: color-mix(in srgb, var(--spark) 60%, transparent); background: color-mix(in srgb, var(--spark) 10%, var(--btn)); }
+    .picker-item.dup span { color: var(--spark); }
+    .picker-empty { padding: 10px 12px; font-size: .85rem; color: var(--muted); border: 1px dashed var(--border); border-radius: 10px; }
     .spread-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(66,57,97,.85); border: 1px solid var(--border2); margin-bottom: 8px; }
     .spread-item .name { flex: 1; min-width: 0; }
     .spread-item .name strong { display: block; font-size: .98rem; }
@@ -2240,18 +2243,150 @@
       renderSpread();
     }
 
+    // ---------- Tìm lá bài thông minh (ô "Thêm lá bài đã rút") ----------
+    // Hiểu: Ace = Át = 1, số Ả Rập ↔ La Mã (13 = XIII), tên chất tiếng Việt (Kiếm, Chén/Cốc, Gậy, Tiền/Xu),
+    // lá hoàng gia (Vua, Hoàng hậu, Hiệp sĩ, Tiểu đồng), tên Ẩn Chính tiếng Việt và tên thường gặp ở bộ khác.
+    // Số luôn so khớp NGUYÊN TỪ: "1" chỉ ra Ace/I, không ra "10".
+    const fold = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, ' ').trim();
+    const ROMAN = { 0: '0', i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9, x: 10, xi: 11, xii: 12, xiii: 13, xiv: 14, xv: 15, xvi: 16, xvii: 17, xviii: 18, xix: 19, xx: 20, xxi: 21 };
+    const SUIT_ALIAS = {
+      wands: ['wands', 'wand', 'gay', 'batons', 'baton', 'rods', 'rod', 'lua'],
+      cups: ['cups', 'cup', 'chen', 'coc', 'ly', 'nuoc'],
+      swords: ['swords', 'sword', 'kiem', 'guom', 'khi'],
+      pentacles: ['pentacles', 'pentacle', 'coins', 'coin', 'tien', 'xu', 'dong xu', 'disks', 'disk', 'dat']
+    };
+    const COURT_ALIAS = {
+      page: ['page', 'tieu dong', 'thi dong', 'hau dong', 'princess'],
+      knight: ['knight', 'hiep si', 'ky si'],
+      queen: ['queen', 'hoang hau', 'nu hoang'],
+      king: ['king', 'vua', 'quoc vuong']
+    };
+    const RANK_WORDS = { ace: 1, at: 1, mot: 1, one: 1, hai: 2, two: 2, ba: 3, three: 3, bon: 4, four: 4, nam: 5, five: 5, sau: 6, six: 6, bay: 7, seven: 7, tam: 8, eight: 8, chin: 9, nine: 9, muoi: 10, ten: 10 };
+    // Tên Ẩn Chính: tên trong bộ Witches + tên chuẩn Rider-Waite + tên tiếng Việt hay dùng
+    const MAJOR_ALIAS = [
+      ['fool', 'chang kho', 'ke khu kho', 'ga khung'], ['magician', 'nha ao thuat', 'phu thuy'], ['high priestess', 'nu tu te', 'nu giao hoang', 'nu tu'],
+      ['empress', 'hoang hau', 'nu hoang'], ['emperor', 'hoang de'], ['high priest', 'hierophant', 'giao hoang', 'thay te', 'tu te'],
+      ['lovers', 'tinh nhan', 'nhung nguoi yeu nhau', 'cap doi'], ['chariot', 'co xe', 'chien xa', 'xe ngua'], ['strength', 'suc manh'],
+      ['hermit', 'an si', 'an gia'], ['wheel', 'wheel of fortune', 'banh xe', 'banh xe so phan', 'van menh'], ['justice', 'cong ly'],
+      ['hanged man', 'nguoi treo nguoc', 'treo nguoc', 'nguoi bi treo'], ['death', 'cai chet', 'tu than'], ['temperance', 'tiet do', 'dieu do', 'tiet che'],
+      ['shadow side', 'devil', 'ac quy', 'mat toi', 'quy du'], ['tower', 'toa thap', 'thap'], ['star', 'ngoi sao', 'vi sao'], ['moon', 'mat trang'],
+      ['sun', 'mat troi'], ['karma', 'judgement', 'judgment', 'phan xet', 'nghiep', 'su phan xet'], ['world', 'the gioi', 'vu tru']
+    ];
+    const STOP = new Set(['of', 'the', 'la', 'bai', 'cua', 'bo', 'so', 'quan', 'card', 'tarot']);
+    let searchIndex = null, searchIndexDeck = null;
+    function buildSearchIndex() {
+      if (searchIndex && searchIndexDeck === selectedDeck) return searchIndex;
+      searchIndexDeck = selectedDeck;
+      searchIndex = queryCards('all', '').map(card => {
+        const nm = fold(card.ten), bo = fold(card.bo), so = fold(card.so);
+        let suit = null;
+        for (const k in SUIT_ALIAS) if (SUIT_ALIAS[k].some(w => (' ' + nm + ' ' + bo + ' ').includes(' ' + w + ' '))) { suit = k; break; }
+        const major = !suit && (/an chinh|major/.test(bo) || so in ROMAN);
+        let rank = null, court = null;
+        if (major) rank = so === '0' ? 0 : (ROMAN[so] ?? (Number.isFinite(+so) ? +so : null));
+        else if (so === 'ace' || so === '1') rank = 1;
+        else if (/^\d+$/.test(so)) rank = +so;
+        else for (const k in COURT_ALIAS) if (so === k || COURT_ALIAS[k].includes(so)) { court = k; break; }
+        const names = [nm, nm.replace(/^the /, '')];
+        if (major && rank != null && MAJOR_ALIAS[rank]) names.push(...MAJOR_ALIAS[rank]);
+        return { card, nm, names, suit, major, rank, court, kw: fold(card.tu_khoa), txt: fold([card.y_nghia_xuoi, card.nghia_nguoc, card.mo_ta_hinh_anh].join(' ')) };
+      });
+      return searchIndex;
+    }
+    // Tách truy vấn thành: chất / hạng số / lá hoàng gia / phần chữ còn lại
+    function parseCardQuery(q) {
+      let rest = ' ' + q + ' ';
+      const out = { suit: null, court: null, rank: null, ace: false, rest: [] };
+      const take = (dict, key) => {
+        for (const k in dict) for (const w of [...dict[k]].sort((x, y) => y.length - x.length))
+          if (rest.includes(' ' + w + ' ')) { out[key] = k; rest = rest.replace(' ' + w + ' ', ' '); return; }
+      };
+      take(COURT_ALIAS, 'court');
+      take(SUIT_ALIAS, 'suit');
+      const toks = rest.trim().split(/\s+/).filter(Boolean).filter(t => !STOP.has(t));
+      toks.forEach((t, i) => {
+        if (out.rank == null && /^\d{1,2}$/.test(t) && +t <= 21) { out.rank = +t; return; }
+        if (out.rank == null && t in RANK_WORDS) { out.rank = RANK_WORDS[t]; out.ace = t === 'ace' || t === 'at'; return; }
+        if (out.rank == null && t !== '0' && t in ROMAN) { out.rank = ROMAN[t]; return; }
+        if (out.rank == null && t === 'a' && (out.suit || toks.length > 1)) { out.rank = 1; out.ace = true; return; }
+        // gõ dở tên chất ở từ cuối (vd "kie", "pent")
+        if (!out.suit && i === toks.length - 1 && t.length >= 3) for (const k in SUIT_ALIAS) if (SUIT_ALIAS[k].some(w => w.startsWith(t))) { out.suit = k; return; }
+        out.rest.push(t);
+      });
+      return out;
+    }
+    function scoreCard(e, q, p) {
+      let sc = 0;
+      // 1) khớp tên (kể cả tên tiếng Việt / tên bộ khác)
+      // nếu truy vấn kết thúc bằng chữ số thì số đó phải khớp NGUYÊN (gõ "1" không ra "10 of …")
+      const numTail = /\d$/.test(q), qq = numTail ? q + ' ' : q;
+      for (const n of e.names) {
+        if (n === q) sc = Math.max(sc, 1000);
+        else if ((n + ' ').startsWith(qq)) sc = Math.max(sc, 760);
+        else if (q.length >= 3 && (' ' + n + ' ').includes(' ' + qq)) sc = Math.max(sc, 600);
+      }
+      // 2) khớp cấu trúc: chất + hạng + hoàng gia
+      if (p.suit || p.court || p.rank != null) {
+        let ok = true, pts = 0;
+        if (p.suit) { if (e.suit === p.suit) pts += 200; else ok = false; }
+        if (p.court) { if (e.court === p.court) pts += 250; else ok = false; }
+        if (p.rank != null) {
+          if (e.rank === p.rank && (e.major ? !p.suit && !p.court && !p.ace : true)) pts += 250; else ok = false;
+        }
+        if (ok) {
+          const restOk = p.rest.every(t => e.names.some(n => (' ' + n + ' ').includes(' ' + t)));
+          sc = Math.max(sc, (restOk ? 500 : 250) + pts + (e.major ? 0 : 5));
+        }
+      }
+      // 3) dự phòng: từ khóa / nội dung (chỉ khi gõ ≥ 3 ký tự và chưa khớp gì)
+      if (!sc && q.length >= 3) {
+        const re = new RegExp('(^| )' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        if (re.test(e.kw)) sc = 80; else if (re.test(e.txt)) sc = 20;
+      }
+      return sc;
+    }
+    function searchCards(raw, limit = 8) {
+      const q = fold(raw);
+      if (!q) return [];
+      const p = parseCardQuery(q);
+      return buildSearchIndex()
+        .map(e => ({ e, sc: scoreCard(e, q, p) }))
+        .filter(x => x.sc > 0)
+        .sort((x, y) => y.sc - x.sc || x.e.card.id - y.e.card.id)
+        .slice(0, limit)
+        .map(x => x.e.card);
+    }
+    let pickerActive = 0;
     function renderPicker() {
       const q = pickerInput.value.trim();
       if (!q) { pickerResults.innerHTML = ''; return; }
-      const rows = queryCards('all', q, 8);
+      const rows = searchCards(q, 8);
+      pickerActive = 0;
       pickerResults.innerHTML = '';
-      rows.forEach(card => {
+      if (!rows.length) {
+        pickerResults.innerHTML = '<div class="picker-empty">' + (lang === 'en'
+          ? 'No matching card. Try e.g. “ace cups”, “1 swords”, “queen pentacles”, “13”, “moon”.'
+          : 'Không thấy lá phù hợp. Thử: “át chén”, “1 kiếm”, “hoàng hậu tiền”, “13”, “mặt trăng”.') + '</div>';
+        return;
+      }
+      rows.forEach((card, i) => {
         const b = document.createElement('button');
-        b.className = 'card-item picker-item';
-        b.innerHTML = `<strong>${escapeHtml(card.so)} - ${escapeHtml(card.ten)}</strong><span>${escapeHtml(card.bo || '')}</span>`;
+        b.type = 'button';
+        b.className = 'card-item picker-item' + (i === 0 ? ' active' : '');
+        const inSpread = spread.some(x => x.id === card.id);
+        b.innerHTML = `<strong>${escapeHtml(card.so)} - ${escapeHtml(card.ten)}</strong><span>${escapeHtml(card.bo || '')}${inSpread ? ' · ' + (lang === 'en' ? 'already in spread' : 'đã có trong trải bài') : ''}</span>`;
+        if (inSpread) b.classList.add('dup');
         b.addEventListener('click', () => addToSpread(card));
+        b.addEventListener('mouseenter', () => setPickerActive(i));
         pickerResults.appendChild(b);
       });
+    }
+    function setPickerActive(i) {
+      const items = pickerResults.querySelectorAll('.picker-item');
+      if (!items.length) return;
+      pickerActive = (i + items.length) % items.length;
+      items.forEach((el, k) => el.classList.toggle('active', k === pickerActive));
+      items[pickerActive].scrollIntoView({ block: 'nearest' });
     }
     function addToSpread(card) {
       if (spreadPositions && spread.length >= spreadPositions.length) { pickerInput.value = ''; pickerResults.innerHTML = ''; return; }
@@ -2313,6 +2448,14 @@
       clearSpreadBtn.disabled = !has;
     }
     pickerInput.addEventListener('input', renderPicker);
+    // Bàn phím: ↑/↓ chọn, Enter thêm lá đang chọn, Esc xoá
+    pickerInput.addEventListener('keydown', e => {
+      const items = pickerResults.querySelectorAll('.picker-item');
+      if (e.key === 'ArrowDown') { e.preventDefault(); setPickerActive(pickerActive + 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setPickerActive(pickerActive - 1); }
+      else if (e.key === 'Enter' && !e.isComposing) { if (items[pickerActive]) { e.preventDefault(); items[pickerActive].click(); } }
+      else if (e.key === 'Escape') { pickerInput.value = ''; pickerResults.innerHTML = ''; }
+    });
     clearSpreadBtn.addEventListener('click', () => { spread = []; renderSpread(); });
 
     // ---------- settings ----------
@@ -4024,7 +4167,7 @@
       run();
     }
     function startOrbit(mode, ctxKey) {
-      Object.values(DRAW_CTX).forEach(resetOrbit);
+      Object.values(DRAW_CTX).forEach(c => { c.session = (c.session || 0) + 1; resetOrbit(c); });   // huỷ lượt bốc đang dở
       drawCtx = DRAW_CTX[ctxKey || 'draw'];
       drawCtx.onStart();
       $(drawCtx.fan).style.display = 'none';
@@ -4437,6 +4580,9 @@
     // auto = true ("Xào & bốc"): cùng sân khấu đó nhưng "bàn tay vô hình" tự rút lần lượt từng lá.
     function startManualPick(n, auto) {
       const ctx = drawCtx;   // chốt ngữ cảnh của lượt chọn này (callback chạy trễ vẫn đúng trang)
+      // Mã lượt: mọi hẹn giờ của lượt cũ tự bỏ qua khi đã có lượt bốc mới (tránh lá cũ đổ vào kết quả mới)
+      const session = ctx.session = (ctx.session || 0) + 1;
+      const live = () => ctx.session === session;
       const fan = $(ctx.fan), status = $(ctx.status);
       const en = lang === 'en';
       $(ctx.orbit).classList.remove('on');
@@ -4513,15 +4659,17 @@
           p.el.style.zIndex = String(160 + j);
         });
         const wait = reduce ? 0 : 700;
-        setTimeout(() => fan.classList.add('chosen'), wait);
+        setTimeout(() => { if (live()) fan.classList.add('chosen'); }, wait);
         const flipAt = reduce ? 0 : wait + 1500;
         picks.forEach((p, j) => setTimeout(() => {
+          if (!live()) return;
           p.el.querySelector('.flip').classList.add('revealed');
           haptic(8);
           if (audioCtx) revealChime(audioCtx.currentTime + 0.25, j, k === 1 ? 1.2 : 0.9);
           setTimeout(() => burstAt(p.el, k === 1 ? 26 : 14), reduce ? 0 : 700);
         }, flipAt + (reduce ? 0 : j * 380)));
         setTimeout(() => {
+          if (!live()) return;
           ctx.onPicked(picks.map(p => p.card));
           status.textContent = ctx.doneMsg(k);
         }, flipAt + (reduce ? 0 : k * 380 + 1300));
@@ -4533,7 +4681,7 @@
         for (let j = 0; j < n; j++) idx.push(Math.min(N - 1, Math.floor(j * seg + Math.random() * seg)));
         for (let j = idx.length - 1; j > 0; j--) { const r = Math.floor(Math.random() * (j + 1)); [idx[j], idx[r]] = [idx[r], idx[j]]; }  // thứ tự rút ngẫu nhiên
         const startAt = reduce ? 0 : 1700, gap = reduce ? 0 : (n > 6 ? 300 : 460);
-        idx.forEach((i, j) => setTimeout(() => { if (fan.isConnected && fan.style.display !== 'none') onPick(cards[i], i, true); }, startAt + j * gap));
+        idx.forEach((i, j) => setTimeout(() => { if (live() && fan.isConnected && fan.style.display !== 'none') onPick(cards[i], i, true); }, startAt + j * gap));
       }
 
       // Xào lại: quét cả bánh xe sang một bên, đổi thứ tự, rồi xòe lại
