@@ -107,18 +107,84 @@
     .nav-scrim { position: fixed; inset: 0; background: rgba(6,4,12,.55); opacity: 0; pointer-events: none; transition: opacity .3s ease; z-index: 145; }
     .nav-scrim.open { opacity: 1; pointer-events: auto; }
     /* Trang mở đầu (thấy rõ nền/theme phía sau) */
-    #landing { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px; animation: landFade .6s ease; }
+    /* ===== Trang mở đầu (kiểu sảnh trải bài) ===== */
+    #landing { position: fixed; inset: 0; z-index: 100; overflow-x: hidden; overflow-y: auto; text-align: center; animation: landFade .6s ease;
+      display: flex; flex-direction: column; align-items: center; }
     #landing.hide { display: none; }
-    .landing-inner { display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: 640px; }
-    .landing-inner .logo-lg { width: 104px; height: 104px; border-radius: 24px; filter: drop-shadow(0 12px 34px rgba(0,0,0,.55)); }
-    .landing-inner h1 { margin: 0; font-size: clamp(2.1rem, 9vw, 3.6rem); letter-spacing: 1px; }
-    .landing-sub { color: var(--muted); margin: 0; }
-    .landing-moon { display: inline-flex; align-items: center; gap: 8px; color: var(--text); background: var(--section); border: 1px solid var(--border); border-radius: 999px; padding: 8px 16px; font-size: .9rem; }
-    .landing-enter { font-size: 1.1rem; padding: 14px 30px; margin-top: 4px; }
-    .landing-quick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; width: min(620px, 100%); margin-top: 6px; }
-    @media (max-width: 560px) { .landing-quick { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } }
-    .landing-quick button { background: var(--section); }
-    .landing-quick button[data-go="reading"] { border-color: color-mix(in srgb, var(--spark) 60%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--spark) 18%, transparent); }
+    .lt-top { position: relative; z-index: 3; width: 100%; max-width: 1200px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; box-sizing: border-box; }
+    .lt-brand { background: transparent; border: none; padding: 6px 4px; font-family: 'Cinzel', 'Noto Sans Symbols 2', Georgia, serif; font-size: 1.05rem; letter-spacing: 1.2px; color: var(--text); }
+    .lt-brand:hover { background: transparent; color: var(--spark); }
+    .lt-nav { display: flex; gap: 4px; }
+    .lt-nav button { background: transparent; border: 1px solid transparent; border-radius: 999px; padding: 8px 14px; color: var(--muted);
+      font-size: .74rem; font-weight: 600; letter-spacing: 1.1px; text-transform: uppercase; }
+    .lt-nav button:hover { background: color-mix(in srgb, var(--spark) 8%, transparent); color: var(--spark); }
+    .lt-burger { display: none; width: 44px; height: 44px; padding: 0; border-radius: 14px; font-size: 1.25rem; background: color-mix(in srgb, var(--panel) 80%, transparent); }
+    .landing-inner { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 640px;
+      padding: clamp(8px, 4vh, 48px) 20px calc(clamp(170px, 30vh, 280px)); box-sizing: border-box; margin: auto 0; }
+    .landing-moon { display: inline-flex; align-items: center; gap: 8px; color: var(--text); background: color-mix(in srgb, var(--section) 80%, transparent); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; font-size: .82rem; }
+    .lt-pre { margin: 6px 0 0; font-size: .8rem; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+    .lt-title { margin: 0; font-family: 'Cinzel', 'Noto Sans Symbols 2', Georgia, serif; font-weight: 700; font-size: clamp(2.5rem, 9vw, 4.4rem); line-height: 1.05; letter-spacing: 1px; }
+    .lt-emblem { position: relative; display: inline-block; width: 1.25em; height: 1.25em; margin: 0 .22em; vertical-align: -.24em; }
+    .lt-emblem .logo-lg { width: 100%; height: 100%; border-radius: 22%; filter: drop-shadow(0 8px 24px rgba(0,0,0,.5)); }
+    .lt-emblem::before { content: ''; position: absolute; inset: -14%; border-radius: 50%; border: 1px dashed color-mix(in srgb, var(--spark) 55%, transparent); animation: zwSpin 30s linear infinite; }
+    .lt-emblem::after { content: ''; position: absolute; inset: -30%; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--accent2) 30%, transparent), transparent 65%); z-index: -1; }
+    .landing-sub { color: var(--muted); margin: 0; font-size: .95rem; }
+    .lt-form { position: relative; display: flex; flex-direction: column; align-items: center; width: 100%; margin-top: 4px; }
+    .lt-stars { width: min(300px, 80%); height: auto; margin-bottom: 6px; animation: ltFloat 6s ease-in-out infinite; }
+    @keyframes ltFloat { 0%,100% { transform: translateY(0); opacity: .85; } 50% { transform: translateY(-4px); opacity: 1; } }
+    .lt-input { position: relative; width: 100%; max-width: 560px; border-radius: 26px 10px; background: color-mix(in srgb, #120b1c 62%, transparent);
+      box-shadow: 0 18px 40px rgba(0,0,0,.35); transition: box-shadow .6s var(--soft, ease); }
+    :root[data-theme="light"] .lt-input { background: rgba(255,255,255,.75); }
+    .lt-input::before { content: ''; position: absolute; inset: 6px; border-radius: 22px 7px; border: 1px solid var(--spark); opacity: .28; pointer-events: none; transition: opacity .5s var(--soft, ease); }
+    .lt-input:focus-within { box-shadow: 0 18px 40px rgba(0,0,0,.35), 0 0 30px color-mix(in srgb, var(--spark) 22%, transparent); }
+    .lt-input:focus-within::before { opacity: .65; }
+    .lt-orn { position: absolute; left: 50%; top: -7px; width: 80px; height: 14px; transform: translateX(-50%); }
+    .lt-arrow { position: absolute; left: 22px; top: 50%; width: 26px; height: 16px; margin-top: -8px; color: var(--spark); opacity: .8; transition: transform .5s var(--soft, ease); }
+    .lt-arrow svg { width: 100%; height: 100%; display: block; }
+    .lt-input:focus-within .lt-arrow { transform: translateX(4px); }
+    .lt-input input { width: 100%; box-sizing: border-box; padding: 22px 24px 22px 62px; border: none; outline: none; background: transparent; color: var(--text); font-size: 16px; }
+    .lt-input input::placeholder { color: color-mix(in srgb, var(--muted) 85%, transparent); }
+    .lt-count { position: absolute; left: 50%; bottom: -24px; transform: translate(-50%, 6px); font-size: .72rem; color: var(--muted); opacity: 0; transition: opacity .3s, transform .4s var(--soft, ease); }
+    .lt-count.show { opacity: 1; transform: translate(-50%, 0); }
+    .lt-err { position: absolute; left: 50%; top: -38px; transform: translate(-50%, 6px); padding: 5px 12px; border-radius: 8px; font-size: .78rem; white-space: nowrap; color: #fff;
+      background: color-mix(in srgb, #b0577f 90%, transparent); opacity: 0; pointer-events: none; transition: opacity .3s, transform .4s var(--soft, ease); }
+    .lt-err.show { opacity: 1; transform: translate(-50%, 0); }
+    .lt-form.shake .lt-input { animation: askShake .45s var(--soft, ease); }
+    @keyframes askShake { 20% { transform: translateX(-6px); } 45% { transform: translateX(5px); } 70% { transform: translateX(-3px); } }
+    .lt-disc { margin: 30px 0 0; font-size: .72rem; color: var(--muted); opacity: .8; }
+    /* nút viền kiểu "Pick the cards": viền vàng, hai chấm hai đầu, rê vào thì nền vàng tràn lên */
+    .lt-cta { position: relative; overflow: hidden; width: min(320px, 100%); margin-top: 14px; padding: 16px 28px; border-radius: 999px; background: transparent;
+      border: 1px solid color-mix(in srgb, var(--spark) 75%, transparent); color: var(--spark); font-size: .95rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+    .lt-cta i { position: absolute; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--spark); box-shadow: 0 0 8px var(--spark); transition: transform .6s var(--soft, ease); }
+    .lt-cta i:first-child { left: 18px; } .lt-cta i:nth-child(2) { right: 18px; }
+    .lt-cta::before { content: ''; position: absolute; inset: 0; background: linear-gradient(120deg, color-mix(in srgb, var(--spark) 90%, #fff 10%), var(--spark)); transform: translateY(101%); transition: transform .6s var(--soft, ease); z-index: 0; border-radius: inherit; }
+    .lt-cta span { position: relative; z-index: 1; transition: color .5s var(--soft, ease); }
+    .lt-cta:hover:not(:disabled) { background: transparent; box-shadow: 0 0 28px color-mix(in srgb, var(--spark) 35%, transparent); }
+    .lt-cta:hover:not(:disabled)::before { transform: translateY(0); }
+    .lt-cta:hover:not(:disabled) span { color: #1b1230; }
+    .lt-cta:hover:not(:disabled) i { transform: scale(0); }
+    :root[data-theme="light"] .lt-cta { color: #8a5f12; }
+    .lt-skip { margin-top: 10px; padding: 6px 10px; background: transparent; border: none; color: var(--muted); font-size: .85rem; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: color-mix(in srgb, var(--muted) 45%, transparent); }
+    .lt-skip:hover { background: transparent; color: var(--spark); }
+    /* trang trí đáy: vòng tròn đồng tâm + quả cầu sáng + quạt bài ló lên */
+    .lt-deco { position: fixed; left: 0; right: 0; bottom: 0; height: clamp(170px, 30vh, 280px); z-index: 1; pointer-events: none; overflow: hidden; }
+    .lt-circles { position: absolute; left: 50%; bottom: 0; width: min(1300px, 140vw); aspect-ratio: 1; transform: translate(-50%, 62%); }
+    .lt-circles span { position: absolute; inset: 0; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--spark) 22%, transparent); }
+    .lt-circles span:nth-child(2) { inset: 14%; border-style: dashed; opacity: .7; animation: zwSpin 160s linear infinite; }
+    .lt-circles span:nth-child(3) { inset: 30%; opacity: .5; }
+    .lt-orb { position: absolute; left: 50%; bottom: 18px; width: 90px; height: 90px; margin-left: -45px; border-radius: 50%;
+      background: radial-gradient(circle, #fff 0, color-mix(in srgb, var(--accent2) 90%, #fff) 22%, color-mix(in srgb, var(--accent2) 40%, transparent) 50%, transparent 72%);
+      filter: blur(2px); animation: orbBreath 6s ease-in-out infinite; }
+    .lt-orb::after { content: ''; position: absolute; left: 50%; bottom: 60%; width: 1px; height: 160px; background: linear-gradient(to top, var(--accent2), transparent); opacity: .7; }
+    @keyframes orbBreath { 0%,100% { transform: scale(.9); opacity: .75; } 50% { transform: scale(1.08); opacity: 1; } }
+    .lt-fan { position: absolute; left: 50%; bottom: 0; width: 0; height: 0; }
+    .lt-fan .lc { position: absolute; left: -32px; bottom: -40px; width: 64px; aspect-ratio: 300 / 525; border-radius: 7px; background: var(--cardback);
+      border: 1px solid color-mix(in srgb, var(--spark) 25%, transparent); box-shadow: 0 6px 18px rgba(0,0,0,.5);
+      transform-origin: 50% 520px; transform: rotate(var(--a)) translateY(var(--y, 0px)); animation: lcSway 7s ease-in-out infinite; animation-delay: var(--dl); }
+    @keyframes lcSway { 0%,100% { transform: rotate(var(--a)) translateY(var(--y, 0px)); } 50% { transform: rotate(calc(var(--a) + 1.2deg)) translateY(calc(var(--y, 0px) - 6px)); } }
+    @media (max-width: 860px) { .lt-nav { display: none; } .lt-burger { display: inline-flex; align-items: center; justify-content: center; } .lt-top { padding: 12px 16px; } }
+    @media (max-width: 560px) { .lt-pre { font-size: .7rem; letter-spacing: 1.4px; } .lt-input input { padding: 18px 18px 18px 54px; } .lt-arrow { left: 18px; } .lt-fan .lc { width: 50px; left: -25px; } }
+    @media (prefers-reduced-motion: reduce) { .lt-stars, .lt-orb, .lt-fan .lc, .lt-circles span, .lt-emblem::before { animation: none; } .lt-form.shake .lt-input { animation: none; } }
     @keyframes landFade { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
     @keyframes landOut { to { opacity: 0; transform: scale(1.05); } }
     /* Hiệu ứng chuyển trang */
@@ -394,9 +460,6 @@
     .nav .tab-btn[data-ico] { justify-content: flex-start; }
     .nav .tab-btn .ico { width: 1.65em; height: 1.65em; }
     button[data-ico]:hover:not(:disabled) .ico { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--spark) 70%, transparent)); transform: scale(1.08); }
-    .landing-quick button[data-ico] { flex-direction: column; gap: 6px; padding: 12px 6px 10px; min-width: 0; font-size: .82rem; line-height: 1.2; }
-    .landing-quick button[data-ico]:hover:not(:disabled) { transform: translateY(-2px); border-color: color-mix(in srgb, var(--spark) 45%, transparent); }
-    .landing-quick .ico { width: 2.3em; height: 2.3em; }
     .qchip[data-ico] .ico { width: 1.3em; height: 1.3em; }
     /* ===== Laptop/desktop (≥1024px): thanh menu dạng vòm trời, dính trên đầu, tự ẩn khi cuộn xuống ===== */
     :root { --soft: cubic-bezier(.22,1,.36,1); }          /* easeOutQuint — chuyển động chậm dần, mềm */
@@ -554,23 +617,41 @@
   </div>
   <!-- Trang mở đầu -->
   <div id="landing">
+    <header class="lt-top">
+      <button type="button" class="lt-brand" id="landingEnter" title="Bước vào ứng dụng">✧︎ Witches Tarot</button>
+      <nav class="lt-nav" aria-label="Menu">
+        <button type="button" data-go="reading" data-i18n="landing.nReading">Trải bài AI</button>
+        <button type="button" data-go="draw" data-i18n="landing.nDraw">Bốc bài</button>
+        <button type="button" data-go="daily" data-i18n="landing.nDaily">Hôm nay</button>
+        <button type="button" data-go="yesno" data-i18n="landing.nYesno">Có / Không</button>
+        <button type="button" data-go="browse" data-i18n="landing.nBrowse">Tra cứu</button>
+        <button type="button" data-go="sky" data-i18n="landing.nSky">Thiên văn</button>
+      </nav>
+      <button type="button" class="lt-burger" id="landingBurger" aria-label="Mở menu">☰</button>
+    </header>
     <div class="landing-inner">
-      <svg viewBox="0 0 64 64" class="logo-lg" width="104" height="104" role="img" aria-label="Witches Tarot" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="lgBgL" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#3a2a6e"/><stop offset=".55" stop-color="#211741"/><stop offset="1" stop-color="#0f0a1f"/></radialGradient><radialGradient id="lgGlowL" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#b98cff" stop-opacity=".45"/><stop offset="1" stop-color="#b98cff" stop-opacity="0"/></radialGradient><linearGradient id="lgMoonL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff8ec"/><stop offset="1" stop-color="#f0c995"/></linearGradient><mask id="lgCresL"><rect width="64" height="64" fill="#000"/><circle cx="30" cy="33.5" r="14.5" fill="#fff"/><circle cx="36.6" cy="28.6" r="12.2" fill="#000"/></mask></defs><rect width="64" height="64" rx="15" fill="url(#lgBgL)"/><g transform="translate(32 32) scale(1.0) translate(-32 -32)"><circle cx="32" cy="32" r="20" fill="url(#lgGlowL)"/><g fill="none" stroke="#e3b98a" stroke-linecap="round"><circle cx="32" cy="32" r="26" stroke-width=".9"/><circle cx="32" cy="32" r="23.2" stroke-width=".5" opacity=".7"/><g stroke-width=".7" opacity=".9"><line x1="32" y1="8.8" x2="32" y2="6"/><line x1="43.6" y1="11.91" x2="45" y2="9.48"/><line x1="52.09" y1="20.4" x2="54.52" y2="19"/><line x1="55.2" y1="32" x2="58" y2="32"/><line x1="52.09" y1="43.6" x2="54.52" y2="45"/><line x1="43.6" y1="52.09" x2="45" y2="54.52"/><line x1="32" y1="55.2" x2="32" y2="58"/><line x1="20.4" y1="52.09" x2="19" y2="54.52"/><line x1="11.91" y1="43.6" x2="9.48" y2="45"/><line x1="8.8" y1="32" x2="6" y2="32"/><line x1="11.91" y1="20.4" x2="9.48" y2="19"/><line x1="20.4" y1="11.91" x2="19" y2="9.48"/></g><g stroke-width=".35" opacity=".55"><line x1="34.57" y1="7.53" x2="34.72" y2="6.14"/><line x1="37.11" y1="7.94" x2="37.41" y2="6.57"/><line x1="39.6" y1="8.6" x2="40.03" y2="7.27"/><line x1="42.01" y1="9.53" x2="42.58" y2="8.25"/><line x1="46.46" y1="12.1" x2="47.28" y2="10.97"/><line x1="48.46" y1="13.72" x2="49.4" y2="12.68"/><line x1="50.28" y1="15.54" x2="51.32" y2="14.6"/><line x1="51.9" y1="17.54" x2="53.03" y2="16.72"/><line x1="54.47" y1="21.99" x2="55.75" y2="21.42"/><line x1="55.4" y1="24.4" x2="56.73" y2="23.97"/><line x1="56.06" y1="26.89" x2="57.43" y2="26.59"/><line x1="56.47" y1="29.43" x2="57.86" y2="29.28"/><line x1="56.47" y1="34.57" x2="57.86" y2="34.72"/><line x1="56.06" y1="37.11" x2="57.43" y2="37.41"/><line x1="55.4" y1="39.6" x2="56.73" y2="40.03"/><line x1="54.47" y1="42.01" x2="55.75" y2="42.58"/><line x1="51.9" y1="46.46" x2="53.03" y2="47.28"/><line x1="50.28" y1="48.46" x2="51.32" y2="49.4"/><line x1="48.46" y1="50.28" x2="49.4" y2="51.32"/><line x1="46.46" y1="51.9" x2="47.28" y2="53.03"/><line x1="42.01" y1="54.47" x2="42.58" y2="55.75"/><line x1="39.6" y1="55.4" x2="40.03" y2="56.73"/><line x1="37.11" y1="56.06" x2="37.41" y2="57.43"/><line x1="34.57" y1="56.47" x2="34.72" y2="57.86"/><line x1="29.43" y1="56.47" x2="29.28" y2="57.86"/><line x1="26.89" y1="56.06" x2="26.59" y2="57.43"/><line x1="24.4" y1="55.4" x2="23.97" y2="56.73"/><line x1="21.99" y1="54.47" x2="21.42" y2="55.75"/><line x1="17.54" y1="51.9" x2="16.72" y2="53.03"/><line x1="15.54" y1="50.28" x2="14.6" y2="51.32"/><line x1="13.72" y1="48.46" x2="12.68" y2="49.4"/><line x1="12.1" y1="46.46" x2="10.97" y2="47.28"/><line x1="9.53" y1="42.01" x2="8.25" y2="42.58"/><line x1="8.6" y1="39.6" x2="7.27" y2="40.03"/><line x1="7.94" y1="37.11" x2="6.57" y2="37.41"/><line x1="7.53" y1="34.57" x2="6.14" y2="34.72"/><line x1="7.53" y1="29.43" x2="6.14" y2="29.28"/><line x1="7.94" y1="26.89" x2="6.57" y2="26.59"/><line x1="8.6" y1="24.4" x2="7.27" y2="23.97"/><line x1="9.53" y1="21.99" x2="8.25" y2="21.42"/><line x1="12.1" y1="17.54" x2="10.97" y2="16.72"/><line x1="13.72" y1="15.54" x2="12.68" y2="14.6"/><line x1="15.54" y1="13.72" x2="14.6" y2="12.68"/><line x1="17.54" y1="12.1" x2="16.72" y2="10.97"/><line x1="21.99" y1="9.53" x2="21.42" y2="8.25"/><line x1="24.4" y1="8.6" x2="23.97" y2="7.27"/><line x1="26.89" y1="7.94" x2="26.59" y2="6.57"/><line x1="29.43" y1="7.53" x2="29.28" y2="6.14"/></g><path d="M32 11 L50.19 42.5 L13.81 42.5Z M50.19 21.5 L32 53 L13.81 21.5Z" stroke-width=".45" opacity=".38"/><circle cx="32" cy="32" r="17.5" stroke-width=".4" stroke-dasharray="1 1.6" opacity=".55"/></g><path fill="#e3b98a" d="M32 2.5Q32.5 3.9 33.9 4.4Q32.5 4.9 32 6.3Q31.5 4.9 30.1 4.4Q31.5 3.9 32 2.5Z"/><path fill="#e3b98a" d="M59.6 30.1Q60.1 31.5 61.5 32Q60.1 32.5 59.6 33.9Q59.1 32.5 57.7 32Q59.1 31.5 59.6 30.1Z"/><path fill="#e3b98a" d="M32 57.7Q32.5 59.1 33.9 59.6Q32.5 60.1 32 61.5Q31.5 60.1 30.1 59.6Q31.5 59.1 32 57.7Z"/><path fill="#e3b98a" d="M4.4 30.1Q4.9 31.5 6.3 32Q4.9 32.5 4.4 33.9Q3.9 32.5 2.5 32Q3.9 31.5 4.4 30.1Z"/><rect width="64" height="64" fill="url(#lgMoonL)" mask="url(#lgCresL)"/><path fill="#e3b98a" d="M37.5 22.4Q39 27.5 44.1 29Q39 30.5 37.5 35.6Q36 30.5 30.9 29Q36 27.5 37.5 22.4Z"/><path fill="#fff3dd" d="M44.5 37.1Q45.1 38.9 46.9 39.5Q45.1 40.1 44.5 41.9Q43.9 40.1 42.1 39.5Q43.9 38.9 44.5 37.1Z"/><circle cx="41.5" cy="20.5" r="1" fill="#fff3dd"/><circle cx="25" cy="18" r=".7" fill="#e3b98a"/><circle cx="46" cy="31" r=".6" fill="#e3b98a"/></g></svg>
-      <h1>Witches Tarot</h1>
-      <p class="landing-sub" data-i18n="landing.sub">78 lá bài · trải bài &amp; diễn giải bằng AI</p>
       <div class="landing-moon" id="landingMoon"></div>
-      <button class="btn-primary landing-enter" id="landingEnter">✧︎ Bước vào</button>
-      <div class="landing-quick">
-        <button data-go="reading" data-i18n="landing.reading">Trải bài AI</button>
-        <button data-go="draw" data-i18n="landing.draw">♆︎ Bốc bài</button>
-        <button data-go="daily" data-i18n="landing.daily">☾︎ Hôm nay</button>
-        <button data-go="yesno" data-i18n="landing.yesno">♎︎ Yes/No</button>
-        <button data-go="browse" data-i18n="landing.browse">Tra cứu lá bài</button>
-        <button data-go="sky" data-i18n="landing.sky">Thiên văn</button>
-        <button data-go="history" data-i18n="landing.history">Lịch sử</button>
-        <button data-open="openSettings" data-i18n="landing.settings">Cài đặt AI</button>
-        <button data-open="openSite" data-i18n="landing.site">Cài đặt trang</button>
-      </div>
+      <p class="lt-pre" data-i18n="landing.pre">Hãy nghĩ về điều bạn đang băn khoăn</p>
+      <h1 class="lt-title"><span>Witches</span><span class="lt-emblem"><svg viewBox="0 0 64 64" class="logo-lg" width="104" height="104" role="img" aria-label="Witches Tarot" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="lgBgL" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#3a2a6e"/><stop offset=".55" stop-color="#211741"/><stop offset="1" stop-color="#0f0a1f"/></radialGradient><radialGradient id="lgGlowL" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#b98cff" stop-opacity=".45"/><stop offset="1" stop-color="#b98cff" stop-opacity="0"/></radialGradient><linearGradient id="lgMoonL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff8ec"/><stop offset="1" stop-color="#f0c995"/></linearGradient><mask id="lgCresL"><rect width="64" height="64" fill="#000"/><circle cx="30" cy="33.5" r="14.5" fill="#fff"/><circle cx="36.6" cy="28.6" r="12.2" fill="#000"/></mask></defs><rect width="64" height="64" rx="15" fill="url(#lgBgL)"/><g transform="translate(32 32) scale(1.0) translate(-32 -32)"><circle cx="32" cy="32" r="20" fill="url(#lgGlowL)"/><g fill="none" stroke="#e3b98a" stroke-linecap="round"><circle cx="32" cy="32" r="26" stroke-width=".9"/><circle cx="32" cy="32" r="23.2" stroke-width=".5" opacity=".7"/><g stroke-width=".7" opacity=".9"><line x1="32" y1="8.8" x2="32" y2="6"/><line x1="43.6" y1="11.91" x2="45" y2="9.48"/><line x1="52.09" y1="20.4" x2="54.52" y2="19"/><line x1="55.2" y1="32" x2="58" y2="32"/><line x1="52.09" y1="43.6" x2="54.52" y2="45"/><line x1="43.6" y1="52.09" x2="45" y2="54.52"/><line x1="32" y1="55.2" x2="32" y2="58"/><line x1="20.4" y1="52.09" x2="19" y2="54.52"/><line x1="11.91" y1="43.6" x2="9.48" y2="45"/><line x1="8.8" y1="32" x2="6" y2="32"/><line x1="11.91" y1="20.4" x2="9.48" y2="19"/><line x1="20.4" y1="11.91" x2="19" y2="9.48"/></g><g stroke-width=".35" opacity=".55"><line x1="34.57" y1="7.53" x2="34.72" y2="6.14"/><line x1="37.11" y1="7.94" x2="37.41" y2="6.57"/><line x1="39.6" y1="8.6" x2="40.03" y2="7.27"/><line x1="42.01" y1="9.53" x2="42.58" y2="8.25"/><line x1="46.46" y1="12.1" x2="47.28" y2="10.97"/><line x1="48.46" y1="13.72" x2="49.4" y2="12.68"/><line x1="50.28" y1="15.54" x2="51.32" y2="14.6"/><line x1="51.9" y1="17.54" x2="53.03" y2="16.72"/><line x1="54.47" y1="21.99" x2="55.75" y2="21.42"/><line x1="55.4" y1="24.4" x2="56.73" y2="23.97"/><line x1="56.06" y1="26.89" x2="57.43" y2="26.59"/><line x1="56.47" y1="29.43" x2="57.86" y2="29.28"/><line x1="56.47" y1="34.57" x2="57.86" y2="34.72"/><line x1="56.06" y1="37.11" x2="57.43" y2="37.41"/><line x1="55.4" y1="39.6" x2="56.73" y2="40.03"/><line x1="54.47" y1="42.01" x2="55.75" y2="42.58"/><line x1="51.9" y1="46.46" x2="53.03" y2="47.28"/><line x1="50.28" y1="48.46" x2="51.32" y2="49.4"/><line x1="48.46" y1="50.28" x2="49.4" y2="51.32"/><line x1="46.46" y1="51.9" x2="47.28" y2="53.03"/><line x1="42.01" y1="54.47" x2="42.58" y2="55.75"/><line x1="39.6" y1="55.4" x2="40.03" y2="56.73"/><line x1="37.11" y1="56.06" x2="37.41" y2="57.43"/><line x1="34.57" y1="56.47" x2="34.72" y2="57.86"/><line x1="29.43" y1="56.47" x2="29.28" y2="57.86"/><line x1="26.89" y1="56.06" x2="26.59" y2="57.43"/><line x1="24.4" y1="55.4" x2="23.97" y2="56.73"/><line x1="21.99" y1="54.47" x2="21.42" y2="55.75"/><line x1="17.54" y1="51.9" x2="16.72" y2="53.03"/><line x1="15.54" y1="50.28" x2="14.6" y2="51.32"/><line x1="13.72" y1="48.46" x2="12.68" y2="49.4"/><line x1="12.1" y1="46.46" x2="10.97" y2="47.28"/><line x1="9.53" y1="42.01" x2="8.25" y2="42.58"/><line x1="8.6" y1="39.6" x2="7.27" y2="40.03"/><line x1="7.94" y1="37.11" x2="6.57" y2="37.41"/><line x1="7.53" y1="34.57" x2="6.14" y2="34.72"/><line x1="7.53" y1="29.43" x2="6.14" y2="29.28"/><line x1="7.94" y1="26.89" x2="6.57" y2="26.59"/><line x1="8.6" y1="24.4" x2="7.27" y2="23.97"/><line x1="9.53" y1="21.99" x2="8.25" y2="21.42"/><line x1="12.1" y1="17.54" x2="10.97" y2="16.72"/><line x1="13.72" y1="15.54" x2="12.68" y2="14.6"/><line x1="15.54" y1="13.72" x2="14.6" y2="12.68"/><line x1="17.54" y1="12.1" x2="16.72" y2="10.97"/><line x1="21.99" y1="9.53" x2="21.42" y2="8.25"/><line x1="24.4" y1="8.6" x2="23.97" y2="7.27"/><line x1="26.89" y1="7.94" x2="26.59" y2="6.57"/><line x1="29.43" y1="7.53" x2="29.28" y2="6.14"/></g><path d="M32 11 L50.19 42.5 L13.81 42.5Z M50.19 21.5 L32 53 L13.81 21.5Z" stroke-width=".45" opacity=".38"/><circle cx="32" cy="32" r="17.5" stroke-width=".4" stroke-dasharray="1 1.6" opacity=".55"/></g><path fill="#e3b98a" d="M32 2.5Q32.5 3.9 33.9 4.4Q32.5 4.9 32 6.3Q31.5 4.9 30.1 4.4Q31.5 3.9 32 2.5Z"/><path fill="#e3b98a" d="M59.6 30.1Q60.1 31.5 61.5 32Q60.1 32.5 59.6 33.9Q59.1 32.5 57.7 32Q59.1 31.5 59.6 30.1Z"/><path fill="#e3b98a" d="M32 57.7Q32.5 59.1 33.9 59.6Q32.5 60.1 32 61.5Q31.5 60.1 30.1 59.6Q31.5 59.1 32 57.7Z"/><path fill="#e3b98a" d="M4.4 30.1Q4.9 31.5 6.3 32Q4.9 32.5 4.4 33.9Q3.9 32.5 2.5 32Q3.9 31.5 4.4 30.1Z"/><rect width="64" height="64" fill="url(#lgMoonL)" mask="url(#lgCresL)"/><path fill="#e3b98a" d="M37.5 22.4Q39 27.5 44.1 29Q39 30.5 37.5 35.6Q36 30.5 30.9 29Q36 27.5 37.5 22.4Z"/><path fill="#fff3dd" d="M44.5 37.1Q45.1 38.9 46.9 39.5Q45.1 40.1 44.5 41.9Q43.9 40.1 42.1 39.5Q43.9 38.9 44.5 37.1Z"/><circle cx="41.5" cy="20.5" r="1" fill="#fff3dd"/><circle cx="25" cy="18" r=".7" fill="#e3b98a"/><circle cx="46" cy="31" r=".6" fill="#e3b98a"/></g></svg></span><br><span>Tarot</span></h1>
+      <p class="landing-sub" data-i18n="landing.sub">78 lá bài · trải bài &amp; diễn giải bằng AI</p>
+      <form class="lt-form" id="askForm" autocomplete="off" novalidate>
+        <svg class="lt-stars" viewBox="0 0 300 60" aria-hidden="true"><g fill="var(--spark)"><path d="M150 4Q152 26 172 30Q152 34 150 56Q148 34 128 30Q148 26 150 4Z"/><path d="M112 22Q113 29 120 30Q113 31 112 38Q111 31 104 30Q111 29 112 22Z" opacity=".75"/><path d="M188 22Q189 29 196 30Q189 31 188 38Q187 31 180 30Q187 29 188 22Z" opacity=".75"/><circle cx="84" cy="30" r="1.6" opacity=".6"/><circle cx="216" cy="30" r="1.6" opacity=".6"/><circle cx="62" cy="24" r="1" opacity=".45"/><circle cx="238" cy="36" r="1" opacity=".45"/></g><path d="M10 30H92M208 30H290" stroke="var(--spark)" stroke-width=".8" opacity=".35"/></svg>
+        <div class="lt-input">
+          <svg class="lt-orn" viewBox="0 0 80 14" aria-hidden="true"><path d="M2 7h26M52 7h26" stroke="var(--spark)" stroke-width=".9" opacity=".6"/><path d="M40 1Q41 6 46 7Q41 8 40 13Q39 8 34 7Q39 6 40 1Z" fill="var(--spark)"/><circle cx="31" cy="7" r="1.2" fill="var(--spark)"/><circle cx="49" cy="7" r="1.2" fill="var(--spark)"/></svg>
+          <span class="lt-arrow"><svg viewBox="0 0 30 18" aria-hidden="true"><path d="M1 9h25M19 2l7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <input id="askInput" type="text" maxlength="300" data-i18n-ph="landing.askPh" placeholder="Nhập câu hỏi của bạn…" />
+          <span class="lt-err" id="askErr" data-i18n="landing.askErr">Hãy nhập một câu hỏi nhé</span>
+          <span class="lt-count" id="askCount">0/300</span>
+        </div>
+        <p class="lt-disc" data-i18n="landing.disc">Diễn giải bởi AI · chỉ mang tính tham khảo &amp; giải trí</p>
+        <button type="submit" class="lt-cta" id="askGo"><i></i><i></i><span data-i18n="landing.askGo">Bốc bài</span></button>
+        <button type="button" class="lt-skip" id="askSkip" data-i18n="landing.skip">Bỏ qua câu hỏi</button>
+      </form>
+    </div>
+    <div class="lt-deco" aria-hidden="true">
+      <div class="lt-circles"><span></span><span></span><span></span></div>
+      <div class="lt-orb"></div>
+      <div class="lt-fan" id="landingFan"></div>
     </div>
   </div>
 
@@ -1022,8 +1103,7 @@
       'sky.head': '♃︎ Real sky', 'sky.location': '⌖︎ Location', 'sky.gps': '⌖︎ Use my GPS', 'sky.reset': '↺ Face North',
       'sky.lines': '✦ Constellations', 'sky.grid': '▦ Grid', 'sky.planets': '♄︎ Planets', 'sky.starsonly': '★︎ Stars only', 'sky.full': '⛶ Fullscreen',
       'nav.site': '♀︎ Site Settings', 'nav.install': '⇩︎ Install app',
-      'landing.sub': '78 cards · reading & AI interpretation', 'landing.enter': '✧︎ Enter',
-      'landing.reading': 'AI Reading', 'landing.browse': 'Browse cards', 'landing.sky': 'Sky', 'landing.history': 'History', 'landing.settings': 'AI Settings', 'landing.site': 'Site Settings', 'landing.draw': '♆︎ Draw', 'landing.daily': '☾︎ Today', 'landing.yesno': '♎︎ Yes/No',
+      'landing.sub': '78 cards · reading & AI interpretation', 'landing.enter': '✧︎ Witches Tarot', 'landing.askGo': 'Pick the cards', 'landing.askPh': 'Type your question here…', 'landing.askErr': 'Please type a question', 'landing.pre': 'Think about what is on your mind', 'landing.disc': 'AI-interpreted · for reflection & entertainment only', 'landing.skip': 'Skip question', 'landing.nReading': 'AI Reading', 'landing.nDraw': 'Draw', 'landing.nDaily': 'Today', 'landing.nYesno': 'Yes / No', 'landing.nBrowse': 'Browse', 'landing.nSky': 'Sky',
       'browse.search': 'Search by number, name, keyword, meaning...', 'browse.clear': 'Clear',
       'draw.count': 'Cards:', 'draw.btn': '☍︎ Shuffle & draw', 'draw.pick': '☌︎ Pick manually', 'draw.stop': '✕︎ Stop', 'draw.toReading': '✦︎ Send to AI Reading',
       'reading.spreadType': 'Spread type', 'reading.question': 'Your question', 'reading.q.ph': 'E.g. What should I focus on in love right now?',
@@ -1072,7 +1152,6 @@
       modeSky: 'planet', modeYesno: 'scales', modeHistory: 'hourglass', openSettings: 'gear', openSite: 'sliders',
       landingEnter: 'compass', drawBtn: 'shuffle', pickBtn: 'pick', drawToReading: 'ball', spreadDrawBtn: 'shuffle', spreadPickBtn: 'pick',
       interpretBtn: 'ball', yesnoBtn: 'card', ritualStart: 'shuffle',
-      'landing.reading': 'ball', 'landing.browse': 'browse', 'landing.sky': 'planet', 'landing.history': 'hourglass', 'landing.settings': 'gear', 'landing.site': 'sliders', 'landing.draw': 'card', 'landing.daily': 'moon', 'landing.yesno': 'scales',
       'chip.love': 'heart', 'chip.work': 'wand', 'chip.money': 'coin', 'chip.focus': 'compass', 'chip.msg': 'eye',
       'ynchip.opp': 'wand', 'ynchip.rel': 'rings', 'ynchip.time': 'hourglass', 'ynchip.gut': 'moon', 'ynchip.them': 'eye'
     };
@@ -1572,15 +1651,68 @@
     $('landingEnter').addEventListener('click', () => {
       if (dbReady) { enterApp(); return; }
       const b = $('landingEnter'); b.disabled = true; b.innerHTML = '<span class="spinner"></span> ' + (lang === 'en' ? 'Preparing the sky…' : 'Đang chuẩn bị bầu trời…');
-      whenReady(() => { b.disabled = false; setLabel(b, t('landing.enter', '✧︎ Bước vào')); enterApp(); });
+      whenReady(() => { b.disabled = false; setLabel(b, t('landing.enter', '✧︎ Witches Tarot')); enterApp(); });
     });
     $('goHome').addEventListener('click', goLanding);
-    document.querySelectorAll('.landing-quick button').forEach(b =>
-      b.addEventListener('click', () => whenReady(() => {
-        enterApp();
-        if (b.dataset.go) switchMode(b.dataset.go);
-        else if (b.dataset.open) $(b.dataset.open).click();   // mở hộp cài đặt
-      })));
+    // ---- Trang mở đầu: menu trên cùng + ô hỏi → vào thẳng Trải bài AI và mở bánh xe bài ----
+    (function initLanding() {
+      const form = $('askForm'), inp = $('askInput'), cnt = $('askCount'), err = $('askErr');
+      if (!form || !inp) return;
+      // quạt bài trang trí ló lên ở đáy
+      const fan = $('landingFan');
+      if (fan) {
+        const N = 15;
+        fan.innerHTML = Array.from({ length: N }, (_, i) => {
+          const t = i / (N - 1) - .5;
+          return `<span class="lc" style="--a:${(t * 44).toFixed(1)}deg;--y:${(Math.abs(t) * 30).toFixed(0)}px;--dl:${(-i * .45).toFixed(2)}s"></span>`;
+        }).join('');
+      }
+      // menu trên cùng
+      document.querySelectorAll('.lt-nav [data-go]').forEach(b =>
+        b.addEventListener('click', () => whenReady(() => { enterApp(); switchMode(b.dataset.go); })));
+      const burger = $('landingBurger');
+      if (burger) burger.addEventListener('click', () => whenReady(() => { enterApp(); openNav(); }));
+      // gợi ý xoay vòng
+      const tips = {
+        vi: ['Mối quan hệ này sẽ đi về đâu?', 'Tôi nên tập trung vào điều gì lúc này?', 'Công việc của tôi thời gian tới ra sao?', 'Vũ trụ muốn nhắn nhủ tôi điều gì hôm nay?', 'Tôi có nên nắm lấy cơ hội này không?'],
+        en: ['Where is this relationship heading?', 'What should I focus on right now?', 'How will my work unfold soon?', 'What message does the universe have for me today?', 'Should I take this opportunity?']
+      };
+      let ti = 0;
+      const tipNow = () => tips[lang === 'en' ? 'en' : 'vi'][ti];
+      inp.placeholder = tipNow();
+      setInterval(() => { if (document.activeElement === inp || inp.value) return; ti = (ti + 1) % tips.vi.length; inp.placeholder = tipNow(); }, 3800);
+      inp.addEventListener('input', () => {
+        cnt.textContent = inp.value.length + '/300';
+        cnt.classList.toggle('show', inp.value.length > 0);
+        err.classList.remove('show');
+      });
+      // vào Trải bài AI, điền câu hỏi rồi mở luôn bánh xe để chọn lá
+      function go(q) {
+        whenReady(() => {
+          enterApp();
+          switchMode('reading');
+          const qi = $('questionInput');
+          if (qi) { qi.value = q; qi.dispatchEvent(new Event('input', { bubbles: true })); }
+          inp.value = ''; cnt.textContent = '0/300'; cnt.classList.remove('show');
+          setTimeout(() => {
+            const pick = $('spreadPickBtn');
+            if (pick && !pick.disabled) { pick.scrollIntoView({ behavior: prefersReduced() ? 'auto' : 'smooth', block: 'center' }); pick.click(); }
+          }, 380);
+        });
+      }
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        const q = inp.value.trim();
+        if (!q) {
+          err.classList.add('show');
+          form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake');
+          inp.focus(); setTimeout(() => err.classList.remove('show'), 2600);
+          return;
+        }
+        go(q);
+      });
+      $('askSkip').addEventListener('click', () => go(''));
+    })();
 
     // ---------- Lá bài nghiêng 3D theo con trỏ (bỏ qua trên thiết bị cảm ứng) ----------
     (function initTilt() {
