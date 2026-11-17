@@ -1,1 +1,11 @@
 Data
+
+# Bí mật — Vercel KHÔNG dùng .gitignore khi có file này, nên phải liệt kê lại
+.env
+.env.*
+*.env
+*.ipynb
+
+# Công cụ / dữ liệu cục bộ, không cần trên web
+.codegraph
+node_modules
