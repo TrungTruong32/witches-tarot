@@ -211,6 +211,8 @@
     textarea { resize: vertical; min-height: 64px; }
     .picker-results { display: grid; gap: 6px; margin-top: 8px; max-height: 240px; overflow-y: auto; }
     .picker-item { text-align: left; padding: 9px 12px; font-size: .92rem; }
+    .cloud-note { margin-top: 8px; font-size: .74rem; color: var(--muted); opacity: .85; }
+    .cloud-note a { color: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
     .picker-item.active { border-color: color-mix(in srgb, var(--spark) 60%, transparent); background: color-mix(in srgb, var(--spark) 10%, var(--btn)); }
     .picker-item.dup span { color: var(--spark); }
     .picker-empty { padding: 10px 12px; font-size: .85rem; color: var(--muted); border: 1px dashed var(--border); border-radius: 10px; }
@@ -802,6 +804,7 @@
             <button class="btn-primary" id="interpretBtn" disabled>✦︎ Diễn giải</button>
             <button id="clearSpreadBtn" disabled>Xóa trải bài</button>
           </div>
+          <div class="cloud-note" id="cloudNote"></div>
         </div>
         <div class="panel">
           <div class="section" id="aiSection">
@@ -1050,6 +1053,12 @@
       </div>
 
       <div class="field">
+        <label data-i18n="site.cloudHead">☁︎ Lưu trải bài ẩn danh</label>
+        <label class="site-check"><input type="checkbox" id="siteCloud" /> <span data-i18n="site.cloudOn">Gửi trải bài (câu hỏi, lá bài, bài giải) lên máy chủ để cải thiện app</span></label>
+        <div class="hint" data-i18n="site.cloudHint">Không lưu tên, email hay IP — chỉ một mã ngẫu nhiên của trình duyệt này. Tắt thì trải bài chỉ nằm trong máy bạn.</div>
+      </div>
+
+      <div class="field">
         <label for="ambientMode" data-i18n="site.music">♫︎ Nhạc nền</label>
         <select id="ambientMode">
           <option value="off" data-i18n="music.off">Tắt</option>
@@ -1144,7 +1153,7 @@
       'site.title': '♀︎ Site Settings', 'site.theme': '♀︎ Theme', 'site.cardback': '✦︎ Card back',
       'site.ritualHead': '☼︎ Ritual before drawing', 'site.ritual': 'Show candle & breathing ritual before shuffling',
       'site.sound': '☍︎ Shuffle sound', 'site.soundOn': 'Enable shuffle/click sound',
-      'site.vol': 'Volume', 'site.music': '♫︎ Background music', 'site.fxHead': '✧︎ Background effects', 'site.fx': 'Enable background effects (stars, meteors, aura)',
+      'site.vol': 'Volume', 'site.cloudHead': '☁︎ Anonymous reading storage', 'site.cloudOn': 'Send readings (question, cards, interpretation) to the server to improve the app', 'site.cloudHint': 'No name, email or IP is stored — only a random ID for this browser. Turn off to keep readings on your device only.', 'site.music': '♫︎ Background music', 'site.fxHead': '✧︎ Background effects', 'site.fx': 'Enable background effects (stars, meteors, aura)',
       'site.sky': '✴︎ Star mode', 'site.city': 'City', 'site.lang': '☊︎ Ngôn ngữ / Language', 'site.done': 'Done',
       'music.off': 'Off', 'music.mystic': 'Mystic (chill kalimba + bells)', 'music.candle': 'Candle crackle',
       'sky.deco': 'Decorative stars (random twinkle)', 'sky.real': 'Real sky — live',
@@ -1199,6 +1208,7 @@
     }
     function applyLang() {
       document.documentElement.setAttribute('lang', lang);
+      if (typeof renderCloudNote === 'function') renderCloudNote();
       for (const id in T_IDS) { const el = $(id); if (!el) continue; if (el.dataset.vi == null) el.dataset.vi = el.textContent; setLabel(el, (lang === 'en' && I18N.en[T_IDS[id]]) ? I18N.en[T_IDS[id]] : el.dataset.vi); }
       for (const id in T_PH) { const el = $(id); if (!el) continue; if (el.dataset.viph == null) el.dataset.viph = el.getAttribute('placeholder') || ''; el.setAttribute('placeholder', (lang === 'en' && I18N.en[T_PH[id]]) ? I18N.en[T_PH[id]] : el.dataset.viph); }
       document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -1681,6 +1691,29 @@
       whenReady(() => { b.disabled = false; setLabel(b, t('landing.enter', '✧︎ Witches Tarot')); enterApp(); });
     });
     $('goHome').addEventListener('click', goLanding);
+    // ---- Công tắc lưu ẩn danh + dòng thông báo dưới nút Diễn giải ----
+    function renderCloudNote() {
+      const n = $('cloudNote'); if (!n) return;
+      const on = cloudSaveOn(), en = lang === 'en';
+      n.innerHTML = on
+        ? (en ? '☁︎ Readings are saved anonymously (no name, email or IP) to improve the app · <a data-cloud-off>turn off</a>'
+              : '☁︎ Trải bài được lưu ẩn danh (không tên, email hay IP) để cải thiện app · <a data-cloud-off>tắt</a>')
+        : (en ? 'Readings stay on this device only · <a data-cloud-on>turn on anonymous saving</a>'
+              : 'Trải bài chỉ lưu trong máy bạn · <a data-cloud-on>bật lưu ẩn danh</a>');
+    }
+    function setCloudSave(on) {
+      try { localStorage.setItem('tarotCloudSave', on ? '1' : '0'); } catch {}
+      const cb = $('siteCloud'); if (cb) cb.checked = on;
+      renderCloudNote();
+    }
+    (function initCloudSave() {
+      const cb = $('siteCloud');
+      if (cb) { cb.checked = cloudSaveOn(); cb.addEventListener('change', () => setCloudSave(cb.checked)); }
+      const n = $('cloudNote');
+      if (n) n.addEventListener('click', e => { if (e.target.closest('[data-cloud-off]')) setCloudSave(false); else if (e.target.closest('[data-cloud-on]')) setCloudSave(true); });
+      renderCloudNote();
+    })();
+
     // ---- Trang mở đầu: menu trên cùng + ô hỏi → vào thẳng Trải bài AI và mở bánh xe bài ----
     (function initLanding() {
       const form = $('askForm'), inp = $('askInput'), cnt = $('askCount'), err = $('askErr');
@@ -3708,6 +3741,29 @@
       };
       try { await idbAddReading(reading); currentReading = reading; }
       catch (e) { currentReading = null; console.warn('Lưu lịch sử thất bại', e); }
+      cloudSaveReading(reading);
+    }
+    // ---- Lưu trải bài ẩn danh lên máy chủ (Supabase qua /api/readings) ----
+    // Không gửi IP/email/tên. deviceId là UUID ngẫu nhiên tự sinh trong trình duyệt. Tắt được trong Cài đặt trang.
+    function cloudSaveOn() { try { return localStorage.getItem('tarotCloudSave') !== '0'; } catch { return true; } }
+    function deviceId() {
+      try {
+        let id = localStorage.getItem('tarotDeviceId');
+        if (!id || !/^[0-9a-f-]{36}$/i.test(id)) { id = crypto.randomUUID(); localStorage.setItem('tarotDeviceId', id); }
+        return id;
+      } catch { return null; }
+    }
+    function cloudSaveReading(r) {
+      if (!cloudSaveOn() || !/^https?:$/.test(location.protocol) || !r || !r.cards || !r.cards.length) return;
+      const id = deviceId(); if (!id) return;
+      const body = {
+        device_id: id, lang, deck: r.deck, spread: r.spread || 'free', question: r.question || '',
+        cards: r.cards.map((c, i) => ({ id: c.id, name: c.ten, suit: c.bo, number: String(c.so ?? ''), orientation: c.orientation, position: r.positions ? r.positions[i] || null : null })),
+        facts: r.facts || [], ai_answer: r.text || '', model: String(r.provider || '').slice(0, 120), app_version: 'web'
+      };
+      fetch('/api/readings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), keepalive: true })
+        .then(res => { if (!res.ok && res.status !== 503) console.warn('Lưu trải bài lên máy chủ thất bại:', res.status); })
+        .catch(() => {});   // mất mạng / offline: bỏ qua, lịch sử cục bộ vẫn còn
     }
     function loadReading(it) {
       questionInput.value = it.question || '';

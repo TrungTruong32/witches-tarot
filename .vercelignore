@@ -9,3 +9,7 @@ Data
 # Công cụ / dữ liệu cục bộ, không cần trên web
 .codegraph
 node_modules
+
+# Migration SQL — không cần trên web
+supabase
+scripts
