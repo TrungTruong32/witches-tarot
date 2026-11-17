@@ -589,7 +589,12 @@
             <label for="questionInput" data-i18n="reading.question">Câu hỏi của bạn</label>
             <textarea id="questionInput" placeholder="Ví dụ: Mối quan hệ này sẽ đi về đâu trong 3 tháng tới?"></textarea>
             <div class="q-chips">
+              <button id="spreadPickBtn" data-i18n="reading.spreadPickBtn">☌︎ Tự chọn</button>
+              <button id="spreadStopShuffle" data-i18n="reading.spreadStop" style="display:none;">✕︎ Dừng xào</button>
               <button type="button" class="qchip" data-i18n="chip.love" data-q="Tình cảm của tôi thời gian tới sẽ thế nào?" data-qen="How will my love life unfold in the near future?">♀︎ Tình cảm</button>
+            <div id="spreadOrbit" class="riffle"></div>
+            <div class="ai-hint" id="spreadPickStatus" style="display:none; margin-top:10px;"></div>
+            <div id="spreadFan" class="fan" style="display:none;"></div>
               <button type="button" class="qchip" data-i18n="chip.work" data-q="Công việc / sự nghiệp của tôi hiện tại ra sao?" data-qen="How is my work / career doing right now?">♄︎ Công việc</button>
               <button type="button" class="qchip" data-i18n="chip.money" data-q="Tài chính của tôi thời gian tới thế nào?" data-qen="How will my finances be in the near future?">♃︎ Tài chính</button>
               <button type="button" class="qchip" data-i18n="chip.focus" data-q="Tôi nên tập trung vào điều gì lúc này?" data-qen="What should I focus on right now?">☉︎ Định hướng</button>
@@ -597,7 +602,7 @@
             </div>
           </div>
           <div class="field">
-            <label data-i18n="reading.spreadDraw">Bốc ngẫu nhiên vào trải bài</label>
+            <label data-i18n="reading.spreadDraw">Bốc bài vào trải bài (xào ngẫu nhiên hoặc tự chọn từ bánh xe)</label>
             <div class="draw-controls">
               <input id="spreadDrawCount" type="number" min="1" max="12" value="3" />
               <button id="spreadDrawBtn" data-i18n="reading.spreadDrawBtn">☍︎ Xào &amp; bốc (thay trải bài hiện tại)</button>
@@ -969,7 +974,8 @@
       'lbl.keywords': 'Keywords', 'lbl.upright': 'Upright meaning', 'lbl.reversed': 'Reversed meaning',
       'daily.xuoi': 'Upright', 'daily.meaning': 'Meaning',
       'browse.noResults': 'No cards found. Try a different keyword.',
-      'reading.spreadDraw': 'Draw random cards into the spread', 'reading.spreadDrawBtn': '☍︎ Shuffle & draw (replace current spread)',
+      'reading.spreadDraw': 'Draw cards into the spread', 'reading.spreadDrawBtn': '☍︎ Shuffle & draw (replace current spread)',
+      'reading.spreadPickBtn': '☌︎ Pick yourself', 'reading.spreadStop': '✕︎ Stop shuffling',
       'reading.picker': 'Add drawn cards (type to search)', 'reading.picker.ph': 'Type a card name, e.g. The Fool, Sword, Cups...',
       'reading.spreadLabel': 'Spread (tap to toggle Upright / Reversed)',
       'chip.love': '♀︎ Love', 'chip.work': '♄︎ Work', 'chip.money': '♃︎ Money', 'chip.focus': '☉︎ Direction', 'chip.msg': '☾︎ Message',
@@ -3451,7 +3457,7 @@
       try { localStorage.setItem('tarotSound', soundOn ? '1' : '0'); } catch {}
       const b = $('soundToggle'); if (b) b.textContent = '♫︎'; b.style.opacity = soundOn ? '' : '.45'; b.style.textDecoration = soundOn ? '' : 'line-through';
       const cb = $('siteSound'); if (cb) cb.checked = soundOn;
-      if (soundOn) { ensureAudio(); if ($('drawOrbit').classList.contains('on')) startTicks(); }
+      if (soundOn) { ensureAudio(); if ($(drawCtx.orbit).classList.contains('on')) startTicks(); }
       else stopTicks();
     }
     function initSoundBtn() {
@@ -3463,7 +3469,7 @@
     let orbitMode = null;
     // Xếp cả bộ bài quanh một hình elip
     function buildOrbit(count) {
-      const el = $('drawOrbit');
+      const el = $(drawCtx.orbit);
       el.innerHTML = zodiacWheelHTML();
       requestAnimationFrame(() => { const zw = el.querySelector('.zwheel'); if (zw) zw.classList.add('show'); });
       const N = Math.min(count, 20);       // 2 nửa đan xen
@@ -3473,7 +3479,60 @@
         const k = Math.floor(i / 2);
         const f = M > 1 ? k / (M - 1) : 0;               // 0 = gần tâm, 1 = mép ngoài
         const sx = side * (24 + f * 150);                // hai nửa tách ra
+    // ===== Bộ máy bốc bài DÙNG CHUNG cho trang "Bốc bài" và "Trải bài AI" =====
+    // Mỗi trang khai báo khung chứa + việc cần làm khi bốc xong; hiệu ứng (nghi thức, xào riffle,
+    // bánh xe tự chọn, lật bài) là một, chỉ đổi đích DOM theo drawCtx.
+    const DRAW_CTX = {
+      draw: {
+        orbit: 'drawOrbit', fan: 'drawFan', status: 'pickStatus', stop: 'stopShuffle', lock: ['drawBtn', 'pickBtn'],
+        count: () => readDrawCount('drawCount'),
+        onStart() { $('drawResults').innerHTML = ''; $('drawToReading').disabled = true; lastDraw = []; },
+        onDrawn(cards) { renderDrawResults(cards); $('drawToReading').disabled = !cards.length; },
+        onPicked(cards) {
+          lastDraw = cards;
+          const reduce = prefersReduced();
+          cards.forEach((c, j) => {
+            const d = document.createElement('div');
+            d.className = 'draw-card revealed' + (reduce ? '' : ' dealt');
+            d.style.animationDelay = (j * 90) + 'ms';
+            d.innerHTML = drawCardInner(c, j);
+            d.querySelector('.flip').classList.add('revealed');
+            $('drawResults').appendChild(d);
+          });
+          $('drawToReading').disabled = false;
+        },
+        doneMsg: k => lang === 'en'
+          ? '✓ Drew ' + k + ' card' + (k > 1 ? 's' : '') + '. Scroll down for the meanings, or tap “Send to AI Reading”.'
+          : '✓ Đã bốc đủ ' + k + ' lá. Kéo xuống xem ý nghĩa, hoặc bấm “Đưa sang Trải bài AI”.'
+      },
+      reading: {
+        orbit: 'spreadOrbit', fan: 'spreadFan', status: 'spreadPickStatus', stop: 'spreadStopShuffle', lock: ['spreadDrawBtn', 'spreadPickBtn'],
+        // Kiểu trải có vị trí → bốc đúng số vị trí; tự do → theo ô số lá
+        count: () => spreadPositions ? spreadPositions.length : readDrawCount('spreadDrawCount'),
+        onStart() {},
+        onDrawn(cards) { spread = cards.map(toSpreadCard); renderSpread(true); },
+        onPicked(cards) {
+          spread = cards.map(toSpreadCard); renderSpread(true);
+          // Thu bánh xe lại sau khi lật xong để trải bài (kèm vị trí) hiện ngay bên dưới
+          setTimeout(() => { $('spreadFan').style.display = 'none'; spreadList.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, prefersReduced() ? 0 : 1600);
+        },
+        doneMsg: k => lang === 'en'
+          ? '✓ Drew ' + k + ' card' + (k > 1 ? 's' : '') + ' into the spread. Set Upright/Reversed if needed, then tap “Interpret”.'
+          : '✓ Đã bốc ' + k + ' lá vào trải bài. Chỉnh Xuôi/Ngược nếu cần rồi bấm “Diễn giải”.'
+      }
+    };
+    let drawCtx = DRAW_CTX.draw;
         const sy = -74 * (1 - f);                        // bật cong (bridge): giữa cao, mép thấp
+    // Dừng êm phiên xào đang chạy (vd. đang xào ở trang này lại bấm bốc ở trang kia) — không chia bài
+    function resetOrbit(ctx) {
+      const orbit = $(ctx.orbit);
+      if (!orbit || !orbit.classList.contains('on')) return;
+      stopTicks();
+      orbit.classList.remove('on');
+      orbit.innerHTML = '';
+      $(ctx.stop).style.display = 'none';
+      ctx.lock.forEach(id => { $(id).disabled = false; });
+    }
         const sr = side * (8 + f * 18);                  // nghiêng dần ra mép
         const mx = (i - (N - 1) / 2) * 4;                 // khi cài vào: xen kẽ trái/phải
         const c = document.createElement('div');
@@ -3487,37 +3546,34 @@
         el.appendChild(c);
       }
     }
-    function startOrbit(mode) {
-      $('drawResults').innerHTML = '';
-      $('drawFan').style.display = 'none';
-      $('pickStatus').style.display = 'none';
-      $('drawToReading').disabled = true;
+    function startOrbit(mode, ctxKey) {
+      Object.values(DRAW_CTX).forEach(resetOrbit);
+      drawCtx = DRAW_CTX[ctxKey || 'draw'];
+      drawCtx.onStart();
+      $(drawCtx.fan).style.display = 'none';
+      $(drawCtx.status).style.display = 'none';
       if (prefersReduced()) { finishOrbit(mode); return; }
       orbitMode = mode;
       buildOrbit(deckTotal(selectedDeck) || 78);
-      $('drawOrbit').classList.add('on');
-      $('stopShuffle').style.display = 'inline-block';
-      $('drawBtn').disabled = true;
-      $('pickBtn').disabled = true;
+      $(drawCtx.orbit).classList.add('on');
+      $(drawCtx.stop).style.display = 'inline-block';
+      drawCtx.lock.forEach(id => { $(id).disabled = true; });
       startTicks();               // tiếng tách-tách khi xào
     }
     function stopOrbit() {
       stopTicks();
-      const orbit = $('drawOrbit');
+      const orbit = $(drawCtx.orbit);
       orbit.classList.remove('on');
       orbit.innerHTML = '';
-      $('stopShuffle').style.display = 'none';
-      $('drawBtn').disabled = false;
-      $('pickBtn').disabled = false;
+      $(drawCtx.stop).style.display = 'none';
+      drawCtx.lock.forEach(id => { $(id).disabled = false; });
       finishOrbit(orbitMode);
     }
     function finishOrbit(mode) {
       if (mode === 'pick') {
-        startManualPick(readDrawCount('drawCount'));      // dừng → xòe quạt để chọn
+        startManualPick(drawCtx.count());              // dừng → xòe bánh xe để chọn
       } else {
-        const cards = drawRandomCards(readDrawCount('drawCount'));  // dừng → chia + lật
-        renderDrawResults(cards);
-        $('drawToReading').disabled = !cards.length;
+        drawCtx.onDrawn(drawRandomCards(drawCtx.count()));   // dừng → chia + lật
       }
     }
     // ===== Tuần trăng (tính cục bộ theo tháng giao hội, không cần API) =====
@@ -3629,16 +3685,16 @@
     // ===== Nghi thức trước khi bốc bài =====
     let ritualDone = false;
     try { ritualDone = localStorage.getItem('tarotRitual') === '0'; } catch {}
-    function beginDraw(mode) {
-      if (ritualDone) { startOrbit(mode); return; }
+    function beginDraw(mode, ctxKey) {
+      if (ritualDone) { startOrbit(mode, ctxKey); return; }
       const q = ($('questionInput') && $('questionInput').value.trim()) || '';
       $('ritualQ').textContent = q ? '“' + q + '”' : '';
       $('ritualStart').onclick = () => {
         if ($('ritualDisable').checked) { ritualDone = true; try { localStorage.setItem('tarotRitual', '0'); } catch {} }
         $('ritualOverlay').style.display = 'none';
-        startOrbit(mode);
+        startOrbit(mode, ctxKey);
       };
-      $('ritualSkip').onclick = () => { $('ritualOverlay').style.display = 'none'; startOrbit(mode); };
+      $('ritualSkip').onclick = () => { $('ritualOverlay').style.display = 'none'; startOrbit(mode, ctxKey); };
       $('ritualOverlay').style.display = 'flex';
       ensureAudio();
     }
@@ -3876,12 +3932,11 @@
     }
     // Tự chọn: bày cả bộ thành bánh xe bài úp, người dùng chạm để chọn N lá (lá vẫn ngẫu nhiên, ẩn tới khi lật)
     function startManualPick(n) {
-      const fan = $('drawFan'), results = $('drawResults'), status = $('pickStatus');
+      const ctx = drawCtx;   // chốt ngữ cảnh của lượt chọn này (callback chạy trễ vẫn đúng trang)
+      const fan = $(ctx.fan), status = $(ctx.status);
       const en = lang === 'en';
-      $('drawOrbit').classList.remove('on');
-      results.innerHTML = '';
-      lastDraw = [];
-      $('drawToReading').disabled = true;
+      $(ctx.orbit).classList.remove('on');
+      ctx.onStart();
       let pool = drawRandomCards(deckTotal(selectedDeck) || 78);  // cả bộ bài
       if (!pool.length) return;
       n = Math.min(n, pool.length);
@@ -3935,7 +3990,6 @@
 
       function finishPick() {
         fan.classList.add('locked');
-        lastDraw = picks.map(p => p.card);
         // Vị trí cuối: các lá được chọn dàn đều quanh tâm; 1 lá thì phóng to ở giữa
         const H = fan.clientHeight;
         const ch = cw * 525 / 300;
@@ -3958,18 +4012,8 @@
           setTimeout(() => burstAt(p.el, k === 1 ? 26 : 14), reduce ? 0 : 700);
         }, flipAt + (reduce ? 0 : j * 380)));
         setTimeout(() => {
-          picks.forEach((p, j) => {
-            const d = document.createElement('div');
-            d.className = 'draw-card revealed' + (reduce ? '' : ' dealt');
-            d.style.animationDelay = (j * 90) + 'ms';
-            d.innerHTML = drawCardInner(p.card, j);
-            d.querySelector('.flip').classList.add('revealed');
-            results.appendChild(d);
-          });
-          $('drawToReading').disabled = false;
-          status.textContent = en
-            ? '✓ Drew ' + k + ' card' + (k > 1 ? 's' : '') + '. Scroll down for the meanings, or tap “Send to AI Reading”.'
-            : '✓ Đã bốc đủ ' + k + ' lá. Kéo xuống xem ý nghĩa, hoặc bấm “Đưa sang Trải bài AI”.';
+          ctx.onPicked(picks.map(p => p.card));
+          status.textContent = ctx.doneMsg(k);
         }, flipAt + (reduce ? 0 : k * 380 + 1300));
       }
 
@@ -4001,10 +4045,10 @@
       renderSpread(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
-    $('spreadDrawBtn').addEventListener('click', () => {
-      spread = drawRandomCards(readDrawCount('spreadDrawCount')).map(toSpreadCard);
-      renderSpread(true);
-    });
+    // Trải bài AI dùng chung bộ máy bốc: nghi thức → xào riffle → chia thẳng vào trải bài / bánh xe tự chọn
+    $('spreadDrawBtn').addEventListener('click', () => beginDraw('draw', 'reading'));
+    $('spreadPickBtn').addEventListener('click', () => beginDraw('pick', 'reading'));
+    $('spreadStopShuffle').addEventListener('click', stopOrbit);
     function openLightbox(url, reversed) {
       if (!url) return;
       const img = $('lightboxImg');
