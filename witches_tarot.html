@@ -362,7 +362,7 @@
     .riffle { display: none; position: relative; height: 240px; margin-top: 16px; perspective: 900px; overflow: hidden; }
     .riffle.on { display: block; }
     .riffle-card { position: absolute; left: 50%; top: 50%; width: 66px; aspect-ratio: 300 / 525; margin-left: -33px; margin-top: -58px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 10px 22px rgba(0,0,0,.5); }
-    .riffle.on .riffle-card { animation: riffle 1.5s cubic-bezier(.45,0,.15,1) infinite; }
+    /* chuyển động xào do JS (Web Animations) điều khiển — xem startShuffleLoop */
     @keyframes riffle {
       0%   { transform: translateX(var(--sx)) translateY(var(--sy)) rotateZ(var(--sr)); }
       34%  { transform: translateX(var(--mx)) translateY(-10px) rotateZ(0deg); }
@@ -859,7 +859,7 @@
         <label for="ambientMode" data-i18n="site.music">♫︎ Nhạc nền</label>
         <select id="ambientMode">
           <option value="off" data-i18n="music.off">Tắt</option>
-          <option value="mystic" data-i18n="music.mystic">Huyền ảo (hợp âm trầm + lấp lánh)</option>
+          <option value="mystic" data-i18n="music.mystic">Huyền ảo (nhạc chill kalimba + chuông)</option>
           <option value="candle" data-i18n="music.candle">Ngọn nến lách tách</option>
         </select>
         <div class="site-vol"><span data-i18n="site.vol">Âm lượng</span><input type="range" id="ambientVol" min="0" max="100" /></div>
@@ -953,7 +953,7 @@
       'site.sound': '☍︎ Shuffle sound', 'site.soundOn': 'Enable shuffle/click sound',
       'site.vol': 'Volume', 'site.music': '♫︎ Background music', 'site.fxHead': '✧︎ Background effects', 'site.fx': 'Enable background effects (stars, meteors, aura)',
       'site.sky': '✴︎ Star mode', 'site.city': 'City', 'site.lang': '☊︎ Ngôn ngữ / Language', 'site.done': 'Done',
-      'music.off': 'Off', 'music.mystic': 'Mystic (low drone + shimmer)', 'music.candle': 'Candle crackle',
+      'music.off': 'Off', 'music.mystic': 'Mystic (chill kalimba + bells)', 'music.candle': 'Candle crackle',
       'sky.deco': 'Decorative stars (random twinkle)', 'sky.real': 'Real sky — live',
       'set.title': '⚙️ AI Settings', 'set.close': 'Close', 'set.save': 'Save',
       'set.fallback': '🔁 Auto-switch provider on error', 'set.fallback.hint': 'If the current provider fails (quota, bad model, network…) before answering, the app automatically tries the other providers you have keys for: Gemini → ZenMux → Beeknoee → Ollama.',
@@ -1598,26 +1598,86 @@
     function startAmbient() {
       ensureAudio(); if (!audioCtx || ambientMode === 'off') return;
       stopAmbient();
-      const master = audioCtx.createGain(); master.gain.value = 0.0001; master.connect(audioCtx.destination);
+      const master = audioCtx.createGain(); master.gain.value = 0.0001;
+      const comp = audioCtx.createDynamicsCompressor();                       // giữ âm lượng đều, không gắt
+      comp.threshold.value = -20; comp.ratio.value = 3; comp.attack.value = 0.05; comp.release.value = 0.6;
+      const makeup = audioCtx.createGain(); makeup.gain.value = 2.0;           // bù sau nén ≈ cùng độ to với bản cũ
+      master.connect(comp).connect(makeup).connect(audioCtx.destination);
       master.gain.setTargetAtTime(ambientVol, audioCtx.currentTime, 1.5);     // fade vào theo âm lượng
-      const nodes = { master, oscs: [], lfo: null, timer: null };
+      const nodes = { master, oscs: [], lfo: null, timer: null, timers: [] };
       if (ambientMode === 'mystic') {
-        const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 3; lp.connect(master);
-        for (const f of [110, 110.6, 164.8]) {                               // hợp âm trầm (A + quãng 5)
-          const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
-          const g = audioCtx.createGain(); g.gain.value = 0.16; o.connect(g).connect(lp); o.start(); nodes.oscs.push(o);
-        }
-        const lfo = audioCtx.createOscillator(); lfo.frequency.value = 0.06;
-        const lfoG = audioCtx.createGain(); lfoG.gain.value = 170; lfo.connect(lfoG).connect(lp.frequency); lfo.start(); nodes.lfo = lfo;
-        const beat = () => {                                                 // thỉnh thoảng một tiếng chuông lấp lánh
-          const t = audioCtx.currentTime;
-          const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = 880 + Math.random() * 1300;
-          const g = audioCtx.createGain(); g.gain.setValueAtTime(0.0001, t);
-          g.gain.exponentialRampToValueAtTime(0.09, t + 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.6);
-          o.connect(g).connect(master); o.start(t); o.stop(t + 2.7);
-          nodes.timer = setTimeout(beat, 6000 + Math.random() * 3000);
+        // Huyền ảo (chill): nhạc tự sinh — nốt gảy kiểu kalimba/handpan rải theo vòng hợp âm Rê thứ, nhịp chậm,
+        // có khoảng nghỉ; nốt trầm gảy ngắn đầu ô nhịp; thỉnh thoảng chuông. KHÔNG có nốt giữ mãi, KHÔNG có LFO
+        // → không còn tiếng "ươ ươ". Tiếng vang nối các nốt cho liền mạch.
+        const wet = audioCtx.createGain(); wet.gain.value = 0.5; wet.connect(makeReverb(master));
+        const tone = audioCtx.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 2600; tone.Q.value = 0.3;   // ấm, không chói
+        tone.connect(master); tone.connect(wet);
+        const N = n => 440 * Math.pow(2, (n - 69) / 12);       // số MIDI → Hz
+        // Vòng hợp âm (mỗi hợp âm 2 ô nhịp): Dm7 – Bbmaj7 – Gm7 – C(add9). Nốt rải lấy trong hợp âm + ngũ cung Rê thứ
+        const PROG = [
+          { bass: 50, tones: [62, 65, 69, 72, 74, 77] },        // Dm7:    D4 F4 A4 C5 D5 F5
+          { bass: 46, tones: [62, 65, 69, 70, 74, 77] },        // Bbmaj7: D4 F4 A4 Bb4 D5 F5
+          { bass: 43, tones: [62, 65, 67, 70, 74, 77] },        // Gm7:    D4 F4 G4 Bb4 D5 F5
+          { bass: 48, tones: [60, 64, 67, 69, 72, 74] }         // C(add9→Am): C4 E4 G4 A4 C5 D5
+        ];
+        // Nốt gảy: sine gốc + bồi âm nhẹ (bậc 2 & bồi âm lệch của thanh kalimba), bấm nhanh, tắt dần tự nhiên
+        const pluck = (midi, t, vel, dec, pan) => {
+          const f = N(midi);
+          const p = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : audioCtx.createGain();
+          if (p.pan) p.pan.value = pan || 0;
+          p.connect(tone);
+          [[1, 1, dec], [2, 0.18, dec * 0.45], [5.95, 0.035, dec * 0.12]].forEach(([r, a, d]) => {
+            const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = f * r;
+            const g = audioCtx.createGain();
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.2 * a * vel), t + (midi < 55 ? 0.03 : 0.014));   // bấm mềm, không "click"
+            g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+            o.connect(g).connect(p); o.start(t); o.stop(t + d + 0.05);
+          });
         };
-        beat();
+        const bell = (midi, t, vel) => {                          // chuông pha lê hiếm hoi, cao, nhiều vang
+          const f = N(midi);
+          const p = audioCtx.createGain(); p.gain.value = 0.5; p.connect(wet); p.connect(tone);
+          [[1, 1, 3.0], [2.76, 0.25, 1.4], [5.4, 0.08, 0.6]].forEach(([r, a, d]) => {
+            const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = f * r;
+            const g = audioCtx.createGain();
+            g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.085 * a * vel), t + 0.012);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+            o.connect(g).connect(p); o.start(t); o.stop(t + d + 0.05);
+          });
+        };
+        // Bộ hẹn giờ nhìn trước (lookahead): mỗi 250ms xếp lịch các nốt trong ~1.2s tới theo đồng hồ audio
+        const BPM = 66, STEP = 60 / BPM / 2;                     // nốt móc đơn
+        const STEPS_PER_BAR = 8, BARS_PER_CHORD = 2;
+        let step = 0, nextT = audioCtx.currentTime + 0.4, idx = 2, phrase = 0;
+        const RHYTHMS = [                                        // khuôn nhịp (1 = có thể gảy), đổi mỗi câu
+          [1, 0, 1, 0, 1, 0, 0, 1], [1, 0, 0, 1, 0, 0, 1, 0], [1, 1, 0, 1, 0, 0, 1, 0], [1, 0, 1, 0, 0, 1, 0, 0]
+        ];
+        let rhythm = RHYTHMS[0];
+        const schedule = () => {
+          if (ambientNodes !== nodes) return;
+          while (nextT < audioCtx.currentTime + 1.2) {
+            const bar = Math.floor(step / STEPS_PER_BAR), s = step % STEPS_PER_BAR;
+            const ch = PROG[Math.floor(bar / BARS_PER_CHORD) % PROG.length];
+            if (s === 0) {
+              if (bar % 4 === 0) { rhythm = RHYTHMS[Math.floor(Math.random() * RHYTHMS.length)]; phrase++; }
+              if (bar % BARS_PER_CHORD === 0) pluck(ch.bass, nextT, 0.38, 2.2, 0);          // nốt trầm gảy ngắn, không giữ
+            }
+            const rest = (bar % 8 === 7 && s >= 4);              // cuối mỗi 8 ô: nghỉ nửa ô cho "thở"
+            if (!rest && rhythm[s] && Math.random() < 0.85) {
+              idx = Math.max(0, Math.min(ch.tones.length - 1, idx + [-2, -1, -1, 0, 1, 1, 2][Math.floor(Math.random() * 7)]));
+              const human = (Math.random() - 0.5) * 0.03;        // lệch nhịp rất nhẹ như người chơi
+              const vel = (s === 0 ? 0.95 : 0.6 + Math.random() * 0.3);
+              pluck(ch.tones[idx], nextT + human, vel, 1.6 + Math.random() * 0.8, (idx / (ch.tones.length - 1) - 0.5) * 0.7);
+            }
+            if (s === 4 && bar % 4 === 3 && Math.random() < 0.5) bell(ch.tones[ch.tones.length - 1] + 12, nextT + 0.1, 0.8);
+            nextT += STEP; step++;
+          }
+          nodes.timer = setTimeout(schedule, 250);               // một timer duy nhất (stopAmbient xoá)
+        };
+        ambientNodes = nodes;
+        schedule();
+        return;
       } else if (ambientMode === 'candle') {
         const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 300; lp.connect(master);
         const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = 68;   // nền trầm rất nhẹ
@@ -1643,8 +1703,9 @@
       if (!ambientNodes) return;
       const n = ambientNodes; ambientNodes = null;
       if (n.timer) clearTimeout(n.timer);
+      (n.timers || []).forEach(clearTimeout);
       try { n.master.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.4); } catch {}
-      setTimeout(() => { try { n.oscs.forEach(o => o.stop()); if (n.lfo) n.lfo.stop(); n.master.disconnect(); } catch {} }, 800);
+      setTimeout(() => { try { n.oscs.forEach(o => o.stop()); if (n.lfo) n.lfo.stop(); n.master.disconnect(); } catch {} }, 1200);
     }
     // Bật lại nếu trước đó đang bật — trình duyệt chặn audio trước tương tác, nên chờ cú chạm/phím đầu tiên
     if (ambientMode !== 'off') {
@@ -3383,31 +3444,6 @@
         (c.bo ? '<div class="time">' + escapeHtml(c.bo) + '</div>' : '') +
         '<div class="ai-output" style="margin-top:8px;">' + renderMarkdown(meaning || '') + '</div></div>';
     }
-    function revealDrawCard(div) {
-      haptic(10);
-      div.classList.add('revealed');
-      const f = div.querySelector('.flip');
-      if (f) f.classList.add('revealed');
-      burstAt(div, 18);
-    }
-    function renderDrawResults(cards) {
-      lastDraw = cards;
-      const el = $('drawResults');
-      el.innerHTML = '';
-      if (!cards.length) return;
-      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      cards.forEach((c, i) => {
-        const div = document.createElement('div');
-        div.className = 'draw-card';
-        div.innerHTML = drawCardInner(c, i);
-        el.appendChild(div);
-        div.querySelector('.flip').addEventListener('click', () => revealDrawCard(div)); // chạm để lật sớm
-        if (reduce) { revealDrawCard(div); return; }
-        div.style.animationDelay = (i * 90) + 'ms';
-        div.classList.add('dealt');
-        setTimeout(() => revealDrawCard(div), 520 + i * 260); // tự lật lần lượt sau khi chia
-      });
-    }
     const prefersReduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // ---------- âm thanh xào (Web Audio, không cần file) ----------
@@ -3428,50 +3464,145 @@
         }
       } catch {}
     }
-    // Một tiếng "tạch" của lá bài = burst nhiễu trắng qua bandpass, tắt rất nhanh
-    function playTick() {
-      if (!soundOn || !audioCtx || !noiseBuf) return;
-      const t = audioCtx.currentTime;
-      const src = audioCtx.createBufferSource();
-      src.buffer = noiseBuf;
-      src.playbackRate.value = 0.8 + Math.random() * 0.6;
-      const bp = audioCtx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.value = 1600 + Math.random() * 2600;   // sắc độ giấy khác nhau mỗi lá
-      bp.Q.value = 0.7;
-      const hp = audioCtx.createBiquadFilter();
-      hp.type = 'highpass'; hp.frequency.value = 700;      // bỏ ù trầm, giữ tiếng sột soạt
-      const g = audioCtx.createGain();
-      const dur = 0.03 + Math.random() * 0.025;
-      const peak = Math.max(0.0002, (0.05 + Math.random() * 0.04) * soundVol);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(peak, t + 0.004);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      src.connect(bp).connect(hp).connect(g).connect(audioCtx.destination);
-      const off = Math.random() * 0.1;
-      src.start(t, off, dur + 0.02); src.stop(t + dur + 0.03);
+    // ---------- Âm thanh lá bài (tổng hợp bằng Web Audio, hẹn giờ chính xác theo audioCtx) ----------
+    // Mọi hàm nhận thời điểm t (giây, theo audioCtx.currentTime) để khớp tuyệt đối với hình.
+    let fxSources = [];          // nguồn đã hẹn giờ của lượt xào hiện tại (để dừng ngay khi bấm Dừng)
+    let noiseLong = null, reverbNode = null, reverbCtx = null;
+    function longNoise() {       // 2 giây nhiễu hồng nhẹ (êm hơn nhiễu trắng) cho tiếng gió / tiếng "phựt"
+      if (noiseLong && noiseLong.sampleRate === audioCtx.sampleRate) return noiseLong;
+      const len = audioCtx.sampleRate * 2;
+      noiseLong = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+      const d = noiseLong.getChannelData(0);
+      let b0 = 0, b1 = 0, b2 = 0;
+      for (let i = 0; i < len; i++) {
+        const w = Math.random() * 2 - 1;
+        b0 = 0.99765 * b0 + w * 0.0990460; b1 = 0.96300 * b1 + w * 0.2965164; b2 = 0.57000 * b2 + w * 1.0526913;
+        d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.2;
+      }
+      return noiseLong;
     }
-    function startTicks() {
+    // Tiếng vang phòng (impulse response tự sinh: nhiễu stereo tắt dần, làm tối dần) — dùng chung
+    function reverbBus() {       // bus vang chung cho tiếng lá bài (ra thẳng loa)
+      if (reverbNode && reverbCtx === audioCtx) return reverbNode;
+      reverbNode = makeReverb(audioCtx.destination); reverbCtx = audioCtx;
+      return reverbNode;
+    }
+    function makeReverb(dest) {  // bộ vang mới, đầu ra nối vào dest (vd. master của nhạc nền để theo âm lượng)
+      const sr = audioCtx.sampleRate, len = Math.floor(sr * 3.2);
+      const ir = audioCtx.createBuffer(2, len, sr);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = ir.getChannelData(ch); let lp = 0;
+        for (let i = 0; i < len; i++) {
+          const env = Math.pow(1 - i / len, 3.2);
+          lp += ((Math.random() * 2 - 1) - lp) * (0.55 - 0.4 * i / len);   // càng về sau càng tối
+          d[i] = lp * env;
+        }
+      }
+      const conv = audioCtx.createConvolver(); conv.buffer = ir;
+      const out = audioCtx.createGain(); out.gain.value = 0.9;
+      conv.connect(out).connect(dest);
+      return conv;
+    }
+    // Đầu ra cho tiếng xào: khô + chút vang, có panning trái/phải, theo âm lượng tiếng xào
+    function fxOut(t, pan, wet) {
+      const p = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : audioCtx.createGain();
+      if (p.pan) p.pan.setValueAtTime(Math.max(-1, Math.min(1, pan || 0)), t);
+      p.connect(audioCtx.destination);
+      if (wet) { const s = audioCtx.createGain(); s.gain.value = wet; p.connect(s).connect(reverbBus()); }
+      return p;
+    }
+    function track(src) { fxSources.push(src); src.onended = () => { const i = fxSources.indexOf(src); if (i >= 0) fxSources.splice(i, 1); }; return src; }
+    // Một lá bài bật khỏi ngón tay: tiếng giấy sắc (bandpass cao) + chút thân (thấp) — rất ngắn
+    function cardFlick(t, pan, vol) {
+      if (!soundOn || !audioCtx || !noiseBuf) return;
+      vol = (vol == null ? 1 : vol) * soundVol;
+      const out = fxOut(t, pan, 0.12);
+      const src = track(audioCtx.createBufferSource()); src.buffer = noiseBuf; src.playbackRate.value = 0.9 + Math.random() * 0.5;
+      const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2600 + Math.random() * 2400; bp.Q.value = 0.9;
+      const body = audioCtx.createBiquadFilter(); body.type = 'lowpass'; body.frequency.value = 900;
+      const g = audioCtx.createGain(), gb = audioCtx.createGain();
+      const dur = 0.012 + Math.random() * 0.012;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.11 * vol), t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      gb.gain.setValueAtTime(0.0001, t); gb.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.05 * vol), t + 0.002); gb.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.7);
+      src.connect(bp).connect(g).connect(out); src.connect(body).connect(gb).connect(out);
+      src.start(t, Math.random() * 0.15, dur + 0.02); src.stop(t + dur + 0.03);
+    }
+    // Tiếng "phựt" khi làm cầu (bridge): bó lá thả xuống rào rạt — nhiễu quét dải + rung nhanh
+    function cardWhoosh(t, dur, vol) {
+      if (!soundOn || !audioCtx) return;
+      vol = (vol == null ? 1 : vol) * soundVol;
+      const out = fxOut(t, 0, 0.25);
+      const src = track(audioCtx.createBufferSource()); src.buffer = longNoise();
+      const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
+      bp.frequency.setValueAtTime(900, t); bp.frequency.exponentialRampToValueAtTime(3800, t + dur * 0.8);
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.16 * vol), t + dur * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      const flutter = audioCtx.createGain(); flutter.gain.value = 0.6;            // rung ~38Hz = các lá lật phành phạch
+      const lfo = track(audioCtx.createOscillator()); lfo.type = 'square'; lfo.frequency.value = 34 + Math.random() * 10;
+      const lfoG = audioCtx.createGain(); lfoG.gain.value = 0.4; lfo.connect(lfoG).connect(flutter.gain);
+      src.connect(bp).connect(flutter).connect(g).connect(out);
+      src.start(t, Math.random() * 0.8, dur + 0.05); src.stop(t + dur + 0.05); lfo.start(t); lfo.stop(t + dur + 0.05);
+    }
+    // Tiếng "cộp" gõ bộ bài cho ngay ngắn: trầm, mềm
+    function cardThump(t, vol) {
+      if (!soundOn || !audioCtx || !noiseBuf) return;
+      vol = (vol == null ? 1 : vol) * soundVol;
+      const out = fxOut(t, 0, 0.2);
+      const src = track(audioCtx.createBufferSource()); src.buffer = noiseBuf;
+      const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.5 * vol), t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+      src.connect(lp).connect(g).connect(out); src.start(t, 0, 0.1); src.stop(t + 0.1);
+      const o = track(audioCtx.createOscillator()); o.type = 'sine';
+      o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(60, t + 0.07);
+      const og = audioCtx.createGain();
+      og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.22 * vol), t + 0.004); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      o.connect(og).connect(out); o.start(t); o.stop(t + 0.1);
+    }
+    // Tiếng chuông nhỏ lấp lánh khi một lá được lật (nốt ngũ cung Rê thứ, bồi âm như chuông, nhiều vang)
+    const REVEAL_NOTES = [587.33, 698.46, 783.99, 880.00, 1046.50];
+    function revealChime(t, idx, vol) {
+      if (!soundOn || !audioCtx) return;
+      vol = (vol == null ? 1 : vol) * soundVol;
+      const f = REVEAL_NOTES[(idx || 0) % REVEAL_NOTES.length];
+      const out = fxOut(t, ((idx || 0) % 3 - 1) * 0.35, 0.6);
+      [[1, 1, 2.2], [2.0, 0.3, 1.2], [2.76, 0.18, 0.9], [5.4, 0.06, 0.4]].forEach(([r, a, dec]) => {
+        const o = track(audioCtx.createOscillator()); o.type = 'sine'; o.frequency.value = f * r;
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.07 * a * vol), t + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dec);
+        o.connect(g).connect(out); o.start(t); o.stop(t + dec + 0.05);
+      });
+    }
+    // Tràng "rrrrt" khi hai nửa cài vào nhau: n lá, nhanh dần ở giữa, xen kẽ trái/phải
+    function riffleBurr(t, dur, n, vol) {
+      for (let k = 0; k < n; k++) {
+        const u = k / Math.max(1, n - 1);
+        const at = t + dur * (u - Math.sin(2 * Math.PI * u) / (2 * Math.PI) * 0.6);   // dày ở giữa, thưa ở hai đầu
+        cardFlick(at, (k % 2 ? 0.45 : -0.45) + (Math.random() - 0.5) * 0.2, (vol || 1) * (0.7 + 0.3 * Math.sin(Math.PI * u)));
+      }
+    }
+    // Một tiếng "tạch" đơn (chạm lá, nút…) — giữ tên cũ cho các chỗ đang gọi
+    function playTick() { if (audioCtx) cardFlick(audioCtx.currentTime + 0.005, (Math.random() - 0.5) * 0.6, 0.9); }
+    function stopShuffleAudio() { fxSources.slice().forEach(s => { try { s.stop(0); } catch {} }); fxSources = []; }
+    // Tương thích: startTicks/stopTicks giờ là một tràng xào ngắn (dùng cho "Xào lại" trên bánh xe bài)
+    function startTicks(dur) {   // tickTimer khai báo cùng audioCtx ở trên
       stopTicks();
       if (!soundOn) return;
-      ensureAudio();
-      // Nhịp không đều + đôi khi 2 tạch liền → nghe như bài thật cài xuống
-      const beat = () => {
-        playTick();
-        if (Math.random() < 0.4) setTimeout(playTick, 12 + Math.random() * 16);
-        tickTimer = setTimeout(beat, 28 + Math.random() * 45);
-      };
-      beat();
+      ensureAudio(); if (!audioCtx) return;
+      const t = audioCtx.currentTime + 0.02, d = (dur || 1100) / 1000;
+      riffleBurr(t, d * 0.75, 26, 0.9);
+      cardThump(t + d * 0.85, 0.8);
     }
-    function stopTicks() { if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; } }
+    function stopTicks() { if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; } stopShuffleAudio(); }
     // Nguồn sự thật chung cho tiếng xào — nút 🔊 ở màn bốc bài và ô trong Cài đặt trang cùng gọi
     function setSoundOn(v) {
       soundOn = v;
       try { localStorage.setItem('tarotSound', soundOn ? '1' : '0'); } catch {}
       const b = $('soundToggle'); if (b) b.textContent = '♫︎'; b.style.opacity = soundOn ? '' : '.45'; b.style.textDecoration = soundOn ? '' : 'line-through';
       const cb = $('siteSound'); if (cb) cb.checked = soundOn;
-      if (soundOn) { ensureAudio(); if ($(drawCtx.orbit).classList.contains('on')) startTicks(); }
-      else stopTicks();
+      if (soundOn) ensureAudio();          // vòng xào kế tiếp sẽ tự có tiếng
+      else stopShuffleAudio();
     }
     function initSoundBtn() {
       const b = $('soundToggle');
@@ -3487,7 +3618,6 @@
         orbit: 'drawOrbit', fan: 'drawFan', status: 'pickStatus', stop: 'stopShuffle', lock: ['drawBtn', 'pickBtn'],
         count: () => readDrawCount('drawCount'),
         onStart() { $('drawResults').innerHTML = ''; $('drawToReading').disabled = true; lastDraw = []; },
-        onDrawn(cards) { renderDrawResults(cards); $('drawToReading').disabled = !cards.length; },
         onPicked(cards) {
           lastDraw = cards;
           const reduce = prefersReduced();
@@ -3510,7 +3640,6 @@
         // Kiểu trải có vị trí → bốc đúng số vị trí; tự do → theo ô số lá
         count: () => spreadPositions ? spreadPositions.length : readDrawCount('spreadDrawCount'),
         onStart() {},
-        onDrawn(cards) { spread = cards.map(toSpreadCard); renderSpread(true); },
         onPicked(cards) {
           spread = cards.map(toSpreadCard); renderSpread(true);
           // Thu bánh xe lại sau khi lật xong để trải bài (kèm vị trí) hiện ngay bên dưới
@@ -3527,37 +3656,96 @@
     function resetOrbit(ctx) {
       const orbit = $(ctx.orbit);
       if (!orbit || !orbit.classList.contains('on')) return;
-      stopTicks();
+      stopShuffleLoop();
       orbit.classList.remove('on');
       orbit.innerHTML = '';
       $(ctx.stop).style.display = 'none';
       ctx.lock.forEach(id => { $(id).disabled = false; });
     }
-    // Xếp cả bộ bài quanh một hình elip
+    // Xào bài kiểu riffle thật, điều khiển bằng Web Animations + hẹn giờ âm thanh trên CÙNG một đồng hồ:
+    // chia đôi → uốn cong → hai nửa thả lá xen kẽ (mỗi lá rơi = một tiếng "tạch", trái/phải theo nửa)
+    // → làm cầu (tiếng "phựt") → gõ gọn (tiếng "cộp") → lặp lại, mỗi vòng biến tấu nhẹ.
+    let shuffleLoop = null;
     function buildOrbit(count) {
       const el = $(drawCtx.orbit);
       el.innerHTML = zodiacWheelHTML();
       requestAnimationFrame(() => { const zw = el.querySelector('.zwheel'); if (zw) zw.classList.add('show'); });
-      const N = Math.min(count, 20);       // 2 nửa đan xen
-      const M = Math.ceil(N / 2);
+      const N = Math.max(8, Math.min(count, 24));
+      const cards = [];
       for (let i = 0; i < N; i++) {
-        const side = i % 2 === 0 ? -1 : 1;              // chẵn = nửa trái, lẻ = nửa phải
-        const k = Math.floor(i / 2);
-        const f = M > 1 ? k / (M - 1) : 0;               // 0 = gần tâm, 1 = mép ngoài
-        const sx = side * (24 + f * 150);                // hai nửa tách ra
-        const sy = -74 * (1 - f);                        // bật cong (bridge): giữa cao, mép thấp
-        const sr = side * (8 + f * 18);                  // nghiêng dần ra mép
-        const mx = (i - (N - 1) / 2) * 4;                 // khi cài vào: xen kẽ trái/phải
         const c = document.createElement('div');
         c.className = 'riffle-card';
-        c.style.setProperty('--sx', sx.toFixed(0) + 'px');
-        c.style.setProperty('--sy', sy.toFixed(0) + 'px');
-        c.style.setProperty('--sr', sr + 'deg');
-        c.style.setProperty('--mx', mx.toFixed(0) + 'px');
-        c.style.zIndex = String(i);
-        c.style.animationDelay = (-(i * 0.06)).toFixed(2) + 's';  // lệch pha → cài xen liên tục
+        c.style.transform = `translateY(${(-i * 0.45).toFixed(2)}px)`;
+        c.style.zIndex = String(10 + i);
         el.appendChild(c);
+        cards.push(c);
       }
+      startShuffleLoop(el, cards);
+    }
+    function stopShuffleLoop() {
+      if (shuffleLoop) { clearTimeout(shuffleLoop.timer); shuffleLoop.anims.forEach(a => { try { a.cancel(); } catch {} }); shuffleLoop = null; }
+      stopShuffleAudio();
+    }
+    function startShuffleLoop(el, cards) {
+      stopShuffleLoop();
+      const loop = shuffleLoop = { timer: null, anims: [], cycle: 0 };
+      const N = cards.length, M = Math.ceil(N / 2);
+      const run = () => {
+        if (shuffleLoop !== loop || !el.isConnected) return;
+        loop.anims = [];
+        const D = 1650 + Math.random() * 250;                  // mỗi vòng dài ngắn khác nhau chút
+        const spreadX = Math.min(124, Math.max(72, el.clientWidth * 0.26));   // hai nửa tách rõ cả trên khung hẹp
+        const leftFirst = loop.cycle % 2 === 0;                 // đổi bên thả trước mỗi vòng
+        // Thứ tự rơi: xen kẽ từ đáy hai nửa, đôi khi 2 lá cùng bên rơi liền (như tay thật)
+        const L = [], R = [];
+        for (let i = 0; i < N; i++) (i < M ? L : R).push(i);
+        const order = [];
+        let a = leftFirst ? L : R, b = leftFirst ? R : L;
+        while (a.length || b.length) {
+          if (a.length) order.push(a.shift());
+          if (a.length && Math.random() < 0.18) order.push(a.shift());
+          [a, b] = [b, a];
+        }
+        const landAt = new Array(N), landIdx = new Array(N);
+        order.forEach((ci, k) => { landAt[ci] = 0.30 + 0.32 * (k / (N - 1)); landIdx[ci] = k; });
+        // Âm thanh: hẹn giờ theo đúng các mốc của hình
+        if (soundOn && audioCtx) {
+          const T = audioCtx.currentTime + 0.03, s = D / 1000;
+          for (let i = 0; i < N; i++) cardFlick(T + landAt[i] * s, i < M ? -0.5 : 0.5, 0.75 + Math.random() * 0.35);
+          cardWhoosh(T + 0.665 * s, 0.17 * s, 0.9);
+          cardThump(T + 0.86 * s, 0.9);
+        }
+        cards.forEach((c, i) => {
+          const side = i < M ? -1 : 1, j = i < M ? i : i - M;        // j: vị trí trong nửa
+          const hx = side * (spreadX - j * 1.2), hy = -j * 0.6;
+          const k = landIdx[i], t = landAt[i];
+          const jit = (Math.random() - 0.5) * 5, jr = (Math.random() - 0.5) * 3;
+          const stack = y => `translate(0px, ${y.toFixed(1)}px) rotate(0deg)`;
+          const f = [
+            { offset: 0, transform: stack(-i * 0.45), zIndex: 10 + i },
+            { offset: 0.12, transform: `translate(${hx.toFixed(1)}px, ${hy.toFixed(1)}px) rotate(${side * 6}deg)`, zIndex: 50 + j },
+            { offset: 0.22, transform: `translate(${(hx - side * 10).toFixed(1)}px, ${(hy - 14).toFixed(1)}px) rotate(${side * 15}deg)`, zIndex: 50 + j },
+            { offset: t - 0.035, transform: `translate(${(hx - side * 14).toFixed(1)}px, ${(hy - 16).toFixed(1)}px) rotate(${side * 17}deg)`, zIndex: 50 + j },
+            { offset: t, transform: `translate(${(side * 4 + jit).toFixed(1)}px, ${(-k * 0.45).toFixed(1)}px) rotate(${jr.toFixed(1)}deg)`, zIndex: 100 + k },
+            { offset: 0.66, transform: `translate(${(jit * 0.6).toFixed(1)}px, ${(-20 - k * 0.45).toFixed(1)}px) rotate(${(k % 2 ? 5 : -5)}deg)`, zIndex: 100 + k },
+            { offset: 0.80, transform: `translate(0px, ${(-k * 0.45).toFixed(1)}px) rotate(${(jr * 0.5).toFixed(1)}deg)`, zIndex: 100 + k },
+            { offset: 0.86, transform: `translate(0px, ${(3 - k * 0.45).toFixed(1)}px) rotate(0deg)`, zIndex: 100 + k },
+            { offset: 0.92, transform: stack(-k * 0.45), zIndex: 100 + k },
+            { offset: 1, transform: stack(-k * 0.45), zIndex: 100 + k }
+          ];
+          loop.anims.push(c.animate(f, { duration: D, easing: 'linear', fill: 'forwards' }));
+        });
+        // Cuối vòng: đặt lại thứ tự DOM theo thứ tự đã cài, để vòng sau bắt đầu từ bộ bài mới
+        loop.timer = setTimeout(() => {
+          if (shuffleLoop !== loop) return;
+          const sorted = cards.map((c, i) => [landIdx[i], c]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
+          sorted.forEach((c, i) => { cards[i] = c; c.style.transform = `translateY(${(-i * 0.45).toFixed(2)}px)`; c.style.zIndex = String(10 + i); });
+          loop.anims.forEach(an => { try { an.cancel(); } catch {} });
+          loop.cycle++;
+          run();
+        }, D);
+      };
+      run();
     }
     function startOrbit(mode, ctxKey) {
       Object.values(DRAW_CTX).forEach(resetOrbit);
@@ -3571,10 +3759,9 @@
       $(drawCtx.orbit).classList.add('on');
       $(drawCtx.stop).style.display = 'inline-block';
       drawCtx.lock.forEach(id => { $(id).disabled = true; });
-      startTicks();               // tiếng tách-tách khi xào
     }
     function stopOrbit() {
-      stopTicks();
+      stopShuffleLoop();
       const orbit = $(drawCtx.orbit);
       orbit.classList.remove('on');
       orbit.innerHTML = '';
@@ -3583,11 +3770,8 @@
       finishOrbit(orbitMode);
     }
     function finishOrbit(mode) {
-      if (mode === 'pick') {
-        startManualPick(drawCtx.count());              // dừng → xòe bánh xe để chọn
-      } else {
-        drawCtx.onDrawn(drawRandomCards(drawCtx.count()));   // dừng → chia + lật
-      }
+      // Cả hai chế độ dùng chung sân khấu bánh xe: 'pick' = người dùng chạm chọn, 'draw' = tự rút
+      startManualPick(drawCtx.count(), mode !== 'pick');
     }
     // ===== Tuần trăng (tính cục bộ theo tháng giao hội, không cần API) =====
     function moonPhase(date) {
@@ -3973,8 +4157,9 @@
           '<g stroke="currentColor" stroke-width=".6" opacity=".7">' + rays + '</g><circle r="8" fill="none" stroke="currentColor" stroke-width=".6"/><circle r="2.2" fill="currentColor"/></g>' +
         '</svg></div>';
     }
-    // Tự chọn: bày cả bộ thành bánh xe bài úp, người dùng chạm để chọn N lá (lá vẫn ngẫu nhiên, ẩn tới khi lật)
-    function startManualPick(n) {
+    // Tự chọn: bày cả bộ thành bánh xe bài úp, người dùng chạm để chọn N lá (lá vẫn ngẫu nhiên, ẩn tới khi lật).
+    // auto = true ("Xào & bốc"): cùng sân khấu đó nhưng "bàn tay vô hình" tự rút lần lượt từng lá.
+    function startManualPick(n, auto) {
       const ctx = drawCtx;   // chốt ngữ cảnh của lượt chọn này (callback chạy trễ vẫn đúng trang)
       const fan = $(ctx.fan), status = $(ctx.status);
       const en = lang === 'en';
@@ -3987,11 +4172,13 @@
       const N = pool.length;
       const reduce = prefersReduced();
       fan.className = 'fan';
-      fan.innerHTML = zodiacWheelHTML() +
-        '<div class="fan-tools"><button type="button" class="fan-reshuffle">☍︎ ' + (en ? 'Reshuffle' : 'Xào lại') + '</button></div>';
+      fan.innerHTML = zodiacWheelHTML() + (auto ? '' :
+        '<div class="fan-tools"><button type="button" class="fan-reshuffle">☍︎ ' + (en ? 'Reshuffle' : 'Xào lại') + '</button></div>');
       fan.style.display = 'block';
       status.style.display = 'block';
-      const setStatus = () => { status.textContent = en
+      const setStatus = () => { status.textContent = auto
+        ? (en ? '✦ The cards are choosing themselves… (' + picks.length + '/' + n + ')' : '✦ Các lá bài đang tự tìm đến bạn… (' + picks.length + '/' + n + ')')
+        : en
         ? 'Tap to draw ' + n + ' card' + (n > 1 ? 's' : '') + ' from the wheel (' + picks.length + '/' + n + ').'
         : 'Chạm để bốc ' + n + ' lá từ bánh xe bài (' + picks.length + '/' + n + ').'; };
       setStatus();
@@ -4022,10 +4209,13 @@
         fc.addEventListener('click', () => onPick(fc, i));
       });
 
-      function onPick(fc, i) {
+      function onPick(fc, i, fromAuto) {
+        if (auto && !fromAuto) return;   // chế độ tự động: bỏ qua chạm của người dùng
         if (!fan.classList.contains('spread') || fan.classList.contains('locked') || fan.classList.contains('reshuffle') || fc.classList.contains('picked') || picks.length >= n) return;
         haptic(14);
+        if (audioCtx) cardFlick(audioCtx.currentTime + 0.01, (i / Math.max(1, N - 1) - 0.5) * 1.4, 1.1);   // tiếng rút lá, trái/phải theo vị trí
         fc.classList.add('picked');
+        const im = fc.querySelector('.flip-back img'); if (im) { im.loading = 'eager'; im.decoding = 'async'; }   // tải ảnh ngay, kịp lúc lật
         picks.push({ card: pool[i], el: fc });
         setStatus();
         if (picks.length >= n) finishPick();
@@ -4052,6 +4242,7 @@
         picks.forEach((p, j) => setTimeout(() => {
           p.el.querySelector('.flip').classList.add('revealed');
           haptic(8);
+          if (audioCtx) revealChime(audioCtx.currentTime + 0.25, j, k === 1 ? 1.2 : 0.9);
           setTimeout(() => burstAt(p.el, k === 1 ? 26 : 14), reduce ? 0 : 700);
         }, flipAt + (reduce ? 0 : j * 380)));
         setTimeout(() => {
@@ -4060,8 +4251,17 @@
         }, flipAt + (reduce ? 0 : k * 380 + 1300));
       }
 
+      // Tự động: đợi bánh xe lăn ra xong, rồi lần lượt rút n lá ở các vị trí ngẫu nhiên rải đều khắp bánh xe
+      if (auto) {
+        const idx = [], seg = N / n;
+        for (let j = 0; j < n; j++) idx.push(Math.min(N - 1, Math.floor(j * seg + Math.random() * seg)));
+        for (let j = idx.length - 1; j > 0; j--) { const r = Math.floor(Math.random() * (j + 1)); [idx[j], idx[r]] = [idx[r], idx[j]]; }  // thứ tự rút ngẫu nhiên
+        const startAt = reduce ? 0 : 1700, gap = reduce ? 0 : (n > 6 ? 300 : 460);
+        idx.forEach((i, j) => setTimeout(() => { if (fan.isConnected && fan.style.display !== 'none') onPick(cards[i], i, true); }, startAt + j * gap));
+      }
+
       // Xào lại: quét cả bánh xe sang một bên, đổi thứ tự, rồi xòe lại
-      fan.querySelector('.fan-reshuffle').addEventListener('click', () => {
+      if (!auto) fan.querySelector('.fan-reshuffle').addEventListener('click', () => {
         if (picks.length || fan.classList.contains('reshuffle')) return;
         haptic(10);
         startTicks();
