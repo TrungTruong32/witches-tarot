@@ -2,7 +2,7 @@
 // QUAN TRỌNG: bump 'v1'→'v2'… mỗi khi ĐỔI asset cache-first (tarot.db, icon, cardback),
 // nếu không người dùng đã cài sẽ kẹt bản cũ mãi. Đổi riêng HTML thì KHÔNG cần bump
 // (HTML dùng network-first).
-const CACHE = 'wtarot-v6';
+const CACHE = 'wtarot-v7';
 
 // Vỏ ứng dụng: HTML, DB, icon, mặt lưng bài.
 const SHELL = [

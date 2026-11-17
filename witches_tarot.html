@@ -167,7 +167,7 @@
     .lt-skip { margin-top: 10px; padding: 6px 10px; background: transparent; border: none; color: var(--muted); font-size: .85rem; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: color-mix(in srgb, var(--muted) 45%, transparent); }
     .lt-skip:hover { background: transparent; color: var(--spark); }
     /* trang trí đáy: vòng tròn đồng tâm + quả cầu sáng + quạt bài ló lên */
-    .lt-deco { position: fixed; left: 0; right: 0; bottom: 0; height: clamp(170px, 30vh, 280px); z-index: 1; pointer-events: none; overflow: hidden; }
+    .lt-deco { position: fixed; left: 0; right: 0; bottom: 0; height: clamp(170px, 30vh, 300px); z-index: 1; pointer-events: none; overflow: hidden; }
     .lt-circles { position: absolute; left: 50%; bottom: 0; width: min(1300px, 140vw); aspect-ratio: 1; transform: translate(-50%, 62%); }
     .lt-circles span { position: absolute; inset: 0; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--spark) 22%, transparent); }
     .lt-circles span:nth-child(2) { inset: 14%; border-style: dashed; opacity: .7; animation: zwSpin 160s linear infinite; }
@@ -178,12 +178,14 @@
     .lt-orb::after { content: ''; position: absolute; left: 50%; bottom: 60%; width: 1px; height: 160px; background: linear-gradient(to top, var(--accent2), transparent); opacity: .7; }
     @keyframes orbBreath { 0%,100% { transform: scale(.9); opacity: .75; } 50% { transform: scale(1.08); opacity: 1; } }
     .lt-fan { position: absolute; left: 50%; bottom: 0; width: 0; height: 0; }
-    .lt-fan .lc { position: absolute; left: -32px; bottom: -40px; width: 64px; aspect-ratio: 300 / 525; border-radius: 7px; background: var(--cardback);
+    /* kích thước & bán kính do JS tính theo bề rộng màn hình (--cw, --R) */
+    .lt-fan { --cw: 64px; --R: 520px; }
+    .lt-fan .lc { position: absolute; left: calc(var(--cw) / -2); bottom: calc(var(--cw) * -.62 - var(--drop, 0px)); width: var(--cw); aspect-ratio: 300 / 525; border-radius: calc(var(--cw) * .1); background: var(--cardback);
       border: 1px solid color-mix(in srgb, var(--spark) 25%, transparent); box-shadow: 0 6px 18px rgba(0,0,0,.5);
-      transform-origin: 50% 520px; transform: rotate(var(--a)) translateY(var(--y, 0px)); animation: lcSway 7s ease-in-out infinite; animation-delay: var(--dl); }
-    @keyframes lcSway { 0%,100% { transform: rotate(var(--a)) translateY(var(--y, 0px)); } 50% { transform: rotate(calc(var(--a) + 1.2deg)) translateY(calc(var(--y, 0px) - 6px)); } }
+      transform-origin: 50% calc(100% + var(--R)); transform: rotate(var(--a)); animation: lcSway 8s ease-in-out infinite; animation-delay: var(--dl); }
+    @keyframes lcSway { 0%,100% { transform: rotate(var(--a)) translateY(0); } 50% { transform: rotate(calc(var(--a) + .5deg)) translateY(-7px); } }
     @media (max-width: 860px) { .lt-nav { display: none; } .lt-burger { display: inline-flex; align-items: center; justify-content: center; } .lt-top { padding: 12px 16px; } }
-    @media (max-width: 560px) { .lt-pre { font-size: .7rem; letter-spacing: 1.4px; } .lt-input input { padding: 18px 18px 18px 54px; } .lt-arrow { left: 18px; } .lt-fan .lc { width: 50px; left: -25px; } }
+    @media (max-width: 560px) { .lt-pre { font-size: .7rem; letter-spacing: 1.4px; } .lt-input input { padding: 18px 18px 18px 54px; } .lt-arrow { left: 18px; } }
     @media (prefers-reduced-motion: reduce) { .lt-stars, .lt-orb, .lt-fan .lc, .lt-circles span, .lt-emblem::before { animation: none; } .lt-form.shake .lt-input { animation: none; } }
     @keyframes landFade { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
     @keyframes landOut { to { opacity: 0; transform: scale(1.05); } }
@@ -1684,14 +1686,36 @@
       const form = $('askForm'), inp = $('askInput'), cnt = $('askCount'), err = $('askErr');
       if (!form || !inp) return;
       // quạt bài trang trí ló lên ở đáy
+      // Quạt bài xoè rộng gần hết bề ngang: lá to dần theo màn hình, số lá đủ để phủ kín cung (15 lá trên điện thoại → ~40 lá trên laptop lớn)
       const fan = $('landingFan');
-      if (fan) {
-        const N = 15;
+      function layoutLandingFan() {
+        if (!fan) return;
+        const W = window.innerWidth;
+        const cw = Math.round(Math.max(54, Math.min(118, W * .072)));       // bề rộng lá
+        const R = Math.max(420, W * .95);                                    // trục quay nằm sâu dưới đáy
+        const half = Math.asin(Math.min(.97, (W * .5 - cw * .2) / (R + cw * 1.1))) * 180 / Math.PI;   // nửa góc xoè: phủ tới mép màn hình
+        const arc = 2 * half * Math.PI / 180 * (R + cw);
+        const N = Math.max(15, Math.min(41, Math.round(arc / (cw * .48)) | 1));   // lá chồng ~52%
+        fan.style.setProperty('--cw', cw + 'px');
+        fan.style.setProperty('--R', Math.round(R) + 'px');
         fan.innerHTML = Array.from({ length: N }, (_, i) => {
-          const t = i / (N - 1) - .5;
-          return `<span class="lc" style="--a:${(t * 44).toFixed(1)}deg;--y:${(Math.abs(t) * 30).toFixed(0)}px;--dl:${(-i * .45).toFixed(2)}s"></span>`;
+          const t = N > 1 ? i / (N - 1) - .5 : 0;
+          return `<span class="lc" style="--a:${(t * 2 * half).toFixed(2)}deg;--dl:${(-i * .37).toFixed(2)}s"></span>`;
         }).join('');
+        // Màn thấp: hạ quạt xuống để không lấn lên nút "Bốc bài" / "Bỏ qua câu hỏi"
+        requestAnimationFrame(() => {
+          const skip = $('askSkip');
+          const r = skip && skip.getBoundingClientRect();
+          if (!r || !r.height) { fan.style.setProperty('--drop', '0px'); return; }
+          const show = cw * 1.75 * .62;                         // phần lá giữa ló lên khi chưa hạ
+          const room = window.innerHeight - r.bottom - 18;      // khoảng trống dưới nút
+          fan.style.setProperty('--drop', Math.max(0, Math.min(show - 24, show - room)).toFixed(0) + 'px');
+        });
       }
+      layoutLandingFan();
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutLandingFan);
+      let fanT = 0;
+      window.addEventListener('resize', () => { clearTimeout(fanT); fanT = setTimeout(layoutLandingFan, 150); });
       // menu trên cùng
       document.querySelectorAll('.lt-nav [data-go]').forEach(b =>
         b.addEventListener('click', () => whenReady(() => { enterApp(); switchMode(b.dataset.go); })));
