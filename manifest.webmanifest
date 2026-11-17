@@ -1,0 +1,17 @@
+{
+  "name": "Witches Tarot",
+  "short_name": "Witches Tarot",
+  "description": "Tra cứu 78 lá Witches Tarot, trải bài và diễn giải bằng AI.",
+  "lang": "vi",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1f1b2f",
+  "theme_color": "#1f1b2f",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
