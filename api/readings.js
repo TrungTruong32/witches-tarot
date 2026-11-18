@@ -31,21 +31,29 @@ function sameOrigin(req) {
   } catch { return false; }
 }
 
-function clean(body) {
+const MIN_TS = Date.UTC(2020, 0, 1);
+const BATCH_MAX = 25, BACKFILL_MAX_PER_DEVICE = 1000;
+
+// Làm sạch MỘT trải bài. backfill=true: dùng thời điểm gốc từ trình duyệt (client_ts) làm created_at.
+function clean(body, deviceId, backfill) {
   if (!body || typeof body !== 'object') return null;
-  if (!UUID.test(String(body.device_id || ''))) return null;
+  if (!UUID.test(String(deviceId || ''))) return null;
   if (!Array.isArray(body.cards) || body.cards.length < 1 || body.cards.length > 15) return null;
   const cards = body.cards.map(c => ({
     id: Number.isFinite(+c?.id) ? +c.id : null,
     name: str(c?.name, 80),
     suit: str(c?.suit, 40),
     number: str(c?.number, 10),
-    orientation: c?.orientation === 'nguoc' ? 'reversed' : 'upright',
+    orientation: c?.orientation === 'nguoc' || c?.orientation === 'reversed' ? 'reversed' : 'upright',
     position: str(c?.position, 80)
   }));
   if (cards.some(c => !c.name)) return null;
-  return {
-    device_id: body.device_id,
+  const ts = Number.isSafeInteger(body.client_ts) && body.client_ts >= MIN_TS && body.client_ts <= Date.now() + 5 * 60000 ? body.client_ts : null;
+  if (backfill && ts == null) return null;           // đồng bộ lịch sử bắt buộc có thời điểm gốc hợp lệ
+  const row = {
+    device_id: deviceId,
+    client_ts: ts,
+    source: backfill ? 'backfill' : 'live',
     lang: body.lang === 'en' ? 'en' : 'vi',
     deck: str(body.deck, 200),
     spread: str(body.spread, 40),
@@ -56,6 +64,8 @@ function clean(body) {
     model: str(body.model, 120),
     app_version: str(body.app_version, 40)
   };
+  if (backfill) row.created_at = new Date(ts).toISOString();
+  return row;
 }
 
 export async function POST(req) {
@@ -64,33 +74,41 @@ export async function POST(req) {
   if (!sameOrigin(req)) return json(403, { ok: false, error: 'forbidden' });
   if (ipLimited(req)) return json(429, { ok: false, error: 'rate limited' });
   const raw = await req.text();
-  if (raw.length > 60000) return json(413, { ok: false, error: 'too large' });
+  if (raw.length > 900000) return json(413, { ok: false, error: 'too large' });
   let body;
   try { body = JSON.parse(raw); } catch { return json(400, { ok: false, error: 'bad json' }); }
-  const row = clean(body);
-  if (!row) return json(400, { ok: false, error: 'invalid reading' });
+
+  // Hai kiểu gửi: một trải bài (live) hoặc { device_id, batch: [...] } (đồng bộ lịch sử cũ, tối đa 25/lần)
+  const isBatch = body && Array.isArray(body.batch);
+  if (!isBatch && raw.length > 60000) return json(413, { ok: false, error: 'too large' });
+  if (isBatch && (body.batch.length < 1 || body.batch.length > BATCH_MAX)) return json(400, { ok: false, error: 'invalid batch' });
+  const rows = isBatch ? body.batch.map(r => clean(r, body.device_id, true)).filter(Boolean) : [clean(body, body?.device_id, false)].filter(Boolean);
+  if (!rows.length) return json(400, { ok: false, error: 'invalid reading' });
+  const deviceId = rows[0].device_id;
 
   const base = url.replace(/\/+$/, '') + '/rest/v1/readings';
   const auth = { apikey: key, authorization: 'Bearer ' + key };
+  const count = async q => Number(((await fetch(`${base}?select=id&${q}`, { method: 'HEAD', headers: { ...auth, prefer: 'count=exact' } })).headers.get('content-range') || '').split('/')[1] || 0);
 
-  // Giới hạn tần suất theo device_id (đếm trong DB, không cần lưu IP)
-  const since = new Date(Date.now() - RATE_MIN * 60000).toISOString();
-  const cnt = await fetch(`${base}?select=id&device_id=eq.${row.device_id}&created_at=gte.${encodeURIComponent(since)}`, {
-    method: 'HEAD', headers: { ...auth, prefer: 'count=exact' }
-  });
-  const total = Number((cnt.headers.get('content-range') || '').split('/')[1] || 0);
-  if (total >= RATE_MAX) return json(429, { ok: false, error: 'rate limited' });
-  const hour = new Date(Date.now() - 3600000).toISOString();
-  const all = await fetch(`${base}?select=id&created_at=gte.${encodeURIComponent(hour)}`, { method: 'HEAD', headers: { ...auth, prefer: 'count=estimated' } });
-  if (Number((all.headers.get('content-range') || '').split('/')[1] || 0) >= GLOBAL_MAX_PER_HOUR) return json(429, { ok: false, error: 'busy' });
+  if (isBatch) {
+    // Mỗi thiết bị đồng bộ tối đa BACKFILL_MAX_PER_DEVICE trải bài cũ
+    if (await count(`device_id=eq.${deviceId}&source=eq.backfill`) + rows.length > BACKFILL_MAX_PER_DEVICE) return json(429, { ok: false, error: 'backfill limit' });
+  } else {
+    // Giới hạn tần suất theo device_id (đếm trong DB, không cần lưu IP)
+    const since = new Date(Date.now() - RATE_MIN * 60000).toISOString();
+    if (await count(`device_id=eq.${deviceId}&source=eq.live&created_at=gte.${encodeURIComponent(since)}`) >= RATE_MAX) return json(429, { ok: false, error: 'rate limited' });
+    const hour = new Date(Date.now() - 3600000).toISOString();
+    if (await count(`source=eq.live&created_at=gte.${encodeURIComponent(hour)}`) >= GLOBAL_MAX_PER_HOUR) return json(429, { ok: false, error: 'busy' });
+  }
 
-  const ins = await fetch(base, {
+  // Trùng (cùng device_id + client_ts) thì bỏ qua → gửi lại bao nhiêu lần cũng không nhân đôi
+  const ins = await fetch(base + '?on_conflict=device_id,client_ts', {
     method: 'POST',
-    headers: { ...auth, 'content-type': 'application/json', prefer: 'return=minimal' },
-    body: JSON.stringify(row)
+    headers: { ...auth, 'content-type': 'application/json', prefer: 'return=minimal,resolution=ignore-duplicates' },
+    body: JSON.stringify(isBatch ? rows : rows[0])
   });
   if (!ins.ok) return json(502, { ok: false, error: 'storage error', status: ins.status });
-  return json(201, { ok: true });
+  return json(201, { ok: true, received: rows.length, skipped: isBatch ? body.batch.length - rows.length : 0 });
 }
 
 export function GET() {

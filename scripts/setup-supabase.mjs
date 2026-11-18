@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 
 const ENV = '.env', NAME = 'witches-tarot', REGION = 'ap-southeast-1';
-const MIGRATION = 'supabase/migrations/20261117090000_readings.sql';
+const MIGRATIONS_DIR = 'supabase/migrations';
 const API = 'https://api.supabase.com/v1';
 
 function readEnv() {
@@ -77,14 +77,19 @@ try {
   }
   console.log(' sẵn sàng.');
 
-  // 4) Tạo bảng (migration chạy lại an toàn: create if not exists)
-  const sql = fs.readFileSync(MIGRATION, 'utf8');
-  for (let i = 0; ; i++) {
-    try { await api('POST', `/projects/${ref}/database/query`, { query: sql }); break; }
-    catch (e) { if (i >= 5) throw e; await sleep(8000); }
+  // 4) Chạy mọi migration theo thứ tự tên file (đều viết kiểu chạy lại an toàn: if not exists)
+  const files = fs.readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.sql')).sort();
+  for (const f of files) {
+    const sql = fs.readFileSync(`${MIGRATIONS_DIR}/${f}`, 'utf8');
+    for (let i = 0; ; i++) {
+      try { await api('POST', `/projects/${ref}/database/query`, { query: sql }); break; }
+      catch (e) { if (i >= 5) throw e; await sleep(8000); }
+    }
+    console.log(`✓ Migration ${f}`);
   }
-  const check = await api('POST', `/projects/${ref}/database/query`, { query: "select relrowsecurity as rls from pg_class where oid = 'public.readings'::regclass" });
-  console.log(`✓ Bảng public.readings đã sẵn sàng (RLS: ${check?.[0]?.rls ? 'bật' : 'TẮT ⚠'}).`);
+  const check = await api('POST', `/projects/${ref}/database/query`, { query: "select relrowsecurity as rls, (select count(*) from information_schema.columns where table_schema='public' and table_name='readings' and column_name in ('client_ts','source')) as cols, (select count(*) from public.readings) as n from pg_class where oid = 'public.readings'::regclass" });
+  const c = check?.[0] || {};
+  console.log(`✓ Bảng public.readings: RLS ${c.rls ? 'bật' : 'TẮT ⚠'} · cột đồng bộ ${Number(c.cols) === 2 ? 'có' : 'THIẾU ⚠'} · ${c.n} trải bài.`);
 
   // 5) Lấy service role key → ghi vào .env (không in)
   const keys = await api('GET', `/projects/${ref}/api-keys?reveal=true`);

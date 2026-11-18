@@ -1702,7 +1702,7 @@
               : 'Trải bài chỉ lưu trong máy bạn · <a data-cloud-on>bật lưu ẩn danh</a>');
     }
     function setCloudSave(on) {
-      try { localStorage.setItem('tarotCloudSave', on ? '1' : '0'); } catch {}
+      try { localStorage.setItem('tarotCloudSave', on ? '1' : '0'); if (on) localStorage.removeItem('tarotCloudBackfill'); } catch {}
       const cb = $('siteCloud'); if (cb) cb.checked = on;
       renderCloudNote();
     }
@@ -3753,18 +3753,52 @@
         return id;
       } catch { return null; }
     }
+    // Ghi chú cá nhân (note) và đoạn chat hỏi thêm (followups) KHÔNG được gửi.
+    function cloudPayload(r) {
+      return {
+        client_ts: Number.isSafeInteger(r.ts) ? r.ts : undefined,
+        lang, deck: r.deck, spread: r.spread || 'free', question: r.question || '',
+        cards: (r.cards || []).map((c, i) => ({ id: c.id, name: c.ten, suit: c.bo, number: String(c.so ?? ''), orientation: c.orientation, position: r.positions ? r.positions[i] || null : null })),
+        facts: r.facts || [], ai_answer: r.text || '', model: String(r.provider || '').slice(0, 120), app_version: 'web'
+      };
+    }
     function cloudSaveReading(r) {
       if (!cloudSaveOn() || !/^https?:$/.test(location.protocol) || !r || !r.cards || !r.cards.length) return;
       const id = deviceId(); if (!id) return;
-      const body = {
-        device_id: id, lang, deck: r.deck, spread: r.spread || 'free', question: r.question || '',
-        cards: r.cards.map((c, i) => ({ id: c.id, name: c.ten, suit: c.bo, number: String(c.so ?? ''), orientation: c.orientation, position: r.positions ? r.positions[i] || null : null })),
-        facts: r.facts || [], ai_answer: r.text || '', model: String(r.provider || '').slice(0, 120), app_version: 'web'
-      };
+      const body = { device_id: id, ...cloudPayload(r) };
       fetch('/api/readings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), keepalive: true })
         .then(res => { if (!res.ok && res.status !== 503) console.warn('Lưu trải bài lên máy chủ thất bại:', res.status); })
         .catch(() => {});   // mất mạng / offline: bỏ qua, lịch sử cục bộ vẫn còn
     }
+    // ---- Đồng bộ lịch sử cũ trong máy lên máy chủ (ẩn danh, một lần, chạy ngầm) ----
+    // Chạy khi mở app, trừ khi người dùng đã tắt "Lưu trải bài ẩn danh" trong Cài đặt trang.
+    // Server bỏ qua trải bài trùng (device_id + thời điểm), nên chạy lại cũng không nhân đôi.
+    const BACKFILL_KEY = 'tarotCloudBackfill';
+    async function cloudBackfill() {
+      try {
+        if (!cloudSaveOn() || !/^https?:$/.test(location.protocol) || localStorage.getItem(BACKFILL_KEY) === 'done') return;
+        const id = deviceId(); if (!id) return;
+        const all = (await idbAllReadings()).filter(r => r && Array.isArray(r.cards) && r.cards.length && Number.isSafeInteger(r.ts))
+          .sort((a, b) => a.ts - b.ts);
+        if (!all.length) { localStorage.setItem(BACKFILL_KEY, 'done'); return; }
+        let sent = 0;
+        for (let i = 0; i < all.length;) {
+          // lô ≤ 25 trải bài và ≤ ~700KB
+          const batch = []; let size = 0;
+          while (i < all.length && batch.length < 25) {
+            const p = cloudPayload(all[i]); const n = JSON.stringify(p).length;
+            if (batch.length && size + n > 700000) break;
+            batch.push(p); size += n; i++;
+          }
+          const res = await fetch('/api/readings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ device_id: id, batch }) });
+          if (!res.ok) return;                   // 503/404/429: máy chủ chưa sẵn sàng → thử lại lần mở app sau
+          sent += batch.length;
+        }
+        localStorage.setItem(BACKFILL_KEY, 'done');
+      } catch (e) { console.warn('Đồng bộ lịch sử thất bại', e); }
+    }
+    whenReady(() => setTimeout(cloudBackfill, 2500));
+
     function loadReading(it) {
       questionInput.value = it.question || '';
       spread = (it.cards || []).map(c => Object.assign({}, c, { uid: ++uidCounter }));
