@@ -12,15 +12,17 @@ for (const line of fs.readFileSync('.env', 'utf8').split(/\r?\n/)) {
   if (m) env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
 }
 const mask = t => [env.VERCEL_TOKEN].filter(Boolean).reduce((s, v) => s.split(v).join('***'), t);
-const sh = (cmd, args) => spawnSync(cmd, args, { encoding: 'utf8', shell: process.platform === 'win32' });
+const git = args => spawnSync('git', args, { encoding: 'utf8' });                       // git là .exe → không cần shell
+// npx trên Windows là .cmd → phải qua shell; truyền MỘT chuỗi lệnh (đối số đều là chữ cố định/token không có dấu cách)
+const npx = args => spawnSync(['npx', ...args].join(' '), { encoding: 'utf8', shell: true });
 
-const dirty = sh('git', ['status', '--porcelain']).stdout.trim();
+const dirty = git(['status', '--porcelain']).stdout.trim();
 if (dirty) { console.error('✗ Còn thay đổi chưa commit — commit trước rồi deploy:\n' + dirty); process.exit(1); }
-const head = sh('git', ['log', '-1', '--format=%h %s']).stdout.trim();
+const head = git(['log', '-1', '--format=%h %s']).stdout.trim();
 console.log(`… Deploy ${head} lên Production (vài chục giây)…`);
 
 const auth = env.VERCEL_TOKEN ? ['--token', env.VERCEL_TOKEN] : [];
-const r = sh('npx', ['-y', 'vercel@latest', 'deploy', '--prod', '--yes', '--scope', 'trung-truong', ...auth]);
+const r = npx(['-y', 'vercel@latest', 'deploy', '--prod', '--yes', '--scope', 'trung-truong', ...auth]);
 const out = mask((r.stdout || '') + (r.stderr || ''));
 if (r.status !== 0) { console.error('✗ Deploy lỗi:\n' + out.trim().split('\n').slice(-10).join('\n')); process.exit(1); }
 console.log('✓ Deploy xong: ' + ((out.match(/https:\/\/\S+\.vercel\.app/g) || []).pop() || ''));
