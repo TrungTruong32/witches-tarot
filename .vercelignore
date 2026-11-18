@@ -13,3 +13,4 @@ node_modules
 # Migration SQL — không cần trên web
 supabase
 scripts
+local

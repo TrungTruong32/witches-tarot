@@ -7,3 +7,6 @@ test.ipynb
 
 # Supabase CLI cache
 supabase/.temp/
+
+# Công cụ xem trải bài chạy ở máy (có dùng khoá trong .env)
+local/
