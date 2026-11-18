@@ -11,13 +11,16 @@
 //   (tuỳ chọn) GEMINI_MODEL, OLLAMA_MODEL, OPENROUTER_MODEL, AI_DEVICE_DAILY, AI_IP_DAILY, AI_GLOBAL_DAILY, AI_HASH_SECRET
 import { createHash } from 'node:crypto';
 
+// Key trong env có thể bị dán kèm chú thích/khoảng trắng ("AIza... # ghi chú") → chỉ lấy từ đầu tiên, bỏ ngoặc kép
+const envKey = n => (String(process.env[n] || '').trim().replace(/^['"]|['"]$/g, '').split(/\s+/)[0] || '').replace(/[^!-~]/g, '');
+const envVal = n => String(process.env[n] || '').split(/\s+#/)[0].trim().replace(/^['"]|['"]$/g, '');
 const num = (v, d) => (Number.isFinite(+v) && +v > 0 ? Math.floor(+v) : d);
 const DEVICE_DAILY = num(process.env.AI_DEVICE_DAILY, 10);
 const IP_DAILY = num(process.env.AI_IP_DAILY, 30);
 const GLOBAL_DAILY = num(process.env.AI_GLOBAL_DAILY, 600);
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gpt-oss:120b';
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'openrouter/free';   // router tự chọn model :free còn sống
+const GEMINI_MODEL = envVal('GEMINI_MODEL') || 'gemini-flash-lite-latest';
+const OLLAMA_MODEL = envVal('OLLAMA_MODEL') || 'gpt-oss:120b';
+const OPENROUTER_MODEL = envVal('OPENROUTER_MODEL') || 'openrouter/free';   // router tự chọn model :free còn sống
 const MAX_OUT = 4000;                                  // token trả lời tối đa mỗi lượt
 // Hỏi tiếp gửi lại cả lịch sử (Celtic Cross + nghĩa Rider-Waite + vài lượt trả lời dài) → để rộng tay
 const MAX_MSGS = 30, MAX_MSG_CHARS = 30000, MAX_TOTAL_CHARS = 90000;
@@ -79,14 +82,14 @@ async function fail(resp, name) {
 
 const PROVIDERS = {
   gemini: {
-    key: () => process.env.GEMINI_API_KEY,
+    key: () => envKey('GEMINI_API_KEY'),
     label: () => 'Gemini (' + GEMINI_MODEL + ')',
     async *stream(messages, signal) {
       const sys = messages.filter(m => m.role === 'system').map(m => m.content).concat(GUARD).join('\n\n');
       const contents = messages.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
       const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:streamGenerateContent?alt=sse`, {
         method: 'POST', signal,
-        headers: { 'content-type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': envKey('GEMINI_API_KEY') },
         body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents, generationConfig: { temperature: 0.9, maxOutputTokens: MAX_OUT } })
       });
       if (!resp.ok) await fail(resp, 'Gemini');
@@ -99,14 +102,14 @@ const PROVIDERS = {
     }
   },
   ollama: {
-    key: () => process.env.OLLAMA_API_KEY,
+    key: () => envKey('OLLAMA_API_KEY'),
     label: () => 'Ollama (' + OLLAMA_MODEL + ')',
     async *stream(messages, signal) {
       const sys = messages.filter(m => m.role === 'system').map(m => m.content).concat(GUARD).join('\n\n');
       const msgs = [{ role: 'system', content: sys }, ...messages.filter(m => m.role !== 'system')];
       const resp = await fetch('https://ollama.com/api/chat', {
         method: 'POST', signal,
-        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + process.env.OLLAMA_API_KEY },
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + envKey('OLLAMA_API_KEY') },
         body: JSON.stringify({ model: OLLAMA_MODEL, messages: msgs, stream: true, options: { temperature: 0.9, num_predict: MAX_OUT } })
       });
       if (!resp.ok) await fail(resp, 'Ollama');
@@ -128,13 +131,13 @@ const PROVIDERS = {
     }
   },
   openrouter: {
-    key: () => process.env.OPENROUTER_API_KEY,
+    key: () => envKey('OPENROUTER_API_KEY'),
     label: () => 'OpenRouter (' + OPENROUTER_MODEL + ')',
     async *stream(messages, signal) {
       const sys = messages.filter(m => m.role === 'system').map(m => m.content).concat(GUARD).join('\n\n');
       const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST', signal,
-        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + process.env.OPENROUTER_API_KEY },
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + envKey('OPENROUTER_API_KEY') },
         body: JSON.stringify({ model: OPENROUTER_MODEL, messages: [{ role: 'system', content: sys }, ...messages.filter(m => m.role !== 'system')],
           stream: true, temperature: 0.9, max_tokens: MAX_OUT })
       });

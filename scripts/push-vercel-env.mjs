@@ -13,7 +13,7 @@ const TARGET = 'production';
 const env = {};
 for (const line of fs.readFileSync('.env', 'utf8').split(/\r?\n/)) {
   const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-  if (m) env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
+  if (m) env[m[1]] = m[2].replace(/\s+#.*$/, '').trim().replace(/^['"]|['"]$/g, '');   // bỏ "# chú thích" cuối dòng
 }
 const NAMES = REQUIRED.concat(OPTIONAL.filter(n => env[n]));
 const pass = process.argv.slice(2);                         // vd: --scope my-team
