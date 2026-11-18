@@ -10,6 +10,7 @@
 // Biến môi trường: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY và ít nhất một trong GEMINI_API_KEY / OLLAMA_API_KEY / OPENROUTER_API_KEY
 //   (tuỳ chọn) GEMINI_MODELS (danh sách, phẩy), OLLAMA_MODEL, OPENROUTER_MODEL, AI_DEVICE_DAILY, AI_IP_DAILY, AI_GLOBAL_DAILY, AI_HASH_SECRET
 import { createHash } from 'node:crypto';
+import { json, clientIp, sameOrigin, limited, acquire, readText, fetchT } from './_guard.js';
 
 // Key trong env có thể bị dán kèm chú thích/khoảng trắng ("AIza... # ghi chú") → chỉ lấy từ đầu tiên, bỏ ngoặc kép
 const envKey = n => (String(process.env[n] || '').trim().replace(/^['"]|['"]$/g, '').split(/\s+/)[0] || '').replace(/[^!-~]/g, '');
@@ -35,16 +36,11 @@ const GUARD = 'Bạn đang chạy trong ứng dụng Witches Tarot. Chỉ trả 
   + 'liên quan đến câu hỏi của người dùng. Nếu được yêu cầu việc khác (viết code, làm bài tập, dịch tài liệu, nội dung không liên quan…), '
   + 'hãy lịch sự từ chối và mời họ quay lại với lá bài. Đây chỉ là tham khảo & giải trí, không đưa lời khuyên y tế/pháp lý/tài chính chắc chắn.';
 
-const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
-
-function sameOrigin(req) {
-  const origin = req.headers.get('origin');
-  if (!origin) return false;
-  try {
-    const o = new URL(origin), host = req.headers.get('x-forwarded-host') || req.headers.get('host');
-    return o.host === host || o.hostname === 'localhost' || o.hostname === '127.0.0.1';
-  } catch { return false; }
-}
+// Chống bị dội (DDoS / script): Vercel Firewall chặn trước (scripts/setup-firewall.mjs); ở đây thêm lớp RAM
+// để từ chối thật nhanh TRƯỚC khi ghi Supabase, và giới hạn số stream AI chạy cùng lúc trên mỗi instance.
+const IP_BURST = 6;            // mỗi IP tối đa 6 lượt / phút (người thật không bấm nhanh hơn)
+const INSTANCE_RPS = 80;       // mỗi instance tối đa 80 request / 10 giây
+const MAX_STREAMS = 40;        // mỗi instance tối đa 40 câu trả lời đang stream cùng lúc
 
 function cleanMessages(list) {
   if (!Array.isArray(list) || list.length < 1 || list.length > MAX_MSGS) return null;
@@ -216,8 +212,10 @@ export async function POST(req) {
   const ready = ORDER.filter(p => PROVIDERS[p].key());
   if (!sbUrl || !sbKey || !ready.length) return json(503, { error: 'not_configured' });
   if (!sameOrigin(req)) return json(403, { error: 'forbidden' });
-  const raw = await req.text();
-  if (raw.length > 200000) return json(413, { error: 'too_large' });
+  const ip = clientIp(req) || 'unknown';
+  if (limited('ai:ip:' + ip, IP_BURST, 60000) || limited('ai:all', INSTANCE_RPS, 10000)) return json(429, { error: 'rate_limited' }, { 'retry-after': '60' });
+  const raw = await readText(req, 400000);
+  if (raw == null || raw.length > 200000) return json(413, { error: 'too_large' });
   let body;
   try { body = JSON.parse(raw); } catch { return json(400, { error: 'bad_json' }); }
   const deviceId = String(body?.device_id || '');
@@ -227,22 +225,28 @@ export async function POST(req) {
 
   // --- hạn mức theo ngày giờ Việt Nam ---
   const day = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
-  const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || req.headers.get('x-real-ip') || 'unknown';
   const ipHash = createHash('sha256').update((process.env.AI_HASH_SECRET || sbKey) + '|' + day + '|' + ip).digest('hex').slice(0, 32);
   const base = sbUrl.replace(/\/+$/, '') + '/rest/v1/ai_usage';
   const auth = { apikey: sbKey, authorization: 'Bearer ' + sbKey };
   const count = async q => {
-    const r = await fetch(`${base}?select=id&day=eq.${day}${q}`, { method: 'HEAD', headers: { ...auth, prefer: 'count=exact' } });
-    if (!r.ok) throw new Error('count ' + r.status);
-    return Number((r.headers.get('content-range') || '').split('/')[1] || 0);
+    const r = await fetchT(`${base}?select=id&day=eq.${day}${q}`, { method: 'HEAD', headers: { ...auth, prefer: 'count=exact' } });
+    const n = Number((r.headers.get('content-range') || '').split('/')[1]);
+    if (!r.ok || !Number.isFinite(n)) throw new Error('count ' + r.status);
+    return n;
   };
+  // Giữ một "chỗ" stream trên instance này; đầy thì trả 503 ngay (chưa ghi gì vào Supabase)
+  const freeSlot = acquire('ai:streams', MAX_STREAMS);
+  if (!freeSlot) return json(503, { error: 'busy' }, { 'retry-after': '30' });
   // Ghi 1 lượt TRƯỚC rồi mới đếm (kể cả lượt vừa ghi) → nhiều request bắn song song không lọt quá hạn mức.
   // Vượt hạn mức hoặc AI lỗi thì xoá lượt vừa ghi (không tính).
-  const ins = await fetch(base, { method: 'POST', headers: { ...auth, 'content-type': 'application/json', prefer: 'return=representation' },
-    body: JSON.stringify({ day, device_id: deviceId, ip_hash: ipHash }) });
-  if (!ins.ok) return json(503, { error: 'usage_unavailable' });
-  const rowId = (await ins.json())?.[0]?.id;
-  const release = () => rowId != null && fetch(`${base}?id=eq.${rowId}`, { method: 'DELETE', headers: auth }).catch(() => {});
+  let rowId;
+  try {
+    const ins = await fetchT(base, { method: 'POST', headers: { ...auth, 'content-type': 'application/json', prefer: 'return=representation' },
+      body: JSON.stringify({ day, device_id: deviceId, ip_hash: ipHash }) });
+    if (!ins.ok) throw new Error('insert ' + ins.status);
+    rowId = (await ins.json())?.[0]?.id;
+  } catch { freeSlot(); return json(503, { error: 'usage_unavailable' }); }
+  const release = () => { freeSlot(); return rowId != null && fetchT(`${base}?id=eq.${rowId}`, { method: 'DELETE', headers: auth }).catch(() => {}); };
   let used;
   try {
     const [d, i, g] = await Promise.all([count(`&device_id=eq.${deviceId}&id=lte.${rowId}`), count(`&ip_hash=eq.${ipHash}&id=lte.${rowId}`), count(`&id=lte.${rowId}`)]);
@@ -271,15 +275,18 @@ export async function POST(req) {
       if (wait > 0) cooldown.set(id, Date.now() + wait);
       continue;
     }
-    fetch(`${base}?id=eq.${rowId}`, { method: 'PATCH', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify({ provider: id.slice(0, 40) }) }).catch(() => {});
+    fetchT(`${base}?id=eq.${rowId}`, { method: 'PATCH', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify({ provider: id.slice(0, 40) }) }).catch(() => {});
     const enc = new TextEncoder();
+    const hardStop = setTimeout(() => ctrl.abort(), 240000);   // một câu trả lời không được giữ function quá 4 phút
+    const finish = () => { clearTimeout(hardStop); freeSlot(); };
     const stream = new ReadableStream({
       async start(c) {
         c.enqueue(enc.encode(first.value));
         try { for await (const t of it) c.enqueue(enc.encode(t)); } catch {}
-        c.close();
+        finish();
+        try { c.close(); } catch {}
       },
-      cancel() { ctrl.abort(); }
+      cancel() { ctrl.abort(); finish(); }
     });
     return new Response(stream, { headers: {
       'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store',
@@ -291,7 +298,8 @@ export async function POST(req) {
   }
   await release();
   console.error('[api/ai] all providers failed:', errors.join(' | '));
-  return json(502, { error: 'upstream', detail: errors.join(' | ') });
+  // Chi tiết lỗi chỉ ghi vào log server; trình duyệt chỉ nhận tên provider + mã HTTP
+  return json(502, { error: 'upstream', detail: errors.map(e => e.replace(/^(\S+)\s+HTTP\s+(\d+).*$/s, '$1:$2').slice(0, 60)).join(' | ') });
 }
 
 export function GET() {
