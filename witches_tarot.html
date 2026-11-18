@@ -1073,6 +1073,10 @@
       </div>
 
       <div class="field">
+        <label class="chk-row"><input type="checkbox" id="freeAi" /> <span data-i18n="set.freeAi">✨ Dùng AI miễn phí khi chưa có key (10 lượt/ngày)</span></label>
+        <div class="hint" data-i18n="set.freeAi.hint">Không cần key: app dùng AI của trang (Gemini, dự phòng Ollama / OpenRouter), giới hạn 10 lượt mỗi ngày cho mỗi thiết bị. Nếu bạn nhập key riêng, key riêng được dùng trước; AI miễn phí chỉ là dự phòng cuối. Câu hỏi và lá bài được gửi tới nhà cung cấp AI đó để diễn giải (gói miễn phí có thể được họ dùng để cải thiện mô hình). Để giới hạn lượt, trang ghi mã thiết bị ngẫu nhiên và mã băm IP đổi mỗi ngày — không lưu IP thật hay nội dung.</div>
+      </div>
+      <div class="field">
         <label class="chk-row"><input type="checkbox" id="autoFallback" /> <span data-i18n="set.fallback">🔁 Tự chuyển provider khi lỗi</span></label>
         <div class="hint" data-i18n="set.fallback.hint">Nếu provider đang dùng lỗi (hết hạn mức, sai model, mất kết nối…) trước khi kịp trả lời, app tự thử lần lượt các provider khác đã nhập key: Gemini → ZenMux → Beeknoee → Ollama.</div>
       </div>
@@ -1205,6 +1209,7 @@
       'sky.head': '♃︎ Real sky', 'sky.location': '⌖︎ Location', 'sky.gps': '⌖︎ Use my GPS', 'sky.reset': '↺ Face North',
       'sky.lines': '✦ Constellations', 'sky.grid': '▦ Grid', 'sky.planets': '♄︎ Planets', 'sky.starsonly': '★︎ Stars only', 'sky.full': '⛶ Fullscreen',
       'nav.site': '♀︎ Site Settings', 'nav.install': '⇩︎ Install app',
+      'set.freeAi': '✨ Use the free AI when no key is set (10/day)', 'set.freeAi.hint': 'No key needed: the app uses the site’s AI (Gemini, with Ollama / OpenRouter as backup), limited to 10 readings per device per day. If you add your own key, it is used first; the free AI is only the last fallback. Your question and cards are sent to that AI provider (free tiers may be used to improve their models). For rate limiting the site records a random device ID and a daily-rotating IP hash — never your real IP or content.',
       'landing.sub': '78 cards · reading & AI interpretation', 'landing.enter': '✧︎ Witches Tarot', 'landing.askGo': 'Pick the cards', 'landing.askPh': 'Type your question here…', 'landing.askErr': 'Please type a question', 'landing.pre': 'Think about what is on your mind', 'landing.disc': 'AI-interpreted · for reflection & entertainment only', 'landing.skip': 'Skip question', 'landing.nReading': 'AI Reading', 'landing.nDraw': 'Draw', 'landing.nDaily': 'Today', 'landing.nYesno': 'Yes / No', 'landing.nBrowse': 'Browse', 'landing.nSky': 'Sky',
       'browse.search': 'Search by number, name, keyword, meaning...', 'browse.clear': 'Clear',
       'draw.count': 'Cards:', 'draw.btn': '☍︎ Shuffle & draw', 'draw.pick': '☌︎ Pick manually', 'draw.stop': '✕︎ Stop', 'draw.toReading': '✦︎ Send to AI Reading',
@@ -1932,6 +1937,7 @@
     // Provider p đã đủ thông tin để gọi chưa? Ollama mặc định luôn có model (llama3.1) nên chỉ coi là
     // "sẵn sàng làm dự phòng" khi đó là provider chính, có key (Cloud) hoặc đã đổi URL khác mặc định.
     function providerReady(p) {
+      if (p === 'free') return settings.freeAi !== false;   // AI miễn phí qua /api/ai (key nằm ở server)
       if (p === 'gemini') return !!settings.geminiKey;
       if (p === 'beeknoee') return !!settings.beeknoeeKey;
       if (p === 'zenmux') return !!settings.zenmuxKey;
@@ -1943,10 +1949,14 @@
     }
     const PROVIDER_ORDER = ['gemini', 'zenmux', 'beeknoee', 'ollama'];
     // Thứ tự thử: provider chính trước, rồi (nếu bật tự chuyển) các provider khác đã cấu hình.
+    // Chưa nhập key nào → dùng AI miễn phí; có key riêng → key riêng trước, AI miễn phí làm dự phòng cuối.
     function providerChain() {
       const main = settings.provider;
-      if (settings.autoFallback === false) return [main];
-      return [main].concat(PROVIDER_ORDER.filter(p => p !== main && providerReady(p)));
+      const free = providerReady('free') ? ['free'] : [];
+      if (settings.autoFallback === false) return providerReady(main) ? [main] : (free.length ? free : [main]);
+      const own = [main].concat(PROVIDER_ORDER.filter(p => p !== main)).filter(providerReady);
+      const chain = own.concat(free);
+      return chain.length ? chain : [main];
     }
     function aiConfigured() { return providerChain().some(providerReady); }
     // Phán quyết cục bộ (khi chưa có AI): xuôi=CÓ, ngược=KHÔNG, lá lưỡng lự=CÓ THỂ
@@ -2284,8 +2294,16 @@
         ? 'Reading with deck: “' + (selectedDeck || '—') + '”. Switch deck in the selector next to the card search below (or the “Deck” bar above); the search only shows cards from that deck, and cards already in the spread keep their own deck.'
         : 'Đang trải bằng bộ: “' + (selectedDeck || '—') + '”. Đổi bộ ở ô chọn cạnh ô tìm lá bên dưới (hoặc thanh “Bộ bài” phía trên); ô tìm chỉ hiện lá của bộ đang chọn, lá đã thêm vào trải bài vẫn giữ bộ của nó.';
     }
+    let freeAiInfo = { model: '', remaining: null };   // từ header của /api/ai ở lượt gần nhất
     function providerLabel(p) {
       const def = lang === 'en' ? 'default' : 'mặc định';
+      if (p === 'free') {
+        const en = lang === 'en';
+        let s = en ? 'Free AI' : 'AI miễn phí';
+        if (freeAiInfo.model) s += ' · ' + freeAiInfo.model;
+        if (freeAiInfo.remaining != null) s += en ? ` · ${freeAiInfo.remaining} left today` : ` · còn ${freeAiInfo.remaining} lượt hôm nay`;
+        return s;
+      }
       if (p === 'gemini') return 'Gemini (' + settings.geminiModel + ')';
       if (p === 'beeknoee') return 'Beeknoee (' + (settings.beeknoeeModel || def) + ')';
       if (p === 'zenmux') return 'ZenMux (' + (settings.zenmuxModel || def) + ')';
@@ -2295,7 +2313,7 @@
     // p: provider thực sự đã trả lời (có thể khác provider chính nếu đã tự chuyển)
     function updateProviderLabel(p) {
       const el = $('readingProvider');
-      if (el) el.textContent = (lang === 'en' ? 'AI interpretation — ' : 'Diễn giải của AI — ') + providerLabel(p || settings.provider);
+      if (el) el.textContent = (lang === 'en' ? 'AI interpretation — ' : 'Diễn giải của AI — ') + providerLabel(p || providerChain()[0]);
     }
 
     // ---------- reading view ----------
@@ -2708,6 +2726,7 @@
       $('ollamaKey').value = settings.ollamaKey;
       seedSelect($('ollamaModel'), settings.ollamaModel);
       $('autoFallback').checked = settings.autoFallback !== false;
+      $('freeAi').checked = settings.freeAi !== false;
       $('savedNote').textContent = '';
       closeNav();
       overlay.classList.add('open');
@@ -2737,7 +2756,8 @@
         ollamaUrl: ($('ollamaUrl').value.trim() || DEFAULT_SETTINGS.ollamaUrl).replace(/\/$/, ''),
         ollamaModel: $('ollamaModel').value.trim() || DEFAULT_SETTINGS.ollamaModel,
         ollamaKey: $('ollamaKey').value.trim(),
-        autoFallback: $('autoFallback').checked
+        autoFallback: $('autoFallback').checked,
+        freeAi: $('freeAi').checked
       };
       saveSettings(settings);
       const chain = providerChain();
@@ -3210,7 +3230,43 @@
       });
     }
 
-    const PROVIDER_CALL = { gemini: callGemini, beeknoee: callBeeknoee, zenmux: callZenmux, ollama: callOllama };
+    // AI miễn phí: server tự gọi Gemini → Ollama → OpenRouter bằng key của site, giới hạn lượt/ngày cho mỗi thiết bị.
+    let tmpDeviceId = null;
+    async function callFree(messages, onToken) {
+      const en = lang === 'en';
+      const dev = deviceId() || (tmpDeviceId = tmpDeviceId || crypto.randomUUID());
+      let resp;
+      try {
+        resp = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ device_id: dev, messages }) });
+      } catch (e) { throw new Error(en ? 'Cannot reach the free AI' : 'Không kết nối được AI miễn phí'); }
+      if (!resp.ok) {
+        let j = {};
+        try { j = await resp.json(); } catch {}
+        if (resp.status === 429 && j.scope === 'device') throw new Error(en
+          ? `You've used today's ${j.limit || 10} free AI readings. Come back tomorrow, or add your own (free) Gemini key in “AI Settings”.`
+          : `Bạn đã dùng hết ${j.limit || 10} lượt AI miễn phí hôm nay. Quay lại vào ngày mai, hoặc nhập key Gemini riêng (miễn phí) trong “Cài đặt AI”.`);
+        if (resp.status === 429) throw new Error(en
+          ? 'The free AI is at capacity today. Please try again tomorrow, or add your own Gemini key in “AI Settings”.'
+          : 'AI miễn phí đã hết lượt chung của hôm nay. Thử lại vào ngày mai, hoặc nhập key Gemini riêng trong “Cài đặt AI”.');
+        if (resp.status === 502 || resp.status === 503) throw new Error(en
+          ? 'The free AI is busy right now. Please try again in a few minutes, or add your own Gemini key in “AI Settings”.'
+          : 'AI miễn phí đang bận. Thử lại sau vài phút, hoặc nhập key Gemini riêng trong “Cài đặt AI”.');
+        throw new Error((en ? 'Free AI is unavailable' : 'AI miễn phí đang gặp sự cố') + ' (' + resp.status + ')');
+      }
+      try { freeAiInfo.model = decodeURIComponent(resp.headers.get('x-ai-provider') || ''); } catch { freeAiInfo.model = ''; }
+      const rem = resp.headers.get('x-ai-remaining');
+      freeAiInfo.remaining = rem != null && rem !== '' ? +rem : null;
+      const reader = resp.body.getReader(), dec = new TextDecoder();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const t = dec.decode(value, { stream: true });
+        if (t) onToken(t);
+      }
+      const tail = dec.decode();
+      if (tail) onToken(tail);
+    }
+    const PROVIDER_CALL = { free: callFree, gemini: callGemini, beeknoee: callBeeknoee, zenmux: callZenmux, ollama: callOllama };
     let lastProviderUsed = null;   // provider đã trả lời ở lượt gần nhất
     // Gửi một lượt chat (đa lượt). Nếu provider lỗi (hoặc trả về rỗng) TRƯỚC khi có chữ nào được stream,
     // tự chuyển sang provider kế tiếp trong providerChain(). Đã stream được một phần thì không chuyển
@@ -3838,7 +3894,7 @@
         ts: Date.now(),
         deck: (readingDecks().join(', ') || selectedDeck || ''),
         question: questionInput.value.trim(),
-        provider: providerLabel(lastProviderUsed || settings.provider),
+        provider: lastProviderUsed === 'free' ? 'free · ' + (freeAiInfo.model || '?') : providerLabel(lastProviderUsed || settings.provider),
         text: text,
         followups: [],
         note: '',

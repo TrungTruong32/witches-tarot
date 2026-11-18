@@ -1,18 +1,21 @@
 #!/usr/bin/env node
-// Đẩy SUPABASE_URL và SUPABASE_SERVICE_ROLE_KEY từ .env lên Vercel (môi trường Production) cho project đã link ở .vercel/.
+// Đẩy SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (bắt buộc) + key/model AI miễn phí (nếu có) từ .env lên Vercel (môi trường Production) cho project đã link ở .vercel/.
 //   node scripts/push-vercel-env.mjs [--scope <team>]
 // Nếu .env có VERCEL_TOKEN thì dùng token đó (không in ra); không thì dùng phiên `vercel login` của máy.
 // Giá trị được truyền qua stdin cho Vercel CLI — KHÔNG in ra màn hình. Cần Vercel CLI đã đăng nhập (npx vercel login).
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-const NAMES = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+const REQUIRED = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+// AI miễn phí (/api/ai): biến nào có trong .env thì đẩy, thiếu thì bỏ qua
+const OPTIONAL = ['GEMINI_API_KEY', 'OLLAMA_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_MODEL', 'OLLAMA_MODEL', 'OPENROUTER_MODEL', 'AI_DEVICE_DAILY', 'AI_IP_DAILY', 'AI_GLOBAL_DAILY'];
 const TARGET = 'production';
 const env = {};
 for (const line of fs.readFileSync('.env', 'utf8').split(/\r?\n/)) {
   const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
   if (m) env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
 }
+const NAMES = REQUIRED.concat(OPTIONAL.filter(n => env[n]));
 const pass = process.argv.slice(2);                         // vd: --scope my-team
 if (!pass.includes('--scope')) pass.push('--scope', 'trung-truong');   // team đang chứa project "tarot"
 const auth = env.VERCEL_TOKEN ? ['--token', env.VERCEL_TOKEN] : [];
@@ -30,5 +33,7 @@ for (const name of NAMES) {
   if (r.status === 0) console.log(`✓ Đã đặt ${name} cho ${TARGET}`);
   else { failed = true; console.error(`✗ Không đặt được ${name}:\n` + log.trim().split('\n').slice(-6).join('\n')); }
 }
-if (!failed) console.log('\nXONG. Deploy lại để API /api/readings dùng được các biến mới.');
+const aiKeys = OPTIONAL.filter(n => n.endsWith('_API_KEY') && env[n]);
+console.log(aiKeys.length ? `ℹ Key AI miễn phí đã đẩy: ${aiKeys.join(', ')}` : 'ℹ .env chưa có GEMINI_API_KEY / OLLAMA_API_KEY / OPENROUTER_API_KEY → /api/ai sẽ báo chưa cấu hình.');
+if (!failed) console.log('\nXONG. Deploy lại để các API dùng được các biến mới.');
 process.exit(failed ? 1 : 0);

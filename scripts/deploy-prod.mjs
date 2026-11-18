@@ -33,3 +33,6 @@ console.log(page.includes('cloudSaveReading') ? '✓ Trang đã có tính năng 
 const api = await fetch(SITE + '/api/readings', { method: 'POST', headers: { origin: SITE, 'content-type': 'application/json' }, body: '{}' });
 const msg = { 400: '✓ API /api/readings chạy và đã đọc được khoá Supabase', 503: '✗ API chạy nhưng THIẾU biến SUPABASE_* trên Vercel', 404: '✗ API chưa có trên bản deploy', 403: '✗ API chặn origin — báo Claude kiểm tra' }[api.status];
 console.log(msg || `? API trả về ${api.status}`);
+// AI miễn phí: body rỗng → 400 nếu đã đủ key + Supabase (không tốn lượt), 503 nếu thiếu
+const aiR = await fetch(SITE + '/api/ai', { method: 'POST', headers: { origin: SITE, 'content-type': 'application/json' }, body: '{}' });
+console.log({ 400: '✓ API /api/ai (AI miễn phí) đã có key', 503: '✗ /api/ai THIẾU key AI (GEMINI/OLLAMA/OPENROUTER_API_KEY) hoặc biến Supabase', 404: '✗ /api/ai chưa có trên bản deploy' }[aiR.status] || `? /api/ai trả về ${aiR.status}`);
