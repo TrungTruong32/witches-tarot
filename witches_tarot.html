@@ -328,6 +328,9 @@
     .deckbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: center; margin: 6px 0 16px; }
     .deckbar label { margin: 0; color: #d1c7b3; }
     .deckbar select { padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 15px; }
+    .deck-inline { flex: 0 0 auto; max-width: 46%; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 15px; }
+    .picker-row { display: flex; gap: 8px; align-items: center; }
+    .picker-row .field-input { flex: 1 1 auto; min-width: 0; }
     .imported-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: rgba(66,57,97,.85); border: 1px solid var(--border2); margin-bottom: 6px; }
     .imported-item span { flex: 1; }
     .imported-empty { color: var(--muted); font-size: .9rem; }
@@ -721,6 +724,7 @@
     <!-- ===== BROWSE VIEW ===== -->
     <div id="browseView" style="display:none;">
       <div class="controls">
+        <select id="deckSelectBrowse" class="deck-inline" aria-label="Bộ bài" title="Chọn bộ bài để tra nghĩa"></select>
         <input id="searchInput" class="search" type="search" placeholder="Tìm kiếm theo số, tên, từ khóa, ý nghĩa..." />
         <button id="clearButton" type="button">Xóa</button>
       </div>
@@ -792,7 +796,10 @@
           </div>
           <div class="field">
             <label for="pickerInput" data-i18n="reading.picker">Thêm lá bài đã rút (gõ để tìm)</label>
-            <input id="pickerInput" class="field-input" type="search" data-i18n-ph="reading.picker.ph" placeholder="Gõ tên lá bài, ví dụ: The Fool, Kiếm, Cups..." />
+            <div class="picker-row">
+              <select id="deckSelectReading" class="deck-inline" aria-label="Bộ bài" title="Chọn bộ bài để tìm lá"></select>
+              <input id="pickerInput" class="field-input" type="search" data-i18n-ph="reading.picker.ph" placeholder="Gõ tên lá bài, ví dụ: The Fool, Kiếm, Cups..." />
+            </div>
             <div id="pickerResults" class="picker-results"></div>
           </div>
           <div class="field">
@@ -1243,6 +1250,8 @@
       fetch('/card_en.json').then(r => r.json()).then(d => { CARD_EN = d; if (lang === 'en') refreshLangViews(); }).catch(() => {}).finally(() => { cardEnLoading = false; });
     }
     // Trả về {tu_khoa, y_nghia_xuoi, nghia_nguoc, ten} theo ngôn ngữ hiện tại
+    // Nghĩa luôn lấy theo đúng bộ của lá (mỗi bộ có ý nghĩa riêng).
+    // card_en.json là bản dịch của riêng bộ Witches → chỉ áp cho Witches; bộ khác giữ nguyên văn của bộ đó.
     function cardText(c) {
       if (lang === 'en' && CARD_EN && CARD_EN[c.id] && (c.deck === 'Witches Tarot' || c.deck == null)) {
         const e = CARD_EN[c.id];
@@ -1406,6 +1415,21 @@
       return f;
     }
     // Định dạng dữ kiện thành danh sách dòng (dùng cho cả prompt AI lẫn giao diện)
+    // Tên lá Ẩn Chính số n theo bộ của trải bài (Witches: “The Shadow Side”, Rider-Waite: “The Devil”…)
+    function majorNameIn(cards, n) {
+      const deck = (cards.find(c => c && c.deck) || {}).deck;
+      if (deck && db) {
+        try {
+          const st = db.prepare("SELECT ten, so FROM cards WHERE deck = ? AND bo = 'Bo An Chinh'");
+          st.bind([deck]);
+          let hit = null;
+          while (st.step()) { const r = st.getAsObject(); if (romanToInt(r.so) === n) { hit = r.ten; break; } }
+          st.free();
+          if (hit) return hit;
+        } catch {}
+      }
+      return MAJOR_NAMES[n] || null;
+    }
     function factLines(cards, f) {
       if (!f.n) return [];
       const en = lang === 'en';
@@ -1445,7 +1469,8 @@
       });
       const dl = { same: en ? 'same element, reinforce each other' : 'cùng nguyên tố, cộng hưởng mạnh', support: en ? 'friendly elements, support each other' : 'nguyên tố hỗ trợ nhau', oppose: en ? 'opposing elements, weaken / create tension' : 'nguyên tố đối nghịch, làm yếu nhau / tạo căng thẳng' };
       f.dignities.forEach(d => out.push((en ? 'Adjacent pair ' : 'Cặp kề nhau ') + `${nm(d.a)} + ${nm(d.b)}: ${dl[d.kind]}`));
-      if (f.quint != null && MAJOR_NAMES[f.quint]) out.push(en ? `Quintessence (sum ${f.sum} → ${f.quint}): ${MAJOR_NAMES[f.quint]} — the underlying theme of the spread` : `Lá tinh hoa (tổng số ${f.sum} → ${f.quint}): ${MAJOR_NAMES[f.quint]} — chủ đề ngầm của cả trải bài`);
+      const qn = f.quint != null ? majorNameIn(cards, f.quint) : null;
+      if (qn) out.push(en ? `Quintessence (sum ${f.sum} → ${f.quint}): ${qn} — the underlying theme of the spread` : `Lá tinh hoa (tổng số ${f.sum} → ${f.quint}): ${qn} — chủ đề ngầm của cả trải bài`);
       return out;
     }
 
@@ -1533,7 +1558,15 @@
     }
     function updateFilter() {
       if (!db) return;
-      renderList(queryCards(selectedCategory, searchInput.value.trim()));
+      const q = searchInput.value.trim();
+      let rows = queryCards(selectedCategory, q);
+      if (q) {
+        // Khớp tên/biệt danh trước (“át kiếm”, “hoàng hậu tiền”, “13”…), rồi mới tới khớp chữ trong nội dung
+        const smart = searchCards(q, 78).filter(c => selectedCategory === 'all' || c.bo === selectedCategory);
+        const seen = new Set(smart.map(c => c.id));
+        rows = smart.concat(rows.filter(c => !seen.has(c.id)));
+      }
+      renderList(rows);
     }
     function boCounts(deck) {
       const stmt = db.prepare('SELECT bo, COUNT(*) c FROM cards WHERE deck = ? GROUP BY bo ORDER BY MIN(id)');
@@ -1918,10 +1951,10 @@
       const usr = en
         ? 'Yes/No question: ' + (q || '(the querent did not write a specific question)') +
           '\nCard drawn: ' + c.ten + (c.bo ? ' (' + c.bo + ')' : '') + ' — ' + chieu +
-          '\nMeaning (' + chieu.toLowerCase() + '): ' + meaning + (ct.tu_khoa ? '\nKeywords: ' + ct.tu_khoa : '')
+          '\nMeaning (' + chieu.toLowerCase() + '): ' + promptMeaning(meaning) + (ct.tu_khoa ? '\nKeywords: ' + ct.tu_khoa : '')
         : 'Câu hỏi (Có/Không): ' + (q || '(người hỏi không ghi câu hỏi cụ thể)') +
           '\nLá đã rút: ' + c.ten + (c.bo ? ' (' + c.bo + ')' : '') + ' — ' + chieu +
-          '\nÝ nghĩa (' + chieu.toLowerCase() + '): ' + meaning + (ct.tu_khoa ? '\nTừ khóa: ' + ct.tu_khoa : '');
+          '\nÝ nghĩa (' + chieu.toLowerCase() + '): ' + promptMeaning(meaning) + (ct.tu_khoa ? '\nTừ khóa: ' + ct.tu_khoa : '');
 
       let raw = '';
       try {
@@ -2189,8 +2222,8 @@
       const el = $('readingDeckInfo');
       if (!el) return;
       el.textContent = lang === 'en'
-        ? 'Reading with deck: “' + (selectedDeck || '—') + '”. Change it in the “Deck” bar above; the search below only shows cards from this deck.'
-        : 'Đang trải bằng bộ: “' + (selectedDeck || '—') + '”. Đổi bộ ở thanh “Bộ bài” phía trên; ô tìm lá bên dưới chỉ hiện lá của bộ này.';
+        ? 'Reading with deck: “' + (selectedDeck || '—') + '”. Switch deck in the selector next to the card search below (or the “Deck” bar above); the search only shows cards from that deck, and cards already in the spread keep their own deck.'
+        : 'Đang trải bằng bộ: “' + (selectedDeck || '—') + '”. Đổi bộ ở ô chọn cạnh ô tìm lá bên dưới (hoặc thanh “Bộ bài” phía trên); ô tìm chỉ hiện lá của bộ đang chọn, lá đã thêm vào trải bài vẫn giữ bộ của nó.';
     }
     function providerLabel(p) {
       const def = lang === 'en' ? 'default' : 'mặc định';
@@ -2914,6 +2947,14 @@
     function readingDecks() {
       return [...new Set(spread.map(c => c.deck).filter(Boolean))];
     }
+    // Nghĩa dài nhiều mục (Rider-Waite: Dẫn nhập/Tổng quan/Công việc/Tình yêu/...) → chỉ gửi AI phần Dẫn nhập + Tổng quan
+    function promptMeaning(txt) {
+      txt = String(txt || '');
+      if (txt.length <= 1200) return txt;
+      const keep = txt.split('\n').filter(l => /^(Dẫn nhập|Tổng quan)\s*:/i.test(l.trim()));
+      const out = keep.length ? keep.join('\n') : txt;
+      return out.length > 1500 ? out.slice(0, 1500).replace(/\s+\S*$/, '') + '…' : out;
+    }
     function buildUserPrompt() {
       const q = questionInput.value.trim();
       const decks = readingDecks();
@@ -2922,7 +2963,7 @@
       const lines = spread.map((c, i) => {
         const ct = cardText(c);
         const chieu = en ? (c.orientation === 'xuoi' ? 'Upright' : 'Reversed') : (c.orientation === 'xuoi' ? 'Xuôi' : 'Ngược');
-        const meaning = c.orientation === 'xuoi' ? ct.y_nghia_xuoi : ct.nghia_nguoc;
+        const meaning = promptMeaning(c.orientation === 'xuoi' ? ct.y_nghia_xuoi : ct.nghia_nguoc);
         const kw = ct.tu_khoa ? `\n   ${en ? 'Keywords' : 'Từ khóa'}: ${ct.tu_khoa}` : '';
         const boTag = c.bo ? ` (${c.bo})` : '';
         const deckTag = multi && c.deck ? ` [${en ? 'deck' : 'bộ'}: ${c.deck}]` : '';
@@ -3544,7 +3585,8 @@
         let id, o, ten, img, bo, so, deck;
         if (Array.isArray(sc)) { id = sc[0]; o = sc[1]; ten = sc[2]; img = sc[3]; bo = sc[4]; so = sc[5]; deck = sc[6]; }
         else { id = sc.i; o = sc.o === 'nguoc' ? 1 : 0; ten = sc.t; img = sc.u; bo = sc.b; so = sc.s; deck = sc.k; }  // tương thích link cũ
-        const full = (id != null && id >= 0) ? cardByIdAnyDeck(id) : null;
+        const hit = (id != null && id >= 0) ? cardByIdAnyDeck(id) : null;
+        const full = hit && (!deck || hit.deck === deck) ? hit : null;   // id của bộ import cũ có thể trùng id bộ mới
         const base = full ? Object.assign({}, full) : { id, ten, bo, so, image_url: img, deck };
         base.orientation = o ? 'nguoc' : 'xuoi';
         return base;
@@ -3590,19 +3632,26 @@
       stmt.free();
       return rows;
     }
+    // Mọi ô chọn bộ (thanh chung + trang Tra nghĩa + ô thêm lá ở Diễn giải) dùng chung selectedDeck
+    const deckSelects = () => [deckSelect, $('deckSelectBrowse'), $('deckSelectReading')].filter(Boolean);
     function populateDeckSelect() {
       const decks = distinctDecks();
-      deckSelect.innerHTML = '';
-      decks.forEach(d => {
-        const o = document.createElement('option');
-        o.value = d; o.textContent = d;
-        deckSelect.appendChild(o);
-      });
       if (!decks.includes(selectedDeck)) selectedDeck = decks[0] || null;
-      deckSelect.value = selectedDeck || '';
+      deckSelects().forEach(sel => {
+        sel.innerHTML = '';
+        decks.forEach(d => {
+          const o = document.createElement('option');
+          o.value = d; o.textContent = d;
+          sel.appendChild(o);
+        });
+        sel.value = selectedDeck || '';
+      });
     }
-    deckSelect.addEventListener('change', () => {
-      selectedDeck = deckSelect.value;
+    deckSelects().forEach(sel => sel.addEventListener('change', () => setDeck(sel.value)));
+    function setDeck(d) {
+      if (!d) return;
+      selectedDeck = d;
+      deckSelects().forEach(sel => { sel.value = d; });
       try { localStorage.setItem(DECK_KEY, selectedDeck); } catch {}
       selectedCategory = 'all';
       renderCategoryTabs();
@@ -3612,7 +3661,7 @@
       updateReadingDeckInfo();
       updateDrawInfo();
       if (dailyView.style.display !== 'none') renderDaily();
-    });
+    }
 
     function nextId() {
       const r = db.exec('SELECT COALESCE(MAX(id), -1) AS m FROM cards');
