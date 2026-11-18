@@ -28,7 +28,7 @@ if (r.status !== 0) { console.error('✗ Deploy lỗi:\n' + out.trim().split('\n
 console.log('✓ Deploy xong: ' + ((out.match(/https:\/\/\S+\.vercel\.app/g) || []).pop() || ''));
 
 // Kiểm tra nhanh trên bản thật (không ghi gì vào DB: body rỗng → API phải trả 400)
-const page = await (await fetch(SITE + '/witches_tarot.html', { cache: 'no-store' })).text();
+const page = await (await fetch(SITE + '/', { cache: 'no-store' })).text();
 console.log(page.includes('cloudSaveReading') ? '✓ Trang đã có tính năng lưu trải bài' : '✗ Trang CHƯA có tính năng lưu (có thể cache, thử lại sau 1 phút)');
 const api = await fetch(SITE + '/api/readings', { method: 'POST', headers: { origin: SITE, 'content-type': 'application/json' }, body: '{}' });
 const msg = { 400: '✓ API /api/readings chạy và đã đọc được khoá Supabase', 503: '✗ API chạy nhưng THIẾU biến SUPABASE_* trên Vercel', 404: '✗ API chưa có trên bản deploy', 403: '✗ API chặn origin — báo Claude kiểm tra' }[api.status];

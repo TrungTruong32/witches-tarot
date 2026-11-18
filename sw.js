@@ -2,11 +2,11 @@
 // QUAN TRỌNG: bump 'v1'→'v2'… mỗi khi ĐỔI asset cache-first (tarot.db, icon, cardback),
 // nếu không người dùng đã cài sẽ kẹt bản cũ mãi. Đổi riêng HTML thì KHÔNG cần bump
 // (HTML dùng network-first).
-const CACHE = 'wtarot-v8';
+const CACHE = 'wtarot-v9';
 
 // Vỏ ứng dụng: HTML, DB, icon, mặt lưng bài.
 const SHELL = [
-  '/', '/witches_tarot.html', '/tarot.db', '/manifest.webmanifest',
+  '/', '/tarot.db', '/manifest.webmanifest',
   '/icon-192.png', '/icon-512.png', '/icon-maskable.png', '/apple-touch-icon.png', '/cardback.png', '/cardback-witches.webp'
 ];
 
@@ -36,14 +36,20 @@ self.addEventListener('fetch', e => {
   if (url.pathname.startsWith('/api/')) return;
 
   // Điều hướng trang: network-first, offline thì trả HTML đã cache.
+  // Chỉ trang chủ '/' được lưu làm vỏ app; các trang tĩnh /la-bai/… lưu theo đúng URL của nó
+  // (trước đây mọi trang đều ghi đè key '/', mở trang lá bài sẽ làm hỏng bản offline của app).
+  // /witches_tarot.html giờ redirect 301 về '/', nên không cache nó nữa.
   if (req.mode === 'navigate') {
     e.respondWith((async () => {
+      const isApp = url.pathname === '/';
       try {
         const net = await fetch(req);
-        const c = await caches.open(CACHE); c.put('/', net.clone()).catch(() => {});
+        if (net.ok && !net.redirected) {
+          const c = await caches.open(CACHE); c.put(isApp ? '/' : req, net.clone()).catch(() => {});
+        }
         return net;
       } catch {
-        return (await caches.match('/')) || (await caches.match('/witches_tarot.html')) || Response.error();
+        return (isApp ? null : await caches.match(req)) || (await caches.match('/')) || Response.error();
       }
     })());
     return;

@@ -1,5 +1,8 @@
 {
   "rewrites": [
     { "source": "/", "destination": "/witches_tarot.html" }
+  ],
+  "redirects": [
+    { "source": "/witches_tarot.html", "destination": "/", "permanent": true }
   ]
 }
