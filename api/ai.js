@@ -222,7 +222,9 @@ export async function POST(req) {
     return new Response(stream, { headers: {
       'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store',
       'x-ai-provider': encodeURIComponent(PROVIDERS[name].label()),
-      'x-ai-remaining': String(Math.max(0, DEVICE_DAILY - used))
+      'x-ai-remaining': String(Math.max(0, DEVICE_DAILY - used)),
+      // provider nào bị bỏ qua và vì sao (chỉ tên + mã lỗi, không chứa key) — để chẩn đoán
+      ...(errors.length ? { 'x-ai-skipped': encodeURIComponent(errors.map(e => e.replace(/^(\w+)\s+HTTP\s+(\d+).*$/s, '$1:$2').slice(0, 60)).join(' | ')) } : {})
     } });
   }
   await release();
