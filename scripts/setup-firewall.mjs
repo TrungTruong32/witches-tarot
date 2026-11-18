@@ -9,7 +9,7 @@
 // Cách dùng an toàn: chạy mặc định → --publish → xem Firewall dashboard 1–2 ngày → --enforce → --publish.
 // Đang bị tấn công thật thì làm thẳng: --enforce → --publish.
 //
-// Dùng VERCEL_TOKEN trong .env (không in ra). Luật nào đã có (cùng tên) thì bỏ qua.
+// Dùng VERCEL_TOKEN trong .env (không in ra). Luật đã có (cùng tên) thì được cập nhật — chạy lại KHÔNG kèm --enforce sẽ đưa nó về chỉ ghi log.
 // Khi đang bị tấn công dữ dội: vào dashboard Vercel → Firewall → bật "Attack Challenge Mode".
 import fs from 'node:fs';
 import path from 'node:path';
@@ -36,21 +36,38 @@ function vercel(args) {
 }
 
 if (process.argv.includes('--publish')) {
-  const r = vercel(['firewall', 'publish', '--yes']);
-  console.log(r.ok ? '✓ Đã áp dụng luật Firewall lên Production' : '✗ Publish lỗi:\n' + r.out.split('\n').slice(-8).join('\n'));
-  process.exit(r.ok ? 0 : 1);
+  // Vercel bắt NGƯỜI xác nhận việc publish (--yes không đủ): lần đầu script in ra thay đổi + mã xác nhận,
+  // bạn xem rồi chạy lại kèm --confirm <mã> — đó chính là bước bạn đồng ý.
+  const i = process.argv.indexOf('--confirm'), digest = i > 0 ? process.argv[i + 1] : '';
+  const r = vercel(['firewall', 'publish', ...(digest ? ['--confirm-name', 'tarot', '--effects-digest', digest] : ['--yes'])]);
+  if (r.ok) { console.log('✓ Đã áp dụng luật Firewall lên Production'); process.exit(0); }
+  const clean = r.out.replace(/(<|&lt;)claude-code-hint.*?(>|&gt;)/g, '').trim();
+  let j = null;
+  try { const s = clean.indexOf('{'); j = JSON.parse(clean.slice(s, clean.indexOf('\n}', s) + 2)); } catch {}
+  if (j && j.reason === 'confirmation_required' && j.data?.effectsDigest) {
+    console.log('Vercel cần bạn xác nhận trước khi áp dụng:');
+    for (const e of j.data.effects || []) console.log('  • ' + e);
+    const changes = clean.slice(clean.lastIndexOf('Changes to be published')).trim();
+    if (changes.startsWith('Changes')) console.log('\n' + changes);
+    console.log(`\nĐồng ý thì chạy:  node scripts/setup-firewall.mjs --publish --confirm ${j.data.effectsDigest}`);
+    process.exit(0);
+  }
+  console.error('✗ Publish lỗi:\n' + clean.split('\n').slice(-40).join('\n'));
+  process.exit(1);
 }
 
 // Giới hạn đặt rộng tay (gấp nhiều lần người dùng thật) — chỉ chặn script / bot dội request.
 // Đếm theo IP, cửa sổ 60 giây. Vượt → 429. Lưu ý: bộ đếm tính riêng theo từng region của Vercel.
+// Gói Hobby chỉ cho MỘT luật rate limit → gộp mọi đường dễ bị dội vào một luật (các nhóm điều kiện nối bằng OR):
+//   /api/* (AI, lưu trải bài, proxy LLM, proxy ảnh — proxy ảnh chỉ dùng khi xuất ảnh, ≤ 15 ảnh/lần)
+//   /tarot.db (2MB, trình duyệt tải 1 lần rồi cache) — chống đốt băng thông
 const RULES = [
-  { name: 'RL api', desc: 'API (AI, lưu trải bài, proxy LLM): 120 / phút / IP',
-    cond: [{ type: 'path', op: 'pre', value: '/api/' }, { type: 'path', op: 'pre', value: '/api/img', neg: true }], requests: 120 },
-  { name: 'RL api-img', desc: 'Proxy ảnh lá bài: 600 / phút / IP (trang Duyệt bài tải nhiều ảnh một lúc)',
-    cond: [{ type: 'path', op: 'pre', value: '/api/img' }], requests: 600 },
-  { name: 'RL tarot-db', desc: 'File dữ liệu tarot.db (2MB, trình duyệt chỉ tải 1 lần rồi cache): 20 / phút / IP — chống đốt băng thông',
-    cond: [{ type: 'path', op: 'eq', value: '/tarot.db' }], requests: 20 }
+  { name: 'RL api', desc: '/api/* và /tarot.db: 120 / phút / IP',
+    groups: [[{ type: 'path', op: 'pre', value: '/api/' }], [{ type: 'path', op: 'eq', value: '/tarot.db' }]], requests: 120 }
 ];
+const condArgs = groups => groups.flatMap((g, i) => [...(i ? ['--or'] : []), ...g.flatMap(c => ['--condition', JSON.stringify(c)])]);
+// Lỗi của CLI: ưu tiên các dòng có chữ error / limit / plan, không thì lấy vài dòng cuối
+const why = out => { const l = out.split('\n').filter(x => /error|limit|plan|upgrade|exceed|maximum|not allowed/i.test(x) && !/Rate Limit:|If exceeded/i.test(x)); return (l.length ? l : out.split('\n').slice(-6)).slice(0, 6).join('\n   '); };
 
 const list = vercel(['firewall', 'rules', 'list', '--json']);
 if (!list.ok) { console.error('✗ Không đọc được danh sách luật Firewall:\n' + list.out.split('\n').slice(-8).join('\n')); process.exit(1); }
@@ -64,17 +81,16 @@ try {
 let changed = 0;
 for (const r of RULES) {
   const limit = ['--rate-limit-window', '60', '--rate-limit-requests', String(r.requests), '--rate-limit-keys', 'ip', '--rate-limit-action', ACTION, '--yes'];
-  let res, what;
-  if (existing.includes(r.name)) {
-    if (!ENFORCE) { console.log(`• "${r.name}" đã có — bỏ qua (dùng --enforce để chuyển sang chặn thật)`); continue; }
-    res = vercel(['firewall', 'rules', 'edit', r.name, ...limit]); what = 'chuyển sang CHẶN';
-  } else {
-    const args = ['firewall', 'rules', 'add', r.name, '--description', r.desc];
-    for (const c of r.cond) args.push('--condition', JSON.stringify(c));
-    res = vercel([...args, '--action', 'rate_limit', ...limit]); what = ENFORCE ? 'tạo, CHẶN' : 'tạo, chỉ ghi log';
+  const mode = ENFORCE ? 'CHẶN' : 'chỉ ghi log';
+  // Luật đã có (kể cả bản nháp) → sửa cho đúng điều kiện + giới hạn hiện tại; chưa có → tạo mới
+  let res = vercel(['firewall', 'rules', 'edit', r.name, '--description', r.desc, ...condArgs(r.groups), '--action', 'rate_limit', ...limit]);
+  let what = 'cập nhật, ' + mode;
+  if (!res.ok && !existing.includes(r.name)) {
+    res = vercel(['firewall', 'rules', 'add', r.name, '--description', r.desc, ...condArgs(r.groups), '--action', 'rate_limit', ...limit]);
+    what = 'tạo, ' + mode;
   }
   if (res.ok) { changed++; console.log(`✓ Nháp (${what}): "${r.name}" — ${r.desc}`); }
-  else console.error(`✗ "${r.name}" lỗi (gói Hobby có thể giới hạn số luật):\n   ` + res.out.split('\n').slice(-4).join('\n   '));
+  else console.error(`✗ "${r.name}" lỗi:\n   ` + why(res.out));
 }
 
 const diff = vercel(['firewall', 'diff']);

@@ -98,7 +98,7 @@ try {
   const url = `https://${ref}.supabase.co`;
   writeEnv({ SUPABASE_PROJECT_REF: ref, SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: svc.api_key });
   console.log(`✓ Đã ghi SUPABASE_URL (${url}) và SUPABASE_SERVICE_ROLE_KEY vào .env (không in ra).`);
-  console.log('\nXONG. Bước còn lại: đặt 2 biến SUPABASE_URL và SUPABASE_SERVICE_ROLE_KEY trên Vercel (Production) rồi deploy.');
+  console.log('\nXONG. Lần đầu cài thì đẩy 2 biến này lên Vercel: node scripts/push-vercel-env.mjs rồi deploy. Chạy lại chỉ để cập nhật migration thì không cần làm gì thêm.');
 } catch (e) {
   console.error('\n✗ Lỗi: ' + e.message);
   process.exit(1);
