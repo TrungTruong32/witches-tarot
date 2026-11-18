@@ -35,6 +35,14 @@ function vercel(args) {
   return { ok: r.status === 0, out: mask((r.stdout || '') + (r.stderr || '')).trim() };
 }
 
+if (process.argv.includes('--inspect')) {           // xem cấu hình thật của luật đang chạy trên Production
+  for (const args of [['firewall', 'rules', 'inspect', 'RL api', '--json'], ['firewall', 'overview']]) {
+    const r = vercel(args);
+    console.log(`— vercel ${args.join(' ')} —\n` + r.out.replace(/(<|&lt;)claude-code-hint.*?(>|&gt;)/g, '').trim() + '\n');
+  }
+  process.exit(0);
+}
+
 if (process.argv.includes('--publish')) {
   // Vercel bắt NGƯỜI xác nhận việc publish (--yes không đủ): lần đầu script in ra thay đổi + mã xác nhận,
   // bạn xem rồi chạy lại kèm --confirm <mã> — đó chính là bước bạn đồng ý.
