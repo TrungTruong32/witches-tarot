@@ -237,6 +237,8 @@
     .page-in { animation: pageFade .34s ease; }
     @keyframes pageFade { from { opacity: 0; } to { opacity: 1; } }
     @media (prefers-reduced-motion: reduce) { .view-in, .page-in { animation: none; } #landing { animation: none; } }
+    .pages-link { text-align: center; margin: -8px 0 14px; font-size: .9rem; }
+    .pages-link a { color: var(--accent, #b49bff); }
     .category-tabs { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 20px 0; }
     .tab-btn { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--btn); color: var(--muted); cursor: pointer; font-size: .95rem; transition: all .15s ease; }
     .tab-btn:hover { background: #4a4474; border-color: #7a6b9e; }
@@ -790,6 +792,7 @@
         <button id="clearButton" type="button">Xóa</button>
       </div>
       <div class="category-tabs" id="categoryTabs"></div>
+      <p class="pages-link"><a id="browsePagesLink" href="/la-bai/" target="_blank" rel="noopener" data-i18n="browse.pages">📖 Xem danh sách 78 lá dạng trang web (chia sẻ được) ↗</a></p>
       <div class="layout">
         <div class="panel">
           <div id="cardsList" class="cards-list"></div>
@@ -1234,7 +1237,7 @@
       'set.fallback': '🔁 Auto-switch provider on error', 'set.fallback.hint': 'If the current provider fails (quota, bad model, network…) before answering, the app automatically tries the other providers you have keys for: Gemini → ZenMux → Beeknoee → Ollama.',
       'reading.note': '📝 Journal note for this reading (auto-saved)', 'reading.note.ph': 'How does this reading feel? What happened afterwards?…',
       'hist.search.ph': 'Search question, card, note…', 'hist.exportJson': '⇩︎ Backup JSON', 'hist.exportMd': '⇩︎ Markdown', 'hist.import': '⇧︎ Import',
-      'lbl.keywords': 'Keywords', 'lbl.cardPage': 'Card page (shareable)', 'lbl.source': 'Source', 'lbl.upright': 'Upright meaning', 'lbl.reversed': 'Reversed meaning',
+      'lbl.keywords': 'Keywords', 'browse.pages': '📖 Browse all 78 cards as web pages (Vietnamese) ↗', 'lbl.cardPage': 'Card page (shareable)', 'lbl.source': 'Source', 'lbl.upright': 'Upright meaning', 'lbl.reversed': 'Reversed meaning',
       'daily.xuoi': 'Upright', 'daily.meaning': 'Meaning',
       'browse.noResults': 'No cards found. Try a different keyword.',
       'reading.spreadDraw': 'Draw cards into the spread', 'reading.spreadDrawBtn': '☍︎ Shuffle & draw (replace current spread)',
@@ -1604,6 +1607,12 @@
       const d = SEO_DECK_SLUG[card.deck];
       const slug = String(card.ten || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
       return d && slug ? `/la-bai/${d}/${slug}/` : '';
+    }
+    // Link sang trang danh sách lá của bộ đang chọn (bộ import → trang tổng /la-bai/)
+    const pagesLink = $('browsePagesLink');
+    if (pagesLink) {
+      const syncPagesLink = () => { const d = SEO_DECK_SLUG[selectedDeck]; pagesLink.href = d ? `/la-bai/${d}/` : '/la-bai/'; };
+      ['click', 'focus', 'pointerenter', 'contextmenu'].forEach(ev => pagesLink.addEventListener(ev, syncPagesLink));
     }
     function selectCard(card, itemNode, userInitiated) {
       document.querySelectorAll('.card-item').forEach(el => el.classList.remove('active'));

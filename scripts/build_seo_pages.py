@@ -187,18 +187,33 @@ def main():
         # --- danh sách lá của bộ ---
         groups = {}
         for c, s in zip(cards, slugs):
+            q = ' '.join(x for x in (c['so'], c['ten'], c['tu_khoa'], SUITS.get(c['bo'], '')) if x)
             groups.setdefault(c['bo'], []).append(
-                f'<li><a href="{dpath}{s}/"><img src="{e(c["image_url"])}" alt="{e(c["ten"])}" loading="lazy" '
+                f'<li data-q="{e(q)}"><a href="{dpath}{s}/"><img src="{e(c["image_url"])}" alt="{e(c["ten"])}" loading="lazy" '
                 f'width="120" height="208" referrerpolicy="no-referrer" /><span>{e(c["ten"])}</span></a></li>')
-        grid = '\n'.join(f'<section><h2>{e(SUITS.get(bo, bo))}</h2><ul class="grid">{"".join(items)}</ul></section>'
+        grid = '\n'.join(f'<section class="suit"><h2>{e(SUITS.get(bo, bo))}</h2><ul class="grid">{"".join(items)}</ul></section>'
                          for bo, items in groups.items())
+        # ô tìm kiếm + nút lọc bộ phụ (la-bai/finder.js) — giống trang Tra cứu trong app
+        chips = ''.join(f'<button type="button" data-suit="{i}">{e(SUITS.get(bo, bo).split(" (")[0])} ({len(items)})</button>'
+                        for i, (bo, items) in enumerate(groups.items()))
+        tools = (f'<div class="finder"><input type="search" id="q" placeholder="Tìm theo tên, số, từ khóa… (vd: tình yêu, cups, 10)" '
+                 f'aria-label="Tìm lá bài" autocomplete="off" />'
+                 f'<div class="chips"><button type="button" data-suit="all" class="on">Tất cả ({len(cards)})</button>{chips}</div>'
+                 f'<p id="none" hidden>Không có lá nào khớp — thử từ khóa khác.</p></div>')
         nav_html, nav_ld = crumbs([('Trang chủ', '/'), ('Ý nghĩa lá bài', '/la-bai/'), (dname, dpath)])
         title = f'Ý nghĩa 78 lá bài {dname} – xuôi, ngược & từ khóa'
         desc = clip(f'Tra cứu ý nghĩa đầy đủ 78 lá bài {dname}: 22 lá Ẩn Chính và 56 lá Ẩn Phụ (Gậy, Cốc, Kiếm, Tiền), nghĩa xuôi, ngược, từ khóa và biểu tượng.')
-        body = f'{nav_html}\n<h1>Ý nghĩa 78 lá bài {e(dname)}</h1>\n<p class="lead">{e(ddesc)}</p>\n{grid}'
+        body = (f'{nav_html}\n<h1>Ý nghĩa 78 lá bài {e(dname)}</h1>\n<p class="lead">{e(ddesc)}</p>\n'
+                f'{tools}\n{grid}\n<script src="/la-bai/finder.js" defer></script>')
         (OUT / dslug / 'index.html').write_text(page(title, desc, dpath, body, [nav_ld]), encoding='utf-8')
         urls.insert(2, dpath)
-        deck_cards_html.append(f'<li><a href="{dpath}"><strong>{e(dname)}</strong><span>{e(ddesc)}</span></a></li>')
+        # ảnh đại diện bộ: quạt 3 lá Ẩn Chính
+        by_name = {c['ten']: c for c in cards}
+        cover = [by_name.get(n) for n in ('The Fool', 'The Star', 'The World')]
+        fan = ''.join(f'<img src="{e(c["image_url"])}" alt="Lá {e(c["ten"])} – bộ {e(dname)}" width="120" height="208" '
+                      f'loading="lazy" referrerpolicy="no-referrer" />' for c in cover if c and c['image_url'])
+        deck_cards_html.append(f'<li><a href="{dpath}"><div class="fan">{fan}</div><div><strong>{e(dname)}</strong>'
+                               f'<span>{e(ddesc)}</span><em>Xem 78 lá ›</em></div></a></li>')
 
     # --- trang tổng ---
     nav_html, nav_ld = crumbs([('Trang chủ', '/'), ('Ý nghĩa lá bài', '/la-bai/')])
