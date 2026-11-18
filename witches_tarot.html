@@ -369,8 +369,8 @@
     .deckbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: center; margin: 6px 0 16px; }
     .deckbar label { margin: 0; color: #d1c7b3; }
     .deckbar select { padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 15px; }
-    /* Mobile: Tra nghĩa & Diễn giải đã có ô chọn bộ riêng → ẩn thanh chọn bộ chung cho đỡ trùng */
-    @media (max-width: 1023px) { body[data-mode="browse"] #deckBar, body[data-mode="reading"] #deckBar { display: none !important; } }
+    /* Tra nghĩa & Diễn giải đã có ô chọn bộ riêng → ẩn thanh chọn bộ chung cho đỡ trùng (mọi kích thước màn hình) */
+    body[data-mode="browse"] #deckBar, body[data-mode="reading"] #deckBar { display: none !important; }
     .deck-inline { flex: 0 0 auto; max-width: 46%; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 15px; }
     .picker-row { display: flex; gap: 8px; align-items: center; }
     .picker-row .field-input { flex: 1 1 auto; min-width: 0; }
@@ -1234,7 +1234,7 @@
       'set.fallback': '🔁 Auto-switch provider on error', 'set.fallback.hint': 'If the current provider fails (quota, bad model, network…) before answering, the app automatically tries the other providers you have keys for: Gemini → ZenMux → Beeknoee → Ollama.',
       'reading.note': '📝 Journal note for this reading (auto-saved)', 'reading.note.ph': 'How does this reading feel? What happened afterwards?…',
       'hist.search.ph': 'Search question, card, note…', 'hist.exportJson': '⇩︎ Backup JSON', 'hist.exportMd': '⇩︎ Markdown', 'hist.import': '⇧︎ Import',
-      'lbl.keywords': 'Keywords', 'lbl.upright': 'Upright meaning', 'lbl.reversed': 'Reversed meaning',
+      'lbl.keywords': 'Keywords', 'lbl.cardPage': 'Card page (shareable)', 'lbl.source': 'Source', 'lbl.upright': 'Upright meaning', 'lbl.reversed': 'Reversed meaning',
       'daily.xuoi': 'Upright', 'daily.meaning': 'Meaning',
       'browse.noResults': 'No cards found. Try a different keyword.',
       'reading.spreadDraw': 'Draw cards into the spread', 'reading.spreadDrawBtn': '☍︎ Shuffle & draw (replace current spread)',
@@ -1598,6 +1598,13 @@
         if (index === 0) selectCard(card, item);
       });
     }
+    // Trang tĩnh SEO /la-bai/<bộ>/<slug>/ (scripts/build_seo_pages.py) — chỉ cho 2 bộ có sẵn
+    const SEO_DECK_SLUG = { 'Witches Tarot': 'witches-tarot', 'Rider-Waite': 'rider-waite' };
+    function seoCardPath(card) {
+      const d = SEO_DECK_SLUG[card.deck];
+      const slug = String(card.ten || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      return d && slug ? `/la-bai/${d}/${slug}/` : '';
+    }
     function selectCard(card, itemNode, userInitiated) {
       document.querySelectorAll('.card-item').forEach(el => el.classList.remove('active'));
       if (itemNode) itemNode.classList.add('active');
@@ -1607,7 +1614,7 @@
         <div class="section">
           <div class="meta"><span class="badge">${escapeHtml(card.so)}</span><span>${escapeHtml(card.bo || '')}</span></div>
           <h2>${escapeHtml(card.ten)}</h2>
-          <div class="meta">${card.url ? `<span><strong>Link:</strong> <a href="${escapeHtml(card.url)}" target="_blank" rel="noreferrer noopener">Xem trang</a></span>` : ''}</div>
+          <div class="meta">${seoCardPath(card) ? `<span><a href="${seoCardPath(card)}" target="_blank" rel="noopener">${t('lbl.cardPage', 'Trang riêng của lá (chia sẻ được)')} ↗</a></span>` : ''}${card.url ? `<span><strong>${t('lbl.source', 'Nguồn')}:</strong> <a href="${escapeHtml(card.url)}" target="_blank" rel="noreferrer noopener">tarot.vn</a></span>` : ''}</div>
           ${corrChips(card)}
         </div>
         ${(lang === 'vi' && card.chiem_tinh_hoc) ? `<div class="section"><h3>Chiêm tinh học</h3><p>${escapeHtml(card.chiem_tinh_hoc)}</p></div>` : ''}
