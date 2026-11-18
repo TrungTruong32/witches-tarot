@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 
 const REQUIRED = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
 // AI miễn phí (/api/ai): biến nào có trong .env thì đẩy, thiếu thì bỏ qua
-const OPTIONAL = ['GEMINI_API_KEY', 'OLLAMA_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_MODELS', 'GEMINI_MODEL', 'OLLAMA_MODEL', 'OPENROUTER_MODEL', 'AI_DEVICE_DAILY', 'AI_IP_DAILY', 'AI_GLOBAL_DAILY'];
+const OPTIONAL = ['GEMINI_API_KEY', 'OLLAMA_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_MODELS', 'GEMINI_MODEL', 'OLLAMA_MODEL', 'OPENROUTER_MODEL', 'AI_DEVICE_DAILY', 'AI_IP_DAILY', 'AI_GLOBAL_DAILY', 'AI_HASH_SECRET', 'READINGS_DAILY_MAX', 'READINGS_MAX_MB', 'READINGS_MAX_ROWS', 'BACKFILL_UNTIL', 'BACKFILL_TOTAL_MAX'];
 const TARGET = 'production';
 const env = {};
 for (const line of fs.readFileSync('.env', 'utf8').split(/\r?\n/)) {
