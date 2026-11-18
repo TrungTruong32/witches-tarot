@@ -8,7 +8,7 @@
 //   Đếm trong bảng Supabase ai_usage (không lưu IP thô, không lưu nội dung). Lượt lỗi không bị tính.
 // - Chỉ nhận request từ chính trang này. Trả về text thuần dạng stream.
 // Biến môi trường: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY và ít nhất một trong GEMINI_API_KEY / OLLAMA_API_KEY / OPENROUTER_API_KEY
-//   (tuỳ chọn) GEMINI_MODEL, OLLAMA_MODEL, OPENROUTER_MODEL, AI_DEVICE_DAILY, AI_IP_DAILY, AI_GLOBAL_DAILY, AI_HASH_SECRET
+//   (tuỳ chọn) GEMINI_MODELS (danh sách, phẩy), OLLAMA_MODEL, OPENROUTER_MODEL, AI_DEVICE_DAILY, AI_IP_DAILY, AI_GLOBAL_DAILY, AI_HASH_SECRET
 import { createHash } from 'node:crypto';
 
 // Key trong env có thể bị dán kèm chú thích/khoảng trắng ("AIza... # ghi chú") → chỉ lấy từ đầu tiên, bỏ ngoặc kép
@@ -18,7 +18,11 @@ const num = (v, d) => (Number.isFinite(+v) && +v > 0 ? Math.floor(+v) : d);
 const DEVICE_DAILY = num(process.env.AI_DEVICE_DAILY, 10);
 const IP_DAILY = num(process.env.AI_IP_DAILY, 30);
 const GLOBAL_DAILY = num(process.env.AI_GLOBAL_DAILY, 600);
-const GEMINI_MODEL = envVal('GEMINI_MODEL') || 'gemini-flash-lite-latest';
+// Gemini: hạn mức free tính RIÊNG cho từng model → xoay vòng nhiều model. GEMINI_MODELS="a,b,c" để tự chọn danh sách;
+// không đặt thì server tự lấy danh sách model Flash/Flash-Lite mà key gọi được (Lite trước vì hạn mức/ngày cao hơn).
+const GEMINI_MODELS_ENV = (envVal('GEMINI_MODELS') || envVal('GEMINI_MODEL')).split(',').map(x => x.trim().replace(/^models\//, '')).filter(Boolean);
+const GEMINI_FALLBACK = ['gemini-flash-lite-latest', 'gemini-flash-latest'];
+const GEMINI_MAX_MODELS = 8;
 const OLLAMA_MODEL = envVal('OLLAMA_MODEL') || 'gpt-oss:120b';
 const OPENROUTER_MODEL = envVal('OPENROUTER_MODEL') || 'openrouter/free';   // router tự chọn model :free còn sống
 const MAX_OUT = 4000;                                  // token trả lời tối đa mỗi lượt
@@ -80,19 +84,60 @@ async function fail(resp, name) {
   throw new Error(msg);
 }
 
+// --- Danh sách model Gemini (tự dò, cache 6 giờ mỗi instance) ---
+let geminiCache = { at: 0, list: null };
+async function geminiModels() {
+  if (GEMINI_MODELS_ENV.length) return GEMINI_MODELS_ENV;
+  if (geminiCache.list && Date.now() - geminiCache.at < 6 * 3600000) return geminiCache.list;
+  try {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000',
+      { headers: { 'x-goog-api-key': envKey('GEMINI_API_KEY') }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error('list ' + r.status);
+    const names = ((await r.json()).models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => String(m.name || '').replace(/^models\//, ''))
+      .filter(n => /^gemini-.*flash/.test(n) && !/(image|tts|audio|live|embed|native|computer|robotics|exp|-latest$)/.test(n));
+    const ver = n => parseFloat((n.match(/^gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
+    const score = n => (/lite/.test(n) ? 0 : 1000) + (/preview/.test(n) ? 100 : 0) - ver(n) * 10 + (/-\d{3}$/.test(n) ? 1 : 0);
+    const list = [...new Set(names)].sort((a, b) => score(a) - score(b)).slice(0, GEMINI_MAX_MODELS);
+    geminiCache = { at: Date.now(), list: list.length ? list : GEMINI_FALLBACK };
+  } catch {
+    geminiCache = { at: Date.now() - 5.5 * 3600000, list: GEMINI_FALLBACK };   // lỗi → thử dò lại sau ~30 phút
+  }
+  return geminiCache.list;
+}
+
+// --- Model vừa hết hạn mức / không dùng được → tạm bỏ qua (trong RAM của instance) ---
+const cooldown = new Map();   // "provider:model" → thời điểm hết chờ
+function coolFor(err) {
+  const m = String(err && err.message || err);
+  const st = +((m.match(/HTTP (\d{3})/) || [])[1] || 0);
+  if (st === 429) {
+    if (/per ?day|PerDay|daily/i.test(m)) {       // hết lượt/ngày → chờ tới lúc Google reset (0h giờ Pacific ≈ 08:00 UTC)
+      const d = new Date(); d.setUTCHours(8, 0, 0, 0); if (d <= new Date()) d.setUTCDate(d.getUTCDate() + 1);
+      return d - Date.now();
+    }
+    return 65000;                                  // hết lượt/phút
+  }
+  if (st === 402 || st === 403) return 3600000;   // cần trả phí / không có quyền
+  if (st === 404 || (st === 400 && /not (found|supported)/i.test(m))) return 6 * 3600000;   // model không tồn tại
+  return 0;
+}
+
 const PROVIDERS = {
   gemini: {
     key: () => envKey('GEMINI_API_KEY'),
-    label: () => 'Gemini (' + GEMINI_MODEL + ')',
-    async *stream(messages, signal) {
+    models: geminiModels,
+    label: m => 'Gemini (' + m + ')',
+    async *stream(messages, signal, model) {
       const sys = messages.filter(m => m.role === 'system').map(m => m.content).concat(GUARD).join('\n\n');
       const contents = messages.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:streamGenerateContent?alt=sse`, {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
         method: 'POST', signal,
         headers: { 'content-type': 'application/json', 'x-goog-api-key': envKey('GEMINI_API_KEY') },
         body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents, generationConfig: { temperature: 0.9, maxOutputTokens: MAX_OUT } })
       });
-      if (!resp.ok) await fail(resp, 'Gemini');
+      if (!resp.ok) await fail(resp, 'Gemini[' + model + ']');
       for await (const p of sseData(resp)) {
         try {
           const parts = JSON.parse(p)?.candidates?.[0]?.content?.parts || [];
@@ -104,6 +149,7 @@ const PROVIDERS = {
   ollama: {
     key: () => envKey('OLLAMA_API_KEY'),
     label: () => 'Ollama (' + OLLAMA_MODEL + ')',
+    models: async () => [OLLAMA_MODEL],
     async *stream(messages, signal) {
       const sys = messages.filter(m => m.role === 'system').map(m => m.content).concat(GUARD).join('\n\n');
       const msgs = [{ role: 'system', content: sys }, ...messages.filter(m => m.role !== 'system')];
@@ -133,6 +179,7 @@ const PROVIDERS = {
   openrouter: {
     key: () => envKey('OPENROUTER_API_KEY'),
     label: () => 'OpenRouter (' + OPENROUTER_MODEL + ')',
+    models: async () => [OPENROUTER_MODEL],
     async *stream(messages, signal) {
       const sys = messages.filter(m => m.role === 'system').map(m => m.content).concat(GUARD).join('\n\n');
       const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -153,6 +200,16 @@ const PROVIDERS = {
   }
 };
 const ORDER = ['gemini', 'ollama', 'openrouter'];
+
+// Danh sách lượt thử: mọi model Gemini (đang không bị chờ) → Ollama → OpenRouter.
+// Nếu mọi model đều đang chờ thì vẫn thử hết (có thể hạn mức đã được reset sớm).
+async function attemptList(ready) {
+  const all = [];
+  for (const name of ready) for (const model of await PROVIDERS[name].models()) all.push({ name, model, id: name + ':' + model });
+  const now = Date.now();
+  const live = all.filter(a => !(cooldown.get(a.id) > now));
+  return live.length ? live : all;
+}
 
 export async function POST(req) {
   const sbUrl = process.env.SUPABASE_URL, sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -198,10 +255,10 @@ export async function POST(req) {
 
   // --- gọi lần lượt từng provider; chỉ "chốt" provider khi đã nhận được chữ đầu tiên ---
   const errors = [];
-  for (const name of ready) {
+  for (const { name, model, id } of await attemptList(ready)) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 45000);   // 45s chưa có chữ nào (model có bước suy nghĩ cần lâu hơn) → bỏ qua provider này
-    const it = PROVIDERS[name].stream(messages, ctrl.signal);
+    const it = PROVIDERS[name].stream(messages, ctrl.signal, model);
     let first;
     try {
       first = await it.next();
@@ -210,9 +267,11 @@ export async function POST(req) {
     } catch (e) {
       clearTimeout(timer); ctrl.abort();
       errors.push(String(e.message || e).slice(0, 200));
+      const wait = coolFor(e);
+      if (wait > 0) cooldown.set(id, Date.now() + wait);
       continue;
     }
-    fetch(`${base}?id=eq.${rowId}`, { method: 'PATCH', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify({ provider: name }) }).catch(() => {});
+    fetch(`${base}?id=eq.${rowId}`, { method: 'PATCH', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify({ provider: id.slice(0, 40) }) }).catch(() => {});
     const enc = new TextEncoder();
     const stream = new ReadableStream({
       async start(c) {
@@ -224,10 +283,10 @@ export async function POST(req) {
     });
     return new Response(stream, { headers: {
       'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store',
-      'x-ai-provider': encodeURIComponent(PROVIDERS[name].label()),
+      'x-ai-provider': encodeURIComponent(PROVIDERS[name].label(model)),
       'x-ai-remaining': String(Math.max(0, DEVICE_DAILY - used)),
       // provider nào bị bỏ qua và vì sao (chỉ tên + mã lỗi, không chứa key) — để chẩn đoán
-      ...(errors.length ? { 'x-ai-skipped': encodeURIComponent(errors.map(e => e.replace(/^(\w+)\s+HTTP\s+(\d+).*$/s, '$1:$2').slice(0, 60)).join(' | ')) } : {})
+      ...(errors.length ? { 'x-ai-skipped': encodeURIComponent(errors.map(e => e.replace(/^(\S+)\s+HTTP\s+(\d+).*$/s, '$1:$2').slice(0, 60)).join(' | ')) } : {})
     } });
   }
   await release();
