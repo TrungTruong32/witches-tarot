@@ -362,3 +362,19 @@ export const SEARCH_COLS: readonly string[];  // verbatim legacy line 1501
 - `npm run check` and `npm run build` pass on `react-migration`, and every Task 1–10 commit is present locally (not pushed).
 - `api/ai.js` builds its prompt from `shared/prompt.js`, and the golden tests pass.
 - `witches_tarot.html`, `vercel.json`, `.vercelignore` and `sw.js` are unchanged: `git diff main -- witches_tarot.html vercel.json .vercelignore sw.js` is empty.
+
+---
+
+## Outcome (2026-11-19)
+
+Done on local branch `react-migration`, commits `c2eee23..dfb14ad`, not pushed. `npm run check` reports 125 tests passing, and `npm run build` passes. A whole-branch review by a fresh reviewer found no Critical issues. All three Important findings were fixed:
+- Tests were moved out of `api/`.
+- `deploy-prod.mjs` now refuses to deploy from any branch other than `main`.
+- The Vite dev server now refuses secret files.
+
+**Carry forward into Plan 2** (deferred minors and rulings that the UI work must respect):
+- `decodeShare` returns unvalidated JSON. Before rendering, custom-card fields (`ten`, `image_url`, …) must go through `escapeHtml` or a URL check.
+- `cardsDb.majorNameIn` has no fallback. Callers compose `majorNameIn(deck, n) ?? MAJOR_NAMES[n] ?? null`, picking the deck from the first card that has one, as the legacy code did.
+- `chatComplete` returns only the provider id. Free-AI info (`FreeAiInfo` from `callFree`) has to be threaded out for the saved `"free · <model>"` provider label.
+- Golden system prompts cover only the `"Witches Tarot"` label. Add a harness comparison across deck labels if the prompt is touched.
+- Legacy card data in the wild may contain `id: -1` custom cards (from the removed deck import).
