@@ -248,6 +248,43 @@
     .pages-link { text-align: center; margin: -8px 0 14px; font-size: .9rem; }
     .pages-link a { color: var(--accent, #b49bff); }
     .category-tabs { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 20px 0; }
+    /* ===== Nhóm bài dạng chồng bài 3D (Tra cứu): nghỉ = xấp nghiêng có độ dày; rê chuột / đang chọn = dựng thẳng & xoè 3 lá ===== */
+    .category-tabs.suits { gap: 12px; align-items: stretch; }
+    .suit-tile { position: relative; width: 150px; padding: 12px 8px 12px; border: 1px solid var(--border3); border-radius: 18px; background: var(--panel); color: var(--text);
+      font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; text-align: center; transition: background-color .3s, border-color .3s; }
+    .suit-tile:hover, .suit-tile:focus-visible { border-color: color-mix(in srgb, var(--accent2) 45%, var(--border3)); outline: none; }
+    .suit-tile.active { border-color: var(--accent2); background: color-mix(in srgb, var(--accent) 18%, var(--panel)); }
+    .st-scene { position: relative; width: 84px; height: 132px; margin: 4px 0 8px; }
+    .st-bob { position: absolute; inset: 0; animation: stBob 3.4s ease-in-out infinite; }
+    .suit-tile:hover .st-bob, .suit-tile.active .st-bob { animation-play-state: paused; }
+    @keyframes stBob { 50% { transform: translateY(-5px); } }
+    /* Cùng một chuỗi hàm transform ở 2 trạng thái → trình duyệt nội suy mượt từng hàm. perspective() riêng từng lá (chung tâm) → không cần preserve-3d */
+    .st-card, .st-layer { position: absolute; left: 10px; top: 8px; width: 64px; height: 110px; border-radius: 6px; transform-origin: 50% 85%;
+      transform: perspective(900px) rotateX(30deg) rotateY(20deg) rotateZ(-10deg) translateZ(calc(var(--z) * 1.4px)) translate(0, 0) rotateZ(var(--j, 0deg));
+      transition: transform .45s cubic-bezier(.2,.8,.2,1) var(--dl, 0s), opacity .3s ease var(--od, 0s); }
+    .st-layer { background: linear-gradient(90deg, #cfc5ae, #e9e1cf); border: 1px solid rgba(0,0,0,.2); --od: .22s; }
+    .st-card { object-fit: cover; background: var(--cardback); border: 1px solid rgba(0,0,0,.3); box-shadow: -2px 2px 5px rgba(0,0,0,.25); }
+    .st-card[data-k="-1"] { --fx: -26px; --fy: 6px; --fr: -12deg; --dl: .04s; }
+    .st-card[data-k="0"]  { --fx: 0px;   --fy: -4px; --fr: 0deg; }
+    .st-card[data-k="1"]  { --fx: 26px;  --fy: 6px; --fr: 12deg; --dl: .08s; }
+    .suit-tile:hover .st-card, .suit-tile.active .st-card, .suit-tile:focus-visible .st-card {
+      transform: perspective(900px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) translateZ(calc(var(--z) * 1.4px)) translate(var(--fx), var(--fy)) rotateZ(var(--fr)); }
+    .suit-tile:hover .st-layer, .suit-tile.active .st-layer, .suit-tile:focus-visible .st-layer { opacity: 0; --od: 0s;
+      transform: perspective(900px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) translateZ(calc(var(--z) * 1.4px)) translate(0, 0) rotateZ(0deg); }
+    .st-shadow { position: absolute; left: 50%; bottom: -4px; width: 76px; height: 12px; margin-left: -38px; border-radius: 50%;
+      background: radial-gradient(closest-side, rgba(0,0,0,.45), transparent); filter: blur(2px); animation: stShadow 3.4s ease-in-out infinite; transition: width .4s, margin .4s; }
+    @keyframes stShadow { 50% { transform: scaleX(.85); opacity: .7; } }
+    .suit-tile:hover .st-shadow, .suit-tile.active .st-shadow { width: 116px; margin-left: -58px; animation-play-state: paused; }
+    .st-name { font-family: Cinzel, serif; font-weight: 700; font-size: 1rem; line-height: 1.2; }
+    .st-meta { margin-top: 3px; font-size: .74rem; letter-spacing: 1.2px; text-transform: uppercase; color: var(--spark); }
+    @media (max-width: 760px) {
+      /* điện thoại: một hàng cuộn ngang, ô nhỏ hơn */
+      .category-tabs.suits { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding: 0 22px; padding: 4px 22px 10px; margin-left: -14px; margin-right: -14px; scrollbar-width: none; }
+      .category-tabs.suits::-webkit-scrollbar { display: none; }
+      .suit-tile { flex: 0 0 116px; width: 116px; scroll-snap-align: start; padding: 10px 4px; }
+      .st-name { font-size: .9rem; }
+    }
+    @media (prefers-reduced-motion: reduce) { .st-bob, .st-shadow { animation: none; } .st-card, .st-layer { transition: none; } }
     .tab-btn { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--btn); color: var(--muted); cursor: pointer; font-size: .95rem; transition: all .15s ease; }
     .tab-btn:hover { background: #4a4474; border-color: #7a6b9e; }
     .tab-btn.active { background: var(--accent); border-color: var(--accent2); color: var(--text); }
@@ -630,7 +667,7 @@
     .draw-card.revealed .draw-meta { opacity: 1; transform: none; }
     @keyframes dealIn { from { opacity: 0; transform: translateY(-26px) scale(.92); } to { opacity: 1; transform: none; } }
     /* Xào bài kiểu riffle: tách 2 nửa rồi đan xen cài vào nhau */
-    .riffle { display: none; position: relative; height: 240px; margin-top: 16px; perspective: 900px; overflow: hidden; }
+    .riffle { display: none; position: relative; height: 340px; margin-top: 16px; perspective: 900px; overflow: hidden; }
     .riffle.on { display: block; }
     .riffle-card { position: absolute; left: 50%; top: 50%; width: 66px; aspect-ratio: 300 / 525; margin-left: -33px; margin-top: -58px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 10px 22px rgba(0,0,0,.5); }
     /* chuyển động xào do JS (Web Animations) điều khiển — xem startShuffleLoop */
@@ -640,7 +677,7 @@
       50%  { transform: translateX(var(--mx)) translateY(0) rotateZ(0deg); }
       100% { transform: translateX(var(--sx)) translateY(var(--sy)) rotateZ(var(--sr)); }
     }
-    @media (max-width: 600px) { .riffle { height: 196px; } .riffle-card { width: 52px; margin-left: -26px; margin-top: -46px; } }
+    @media (max-width: 600px) { .riffle { height: 260px; } .riffle-card { width: 52px; margin-left: -26px; margin-top: -46px; } }
     @media (prefers-reduced-motion: reduce) { .riffle.on .riffle-card { animation: none; } }
     @media (prefers-reduced-motion: reduce) {
       .flip-inner, .draw-meta { transition: none; }
@@ -1801,26 +1838,66 @@
       stmt.bind([deck]); stmt.step();
       const n = stmt.getAsObject().c; stmt.free(); return n;
     }
+    // Nhóm bài hiển thị dạng chồng bài 3D (CSS .suit-tile). Mỗi ô chỉ tải 1 ảnh (lá trên cùng);
+    // 2 lá xoè hai bên chỉ tải khi rê chuột / chọn ô đó → trang Tra cứu nhẹ (~5 ảnh nhỏ).
+    const SUIT_META = {
+      'all':          { vi: 'Tất cả',   en: 'All',        sym: '✧' },
+      'Bo An Chinh':  { vi: 'Ẩn Chính', en: 'Major',      sym: '✦' },
+      'Bo Wands':     { vi: 'Gậy',      en: 'Wands',      sym: '🜂', el: ['Lửa', 'Fire'] },
+      'Bo Cups':      { vi: 'Cốc',      en: 'Cups',       sym: '🜄', el: ['Nước', 'Water'] },
+      'Bo Swords':    { vi: 'Kiếm',     en: 'Swords',     sym: '🜁', el: ['Khí', 'Air'] },
+      'Bo Pentacles': { vi: 'Tiền',     en: 'Pentacles',  sym: '🜃', el: ['Đất', 'Earth'] }
+    };
+    function suitTopCards(deck, bo) {
+      const st = db.prepare('SELECT ten, image_url FROM cards WHERE deck = ? AND bo = ? ORDER BY id LIMIT 3');
+      st.bind([deck, bo]); const out = [];
+      while (st.step()) out.push(st.getAsObject());
+      st.free(); return out;
+    }
+    function loadSuitFan(tile) {
+      tile.querySelectorAll('img[data-src]').forEach(im => { im.src = im.dataset.src; im.removeAttribute('data-src'); });
+    }
     function renderCategoryTabs() {
       categoryTabsEl.innerHTML = '';
-      const mkTab = (cat, label) => {
+      categoryTabsEl.classList.add('suits');
+      const en = lang === 'en';
+      const jit = () => (Math.random() * 3 - 1.5).toFixed(2) + 'deg';
+      const mkTile = (cat, count, cards) => {
+        const m = SUIT_META[cat] || { vi: BO_LABELS[cat] || cat, en: BO_LABELS[cat] || cat, sym: '✧' };
         const b = document.createElement('button');
-        b.className = 'tab-btn' + (selectedCategory === cat ? ' active' : '');
-        b.textContent = label;
+        b.type = 'button';
+        b.className = 'suit-tile' + (selectedCategory === cat ? ' active' : '');
+        b.setAttribute('aria-pressed', selectedCategory === cat ? 'true' : 'false');
+        const layers = [0, 1, 2, 3, 4].map(i => `<i class="st-layer" style="--z:${i};--j:${jit()}"></i>`).join('');
+        // lá giữa (k=0) nằm trên cùng và tải ngay; hai lá bên tải khi cần. Không có ảnh → mặt lưng bài.
+        const imgs = [[-1, cards[1]], [1, cards[2]], [0, cards[0]]].map(([k, c], i) => {
+          const url = c && c.image_url ? escapeHtml(c.image_url) : '';
+          const st = `class="st-card" data-k="${k}" style="--z:${5 + i};--j:${jit()}"`;
+          if (!url) return `<span ${st}></span>`;
+          return `<img ${st} ${k === 0 ? 'src' : 'data-src'}="${url}" alt="" decoding="async">`;
+        }).join('');
+        const label = en ? m.en : m.vi;
+        const meta = (m.el ? (en ? m.el[1] : m.el[0]) + ' · ' : '') + count + (en ? ' cards' : ' lá');
+        b.innerHTML = `<span class="st-scene" aria-hidden="true"><span class="st-bob">${layers}${imgs}</span><span class="st-shadow"></span></span>` +
+          `<span class="st-name">${escapeHtml(label)}</span><span class="st-meta"><span class="sym">${m.sym}</span> ${escapeHtml(meta)}</span>`;
+        b.addEventListener('mouseenter', () => loadSuitFan(b), { once: true });
+        b.addEventListener('focus', () => loadSuitFan(b), { once: true });
         b.addEventListener('click', () => {
           selectedCategory = cat;
-          categoryTabsEl.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
-          b.classList.add('active');
+          categoryTabsEl.querySelectorAll('.suit-tile').forEach(x => { x.classList.remove('active'); x.setAttribute('aria-pressed', 'false'); });
+          b.classList.add('active'); b.setAttribute('aria-pressed', 'true');
+          loadSuitFan(b);
           searchInput.value = '';
           updateFilter();
         });
+        if (selectedCategory === cat) loadSuitFan(b);
         categoryTabsEl.appendChild(b);
       };
       if (!selectedDeck) return;
-      mkTab('all', 'Tất cả (' + deckTotal(selectedDeck) + ')');
+      mkTile('all', deckTotal(selectedDeck), []);   // "Tất cả": xấp mặt lưng, không tốn ảnh
       boCounts(selectedDeck).forEach(r => {
         if (!r.bo) return; // skip cards with no category
-        mkTab(r.bo, (BO_LABELS[r.bo] || r.bo) + ' (' + r.c + ')');
+        mkTile(r.bo, r.c, suitTopCards(selectedDeck, r.bo));
       });
     }
     searchInput.addEventListener('input', updateFilter);
@@ -4816,19 +4893,53 @@
       startShuffleLoop(el, cards);
     }
     function stopShuffleLoop() {
-      if (shuffleLoop) { clearTimeout(shuffleLoop.timer); shuffleLoop.anims.forEach(a => { try { a.cancel(); } catch {} }); shuffleLoop = null; }
+      if (shuffleLoop) { clearTimeout(shuffleLoop.timer); cancelAnimationFrame(shuffleLoop.raf); shuffleLoop.anims.forEach(a => { try { a.cancel(); } catch {} }); shuffleLoop = null; }
       stopShuffleAudio();
+    }
+    // Vòng "xoáy": cả xấp xoay quanh trục dọc, xoắn ra và bay vòng quanh tâm rồi gom lại (~3,4s).
+    // Mỗi lá mang perspective() riêng (cùng tâm) và z-index tính theo độ sâu mỗi khung → các lá không cắt xuyên nhau.
+    function vortexCycle(el, cards, loop, done) {
+      const N = cards.length, D = 3400;
+      const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      const env = t => t < 200 ? 0 : t < 1000 ? ease((t - 200) / 800) : t < 2000 ? 1 : t < 2900 ? 1 - ease((t - 2000) / 900) : 0;
+      let R = 0, H = 0;   // đo ở khung đầu tiên: lúc gọi hàm này khung xào có thể chưa hiện (.on gắn sau) → kích thước = 0
+      if (soundOn && audioCtx) { const T = audioCtx.currentTime + 0.03; cardWhoosh(T + 0.25, 1.4, 0.8); cardThump(T + 3.0, 0.9); }
+      let spin = 0, last = performance.now();
+      const t0 = last;
+      const step = now => {
+        if (shuffleLoop !== loop || !el.isConnected) return;
+        const t = now - t0, dt = Math.min(50, now - last); last = now;
+        if (!R) { R = Math.min(125, el.clientWidth * 0.28); H = Math.min(70, el.clientHeight * 0.22); }
+        const sv = env(t);
+        spin += dt * (0.05 + 0.5 * sv);
+        if (t > 2900) spin += (Math.round(spin / 360) * 360 - spin) * 0.15;   // xoay về mặt trước
+        for (let i = 0; i < N; i++) {
+          const u = i / (N - 1);
+          const y = -i * 0.45 + (u - 0.5) * sv * H + sv * 14;   // hạ tâm một chút khi toả: lá gần người xem phóng to, tránh chạm mép trên
+          const a = spin + sv * i * (360 / N + 14);
+          const r = sv * R * (0.75 + 0.25 * Math.sin(i * 1.7));
+          const tilt = sv * 9 * Math.sin(spin / 40 + i);
+          cards[i].style.transform = `perspective(900px) rotateX(${(-10 * sv).toFixed(1)}deg) translate3d(0, ${y.toFixed(1)}px, 0) rotateY(${a.toFixed(1)}deg) translateZ(${r.toFixed(1)}px) rotateX(${tilt.toFixed(1)}deg)`;
+          cards[i].style.zIndex = String(5000 + Math.round(r * Math.cos(a * Math.PI / 180) * 10) + i);
+        }
+        if (t < D) { loop.raf = requestAnimationFrame(step); return; }
+        cards.forEach((c, i) => { c.style.transform = `translateY(${(-i * 0.45).toFixed(2)}px)`; c.style.zIndex = String(10 + i); });
+        done();
+      };
+      loop.raf = requestAnimationFrame(step);
     }
     function startShuffleLoop(el, cards) {
       stopShuffleLoop();
-      const loop = shuffleLoop = { timer: null, anims: [], cycle: 0 };
+      const loop = shuffleLoop = { timer: null, raf: 0, anims: [], cycle: 0 };
       const N = cards.length, M = Math.ceil(N / 2);
       const run = () => {
         if (shuffleLoop !== loop || !el.isConnected) return;
+        // Luân phiên: vòng chẵn = xoáy bay vòng, vòng lẻ = riffle
+        if (loop.cycle % 2 === 0) { vortexCycle(el, cards, loop, () => { loop.cycle++; run(); }); return; }
         loop.anims = [];
         const D = 1650 + Math.random() * 250;                  // mỗi vòng dài ngắn khác nhau chút
         const spreadX = Math.min(124, Math.max(72, el.clientWidth * 0.26));   // hai nửa tách rõ cả trên khung hẹp
-        const leftFirst = loop.cycle % 2 === 0;                 // đổi bên thả trước mỗi vòng
+        const leftFirst = (loop.cycle >> 1) % 2 === 0;          // đổi bên thả trước mỗi vòng riffle
         // Thứ tự rơi: xen kẽ từ đáy hai nửa, đôi khi 2 lá cùng bên rơi liền (như tay thật)
         const L = [], R = [];
         for (let i = 0; i < N; i++) (i < M ? L : R).push(i);
