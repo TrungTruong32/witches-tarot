@@ -35,3 +35,22 @@ export interface CardText {
   y_nghia_xuoi: string;
   nghia_nguoc: string;
 }
+
+/** Một lượt trải bài lưu trong nhật ký (IndexedDB `witchesTarotDecks` / store `readings`). */
+export interface Reading {
+  id?: number;
+  ts: number;
+  deck: string;
+  question: string;
+  provider: string;
+  text: string;
+  /** Hỏi tiếp — bản ghi cũ hoặc nhập từ file có thể thiếu. */
+  followups?: { q: string; a: string }[];
+  note?: string;
+  spread?: string;
+  positions?: string[] | null;
+  facts?: string[];
+  cards: Pick<SpreadCard, 'id' | 'deck' | 'ten' | 'bo' | 'so' | 'y_nghia_xuoi' | 'nghia_nguoc' | 'tu_khoa' | 'image_url' | 'orientation'>[];
+  /** Nhập từ file sao lưu → chỉ nằm trong máy, không bao giờ đồng bộ lên máy chủ. */
+  imported?: boolean;
+}
