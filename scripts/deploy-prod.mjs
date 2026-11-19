@@ -4,6 +4,7 @@
 // Dùng VERCEL_TOKEN trong .env (không in ra). Từ chối deploy nếu còn thay đổi chưa commit.
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { deployBranchError } from './deploy-guard.mjs';
 
 const SITE = 'https://tt-witches-tarot.vercel.app';
 const env = {};
@@ -16,6 +17,8 @@ const git = args => spawnSync('git', args, { encoding: 'utf8' });               
 // npx trên Windows là .cmd → phải qua shell; truyền MỘT chuỗi lệnh (đối số đều là chữ cố định/token không có dấu cách)
 const npx = args => spawnSync(['npx', ...args].join(' '), { encoding: 'utf8', shell: true });
 
+const branchErr = deployBranchError(git(['branch', '--show-current']).stdout.trim(), process.argv.slice(2));
+if (branchErr) { console.error(branchErr); process.exit(1); }
 const dirty = git(['status', '--porcelain']).stdout.trim();
 if (dirty) { console.error('✗ Còn thay đổi chưa commit — commit trước rồi deploy:\n' + dirty); process.exit(1); }
 const head = git(['log', '-1', '--format=%h %s']).stdout.trim();

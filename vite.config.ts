@@ -32,11 +32,15 @@ function serveRootStatic(): Plugin {
 export default defineConfig({
   plugins: [react(), serveRootStatic()],
   publicDir: false,
+  server: {
+    // Gốc dự án là gốc repo → chặn file bí mật / dữ liệu riêng (test.ipynb có API key, Data/ là dữ liệu bài gốc…)
+    fs: { deny: ['.env', '.env.*', '*.{crt,pem}', '**/*.ipynb', '**/Data/**', '**/local/**', '**/.superpowers/**', '**/.vercel/**'] },
+  },
   test: {
     environment: 'jsdom',
     // Node ≥25 bật sẵn localStorage riêng (webstorage) và che mất localStorage của jsdom → tắt đi khi chạy test.
     pool: 'forks',
     poolOptions: { forks: { execArgv: ['--no-experimental-webstorage'] } },
-    include: ['src/**/*.test.{ts,tsx}', 'shared/**/*.test.ts', 'tests/**/*.test.ts', 'api/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}', 'shared/**/*.test.ts', 'tests/**/*.test.ts'],
   },
 });

@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'ai.js'), 'utf8');
+const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'api', 'ai.js'), 'utf8');
 
 describe('api/ai.js uses the shared system prompt', () => {
   it('has no local copy of the prompt', () => {

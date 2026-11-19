@@ -20,5 +20,5 @@
     "resolveJsonModule": true,
     "types": ["node"]
   },
-  "include": ["src", "shared", "tests", "api/**/*.test.ts"]
+  "include": ["src", "shared", "tests"]
 }
