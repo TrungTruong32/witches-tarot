@@ -71,7 +71,7 @@
       --aura1: rgba(150,120,235,.35); --aura2: rgba(255,175,205,.34); --star: rgba(140,110,205,.5); --spark: #c79a34;
     }
     :root[data-theme="light"] .card-item, :root[data-theme="light"] .spread-item,
-    :root[data-theme="light"] .imported-item, :root[data-theme="light"] .hist-item { background: #efe9fb; }
+    :root[data-theme="light"] .hist-item { background: #efe9fb; }
     :root[data-theme="light"] .card-item span, :root[data-theme="light"] .card-item strong,
     :root[data-theme="light"] .badge, :root[data-theme="light"] .section h3 { color: #2a2440; }
     :root[data-theme="light"] .qchip { background: #ece5fb; color: #3a2f66; }
@@ -400,6 +400,8 @@
     textarea { resize: vertical; min-height: 64px; }
     .picker-results { display: grid; gap: 6px; margin-top: 8px; max-height: 240px; overflow-y: auto; }
     .picker-item { text-align: left; padding: 9px 12px; font-size: .92rem; }
+    .shared-note { white-space: normal; margin: 0 0 12px; padding: 9px 12px; border-radius: 10px; font-size: .84rem; line-height: 1.5;
+      color: var(--spark); background: rgba(255,225,168,.07); border: 1px solid rgba(255,225,168,.28); }
     .cloud-note { margin-top: 8px; font-size: .74rem; color: var(--muted); opacity: .85; }
     .cloud-note a { color: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
     .picker-item.active { border-color: color-mix(in srgb, var(--spark) 60%, transparent); background: color-mix(in srgb, var(--spark) 10%, var(--btn)); }
@@ -530,9 +532,6 @@
     .deck-inline { flex: 0 0 auto; max-width: 46%; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 15px; }
     .picker-row { display: flex; gap: 8px; align-items: center; }
     .picker-row .field-input { flex: 1 1 auto; min-width: 0; }
-    .imported-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: rgba(66,57,97,.85); border: 1px solid var(--border2); margin-bottom: 6px; }
-    .imported-item span { flex: 1; }
-    .imported-empty { color: var(--muted); font-size: .9rem; }
     .hist-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
     .hist-item { border: 1px solid var(--border2); background: rgba(66,57,97,.55); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
     .hist-item .row { display: flex; gap: 10px; align-items: flex-start; }
@@ -937,7 +936,6 @@
     <div class="deckbar" id="deckBar" style="display:none;">
       <label for="deckSelect">Bộ bài:</label>
       <select id="deckSelect"></select>
-      <button id="openImport">⇩︎ Import bộ bài (JSON)</button>
     </div>
 
     <div id="bootStatus" class="status">Đang tải cơ sở dữ liệu SQLite…</div>
@@ -1062,7 +1060,7 @@
             <div id="chatFollow" style="display:none;">
               <div id="chatLog"></div>
               <div class="chat-input-row">
-                <textarea id="chatInput" placeholder="Hỏi tiếp về trải bài này… (Enter để gửi, Shift+Enter xuống dòng)"></textarea>
+                <textarea id="chatInput" maxlength="1500" placeholder="Hỏi tiếp về trải bài này… (Enter để gửi, Shift+Enter xuống dòng)"></textarea>
                 <button id="chatSend" class="btn-primary">Gửi</button>
               </div>
             </div>
@@ -1339,34 +1337,6 @@
   </div>
 
   <!-- ===== IMPORT DECK MODAL ===== -->
-  <div class="modal-overlay" id="importOverlay">
-    <div class="modal">
-      <h2>⇩︎ Import bộ bài (JSON)</h2>
-      <div class="field">
-        <label for="importName">Tên bộ bài</label>
-        <input id="importName" type="text" placeholder="VD: Rider-Waite" />
-      </div>
-      <div class="field">
-        <label for="importFile">Chọn file JSON</label>
-        <input id="importFile" type="file" accept=".json,application/json" />
-      </div>
-      <div class="field">
-        <label for="importText">… hoặc dán JSON vào đây</label>
-        <textarea id="importText" placeholder='[ { "ten": "...", "bo": "...", "y_nghia_xuoi": "...", "nghia_nguoc": "...", "image_url": "..." }, ... ]'></textarea>
-      </div>
-      <div class="hint">JSON là một <strong>mảng</strong> các lá bài. Field khớp tên sẽ được dùng: <code>ten, bo, so, url, mo_ta_hinh_anh, y_nghia_xuoi, tu_khoa, than_thanh, chiem_tinh_hoc, cac_nguyen_to_lien_quan, nghia_nguoc, content, image_url</code>; thiếu field nào để trống. Bộ import được lưu trong trình duyệt này (IndexedDB) — chỉ bạn thấy, còn sau khi tải lại. Muốn mọi người thấy: đưa file vào <code>Data/decks/</code> rồi nhờ build lại &amp; deploy.</div>
-      <div class="saved-note" id="importNote"></div>
-      <div class="field" style="margin-top:14px;">
-        <label>Bộ đã import (local)</label>
-        <div id="importedList"></div>
-      </div>
-      <div class="modal-actions">
-        <button id="closeImport">Đóng</button>
-        <button class="btn-primary" id="doImport">Import</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Phóng to ảnh lá bài -->
   <div class="lightbox" id="imgLightbox"><img id="lightboxImg" alt="" /></div>
 
@@ -3638,7 +3608,9 @@
       const dev = deviceId() || (tmpDeviceId = tmpDeviceId || crypto.randomUUID());
       let resp;
       try {
-        resp = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ device_id: dev, messages }) });
+        const deck = (readingDecks().join(', ') || selectedDeck || '');
+        const conv = messages.filter(m => m.role !== 'system');   // system prompt do server dựng
+        resp = await fetch('/api/ai', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ device_id: dev, lang, deck, messages: conv }) });
       } catch (e) { throw new Error(en ? 'Cannot reach the free AI' : 'Không kết nối được AI miễn phí'); }
       if (!resp.ok) {
         let j = {};
@@ -3649,6 +3621,9 @@
         if (resp.status === 429) throw new Error(en
           ? 'The free AI is at capacity today. Please try again tomorrow, or add your own Gemini key in “AI Settings”.'
           : 'AI miễn phí đã hết lượt chung của hôm nay. Thử lại vào ngày mai, hoặc nhập key Gemini riêng trong “Cài đặt AI”.');
+        if (resp.status === 400 && j.error === 'bad_messages') throw new Error(en
+          ? 'This conversation is too long for the free AI (max 6 follow-up questions, 1,500 characters each). Start a new reading to continue.'
+          : 'Cuộc trò chuyện đã quá dài với AI miễn phí (tối đa 6 câu hỏi tiếp, mỗi câu 1.500 ký tự). Hãy trải bài mới để hỏi tiếp.');
         if (resp.status === 502 || resp.status === 503) throw new Error(en
           ? 'The free AI is busy right now. Please try again in a few minutes, or add your own Gemini key in “AI Settings”.'
           : 'AI miễn phí đang bận. Thử lại sau vài phút, hoặc nhập key Gemini riêng trong “Cài đặt AI”.');
@@ -4093,6 +4068,7 @@
       if (!db || id == null) return null;
       try { const st = db.prepare('SELECT * FROM cards WHERE id = ?'); st.bind([id]); let r = null; if (st.step()) r = st.getAsObject(); st.free(); return r; } catch { return null; }
     }
+    const SPREAD_SAFE_DECKS = new Set(['Witches Tarot', 'Rider-Waite']);
     async function loadSharedFromHash() {
       const h = location.hash || '';
       if (h.indexOf('#r=') !== 0) return false;
@@ -4104,7 +4080,10 @@
         else { id = sc.i; o = sc.o === 'nguoc' ? 1 : 0; ten = sc.t; img = sc.u; bo = sc.b; so = sc.s; deck = sc.k; }  // tương thích link cũ
         const hit = (id != null && id >= 0) ? cardByIdAnyDeck(id) : null;
         const full = hit && (!deck || hit.deck === deck) ? hit : null;   // id của bộ import cũ có thể trùng id bộ mới
-        const base = full ? Object.assign({}, full) : { id, ten, bo, so, image_url: img, deck };
+        // Không có trong DB → chỉ giữ chữ ngắn; ảnh chỉ nhận từ tarot.vn (link không được hiện ảnh tuỳ ý dưới tên miền này)
+        const safeImg = typeof img === 'string' && /^https:\/\/(www\.)?tarot\.vn\//.test(img) ? img : '';
+        const cut = (v, n) => String(v == null ? '' : v).slice(0, n);
+        const base = full ? Object.assign({}, full) : { id: null, ten: cut(ten, 80), bo: cut(bo, 40), so: cut(so, 10), image_url: safeImg, deck: SPREAD_SAFE_DECKS.has(deck) ? deck : '' };
         base.orientation = o ? 'nguoc' : 'xuoi';
         return base;
       });
@@ -4112,7 +4091,15 @@
       let stype = 'free';
       if (typeof data.p === 'string') stype = data.p;
       else if (Array.isArray(data.p)) { for (const k in SPREAD_DEFS) { const d = SPREAD_DEFS[k]; if (d && d.join('|') === data.p.join('|')) stype = k; } }
-      loadReading({ question: data.q, deck: data.d, text: data.a, cards, spread: SPREAD_BY_KEY[stype] ? stype : 'free' });
+      const clip = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+      loadReading({ question: clip(data.q, 500), deck: SPREAD_SAFE_DECKS.has(data.d) ? data.d : '', text: clip(data.a, 14000), cards: cards.slice(0, 15), spread: SPREAD_BY_KEY[stype] ? stype : 'free' });
+      // Nội dung trong link do người gửi tạo (có thể đã bị sửa) → ghi rõ để không bị lợi dụng lừa đảo
+      const note = document.createElement('div');
+      note.className = 'shared-note';
+      note.textContent = lang === 'en'
+        ? '🔗 Shared via link — this text was created by the sender and may have been edited. Witches Tarot never asks for money or personal details.'
+        : '🔗 Trải bài được chia sẻ qua link — nội dung do người gửi tạo và có thể đã bị chỉnh sửa. Witches Tarot không bao giờ yêu cầu chuyển tiền hay thông tin cá nhân.';
+      if (aiOutput.firstChild) aiOutput.prepend(note); else aiOutput.appendChild(note);
       return true;
     }
 
@@ -4184,33 +4171,7 @@
       const r = db.exec('SELECT COALESCE(MAX(id), -1) AS m FROM cards');
       return (r.length ? r[0].values[0][0] : -1) + 1;
     }
-    function insertCards(deckName, cards) {
-      let id = nextId();
-      const cols = ['id', 'deck'].concat(CARD_FIELDS);
-      const ph = cols.map(() => '?').join(', ');
-      const stmt = db.prepare('INSERT INTO cards (' + cols.join(', ') + ') VALUES (' + ph + ')');
-      cards.forEach(c => { stmt.run([id++, deckName].concat(CARD_FIELDS.map(f => c[f] || ''))); });
-      stmt.free();
-    }
-    // Lenient map of an arbitrary card object -> known columns (+ split the "Ý nghĩa" marker if present).
-    function mapImportedCard(o) {
-      const row = {};
-      CARD_FIELDS.forEach(f => { row[f] = (o && o[f] != null) ? String(o[f]) : ''; });
-      const marker = '\nÝ nghĩa\n';
-      const idx = row.y_nghia_xuoi.indexOf(marker);
-      if (idx >= 0) {
-        let desc = row.y_nghia_xuoi.slice(0, idx);
-        const meaning = row.y_nghia_xuoi.slice(idx + marker.length);
-        const lines = desc.split('\n');
-        if (lines[0] && /^\s*lá\s.*tarot\s*$/i.test(lines[0])) lines.shift();
-        desc = lines.join('\n').trim();
-        if (desc && !row.mo_ta_hinh_anh.trim()) row.mo_ta_hinh_anh = desc;
-        row.y_nghia_xuoi = meaning.trim();
-      }
-      return row;
-    }
-
-    // ---------- IndexedDB: persist imported decks locally ----------
+    // ---------- IndexedDB (nhật ký trải bài; store "decks" cũ chỉ còn để dọn) ----------
     function idbOpen() {
       return new Promise((res, rej) => {
         const r = indexedDB.open('witchesTarotDecks', 2);
@@ -4223,29 +4184,12 @@
         r.onerror = () => rej(r.error);
       });
     }
-    async function idbAllDecks() {
-      const d = await idbOpen();
-      return new Promise((res, rej) => {
-        const req = d.transaction('decks', 'readonly').objectStore('decks').getAll();
-        req.onsuccess = () => res(req.result || []);
-        req.onerror = () => rej(req.error);
-      });
-    }
-    async function idbPutDeck(deck, cards) {
-      const d = await idbOpen();
-      return new Promise((res, rej) => {
-        const t = d.transaction('decks', 'readwrite');
-        t.objectStore('decks').put({ deck, cards });
-        t.oncomplete = () => res(); t.onerror = () => rej(t.error);
-      });
-    }
-    async function idbDeleteDeck(deck) {
-      const d = await idbOpen();
-      return new Promise((res, rej) => {
-        const t = d.transaction('decks', 'readwrite');
-        t.objectStore('decks').delete(deck);
-        t.oncomplete = () => res(); t.onerror = () => rej(t.error);
-      });
+    // Tính năng import bộ bài đã bỏ (bộ tự nhập lẫn nội dung tuỳ ý vào trải bài/link chia sẻ) → xoá dữ liệu cũ nếu còn
+    async function idbClearOldDecks() {
+      try {
+        const d = await idbOpen();
+        await new Promise(res => { const t = d.transaction('decks', 'readwrite'); t.objectStore('decks').clear(); t.oncomplete = res; t.onerror = res; });
+      } catch {}
     }
     async function idbAddReading(reading) {
       const d = await idbOpen();
@@ -4344,7 +4288,7 @@
       try {
         if (!cloudSaveOn() || !/^https?:$/.test(location.protocol) || localStorage.getItem(BACKFILL_KEY) === 'done') return;
         const id = deviceId(); if (!id) return;
-        const all = (await idbAllReadings()).filter(r => r && Array.isArray(r.cards) && r.cards.length && Number.isSafeInteger(r.ts))
+        const all = (await idbAllReadings()).filter(r => r && !r.imported && Array.isArray(r.cards) && r.cards.length && Number.isSafeInteger(r.ts))
           .sort((a, b) => a.ts - b.ts);
         if (!all.length) { localStorage.setItem(BACKFILL_KEY, 'done'); return; }
         let sent = 0;
@@ -4357,6 +4301,8 @@
             batch.push(p); size += n; i++;
           }
           const res = await fetch('/api/readings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ device_id: id, batch }) });
+          if (res.status === 410) break;         // máy chủ đã đóng đồng bộ lịch sử cũ → coi như xong
+          if (res.status === 400) continue;      // cả lô không hợp lệ (vd. bộ bài tự nhập cũ) → bỏ lô này, gửi lô sau
           if (!res.ok) return;                   // 503/404/429: máy chủ chưa sẵn sàng → thử lại lần mở app sau
           sent += batch.length;
         }
@@ -4584,6 +4530,7 @@
         const key = r.ts + '|' + (r.question || '');
         if (seen.has(key)) { skipped++; continue; }
         const copy = Object.assign({}, r); delete copy.id;
+        copy.imported = true;   // nhập từ file sao lưu → chỉ nằm trong máy, KHÔNG bao giờ đồng bộ lên máy chủ
         try { await idbAddReading(copy); seen.add(key); added++; } catch { skipped++; }
       }
       let dailyAdded = 0;
@@ -5550,85 +5497,6 @@
     }
     $('imgLightbox').addEventListener('click', () => $('imgLightbox').classList.remove('open'));
 
-    async function applyImportedDecks() {
-      let stored = [];
-      try { stored = await idbAllDecks(); } catch (e) { console.warn('IndexedDB unavailable', e); return; }
-      stored.forEach(d => {
-        if (baseDecks.includes(d.deck)) return; // never shadow a shipped deck
-        db.run('DELETE FROM cards WHERE deck = ?', [d.deck]);
-        insertCards(d.deck, d.cards);
-      });
-    }
-
-    // ---------- import modal ----------
-    const importOverlay = $('importOverlay');
-    function openImport() {
-      $('importName').value = '';
-      $('importText').value = '';
-      $('importFile').value = '';
-      $('importNote').textContent = '';
-      renderImportedList();
-      importOverlay.classList.add('open');
-    }
-    function closeImport() { importOverlay.classList.remove('open'); }
-    async function renderImportedList() {
-      const el = $('importedList');
-      let stored = [];
-      try { stored = await idbAllDecks(); } catch {}
-      if (!stored.length) { el.innerHTML = '<div class="imported-empty">Chưa có bộ nào được import trên trình duyệt này.</div>'; return; }
-      el.innerHTML = '';
-      stored.forEach(d => {
-        const row = document.createElement('div');
-        row.className = 'imported-item';
-        row.innerHTML = '<span>' + escapeHtml(d.deck) + ' — ' + d.cards.length + ' lá</span>';
-        const del = document.createElement('button');
-        del.className = 'rm'; del.textContent = '✕'; del.title = 'Xóa bộ này';
-        del.addEventListener('click', () => deleteImported(d.deck));
-        row.appendChild(del);
-        el.appendChild(row);
-      });
-    }
-    async function deleteImported(deck) {
-      await idbDeleteDeck(deck);
-      db.run('DELETE FROM cards WHERE deck = ?', [deck]);
-      if (selectedDeck === deck) selectedDeck = null;
-      populateDeckSelect();
-      try { localStorage.setItem(DECK_KEY, selectedDeck || ''); } catch {}
-      renderCategoryTabs();
-      updateFilter();
-      renderImportedList();
-    }
-    async function doImport() {
-      const note = $('importNote');
-      const name = $('importName').value.trim();
-      if (!name) { note.textContent = '⚠️ Nhập tên bộ bài.'; return; }
-      if (baseDecks.includes(name)) { note.textContent = '⚠️ Tên trùng bộ có sẵn. Chọn tên khác.'; return; }
-      let text = $('importText').value.trim();
-      if (!text && $('importFile').files[0]) {
-        try { text = await $('importFile').files[0].text(); } catch { note.textContent = '⚠️ Không đọc được file.'; return; }
-      }
-      if (!text) { note.textContent = '⚠️ Chọn file JSON hoặc dán nội dung.'; return; }
-      let arr;
-      try { arr = JSON.parse(text); } catch (e) { note.textContent = '⚠️ JSON không hợp lệ: ' + e.message; return; }
-      if (!Array.isArray(arr) || !arr.length) { note.textContent = '⚠️ JSON phải là một mảng lá bài không rỗng.'; return; }
-      const cards = arr.map(mapImportedCard);
-      try { await idbPutDeck(name, cards); } catch (e) { note.textContent = '⚠️ Không lưu được vào trình duyệt: ' + e.message; return; }
-      db.run('DELETE FROM cards WHERE deck = ?', [name]);
-      insertCards(name, cards);
-      selectedDeck = name;
-      try { localStorage.setItem(DECK_KEY, name); } catch {}
-      selectedCategory = 'all';
-      populateDeckSelect();
-      renderCategoryTabs();
-      updateFilter();
-      renderImportedList();
-      note.textContent = '✓ Đã import ' + cards.length + ' lá vào bộ "' + name + '". Chọn ở "Bộ bài" để xem.';
-    }
-    $('openImport').addEventListener('click', openImport);
-    $('closeImport').addEventListener('click', closeImport);
-    $('doImport').addEventListener('click', doImport);
-    importOverlay.addEventListener('click', e => { if (e.target === importOverlay) closeImport(); });
-
     // ---------- boot ----------
     async function boot() {
       try {
@@ -5638,7 +5506,7 @@
         const buf = await resp.arrayBuffer();
         db = new SQL.Database(new Uint8Array(buf));
         baseDecks = distinctDecks();
-        await applyImportedDecks();
+        idbClearOldDecks();
         try { selectedDeck = localStorage.getItem(DECK_KEY) || null; } catch {}
         populateDeckSelect();
         renderCategoryTabs();

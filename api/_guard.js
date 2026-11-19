@@ -9,7 +9,16 @@ export const json = (status, body, extra) => new Response(JSON.stringify(body), 
 
 // Trên Vercel, x-real-ip / x-forwarded-for do nền tảng tự đặt (client không giả được)
 export function clientIp(req) {
-  return req.headers.get('x-real-ip') || (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || '';
+  const ip = req.headers.get('x-real-ip') || (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || '';
+  return ipNet(ip);
+}
+// IPv6: một thiết bị/hộ gia đình thường được cấp nguyên dải /64 → đổi địa chỉ trong dải không né được hạn mức
+export function ipNet(ip) {
+  if (!ip.includes(':') || /^::ffff:\d+\.\d+\.\d+\.\d+$/i.test(ip)) return ip.replace(/^::ffff:/i, '');
+  const [head, tail = ''] = ip.toLowerCase().split('%')[0].split('::');
+  const h = head ? head.split(':') : [], t = tail ? tail.split(':') : [];
+  const full = ip.includes('::') ? [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t] : h;
+  return full.slice(0, 4).map(x => (x || '0').replace(/^0+(?=.)/, '')).join(':') + '::/64';
 }
 
 // Request có đến từ chính trang này không.

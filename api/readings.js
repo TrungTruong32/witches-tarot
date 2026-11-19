@@ -18,18 +18,21 @@ const DAILY_MAX = num(process.env.READINGS_DAILY_MAX, 1500);          // trải 
 const MAX_BYTES = num(process.env.READINGS_MAX_MB, 350) * 1048576;    // ngừng nhận khi database ≥ 350MB (gói free 500MB)
 const MAX_ROWS = num(process.env.READINGS_MAX_ROWS, 6000);            // dự phòng khi chưa có hàm db_size_bytes()
 const BACKFILL_TOTAL_MAX = num(process.env.BACKFILL_TOTAL_MAX, 5000); // tổng số trải bài cũ được đồng bộ
-const BACKFILL_UNTIL = Date.parse((process.env.BACKFILL_UNTIL || '2027-01-31') + 'T23:59:59+07:00');
+const BACKFILL_UNTIL = Date.parse((process.env.BACKFILL_UNTIL || '2026-11-30') + 'T23:59:59+07:00');
 const BATCH_MAX = 25, BACKFILL_MAX_PER_DEVICE = 1000;
 const MIN_TS = Date.UTC(2020, 0, 1);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : null);
+const DECKS = new Set(['Witches Tarot', 'Rider-Waite']);   // chỉ 2 bộ có sẵn (đã bỏ tính năng import bộ bài)
+const deckOk = d => typeof d === 'string' && d.split(/\s*,\s*/).every(x => DECKS.has(x));
 
 // Làm sạch MỘT trải bài. backfill=true: dùng thời điểm gốc từ trình duyệt (client_ts) làm created_at.
 function clean(body, deviceId, backfill) {
   if (!body || typeof body !== 'object') return null;
   if (!UUID.test(String(deviceId || ''))) return null;
   if (!Array.isArray(body.cards) || body.cards.length < 1 || body.cards.length > 15) return null;
+  if (!deckOk(body.deck)) return null;
   const cards = body.cards.map(c => ({
     id: Number.isFinite(+c?.id) ? +c.id : null,
     name: str(c?.name, 80),

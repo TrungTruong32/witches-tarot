@@ -28,10 +28,52 @@ const OLLAMA_MODEL = envVal('OLLAMA_MODEL') || 'gpt-oss:120b';
 const OPENROUTER_MODEL = envVal('OPENROUTER_MODEL') || 'openrouter/free';   // router tự chọn model :free còn sống
 const MAX_OUT = 4000;                                  // token trả lời tối đa mỗi lượt
 // Hỏi tiếp gửi lại cả lịch sử (Celtic Cross + nghĩa Rider-Waite + vài lượt trả lời dài) → để rộng tay
-const MAX_MSGS = 30, MAX_MSG_CHARS = 30000, MAX_TOTAL_CHARS = 90000;
+// Hình dạng hội thoại hợp lệ: [user (trải bài), assistant, user (hỏi tiếp), assistant, …, user].
+// Tin "system" của client bị BỎ — server tự dựng system prompt (không cho biến /api/ai thành chatbot đa năng).
+const MAX_FOLLOWUPS = 6;                                   // tối đa 6 câu hỏi tiếp cho một trải bài
+const MAX_FIRST_CHARS = 24000;                             // tin đầu: câu hỏi + ý nghĩa các lá (12 lá dài nhất ≈ 15k ký tự)
+const MAX_FOLLOW_CHARS = 1500;                             // câu hỏi tiếp
+const MAX_ASSIST_CHARS = 14000;                            // câu trả lời trước đó (≈ 4000 token)
+const MAX_TOTAL_CHARS = 70000;
+const DECKS = new Set(['Witches Tarot', 'Rider-Waite']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // Ràng buộc thêm phía server để key miễn phí không bị dùng làm chatbot đa năng.
+// System prompt do server dựng (bản sao của buildSystemPrompt phía client; client không gửi được prompt riêng)
+function systemPrompt(lang, deckLabel) {
+  if (lang === 'en') return [
+    'You are an experienced, warm, insightful and honest Tarot/Oracle reader.',
+    'You are reading with the deck: "' + deckLabel + '".',
+    'Task: interpret a spread based on the QUESTION and the CARDS provided.',
+    'Each card comes with an orientation (Upright or Reversed) and its meaning — use ONLY the meaning for the given orientation; do not invent other meanings.',
+    'Answer entirely in English, in this structure:',
+    '0) Start with a line "✨ Summary:" — ONE concise sentence answering the question directly.',
+    '1) Then briefly read each card in its drawn orientation, tying it directly to the question.',
+    '2) A section starting with "🔗 Card combinations:" — analyse 1–3 important pairs/groups of ADJACENT or resonating cards (e.g. two of the same element, an upright card softening a reversed one, cards reinforcing or contradicting each other).',
+    '3) A section starting with "► Overall:" answering the question directly, weaving the cards into one coherent message with concrete advice.',
+    'If there is only 1 card, skip the "🔗 Card combinations:" section.',
+    'If a "📊 SPREAD FACTS" block is provided: it was computed by code and is accurate — do NOT recount or contradict it. Weave its key points (dominant/missing element, Major Arcana ratio, reversals, repeated numbers, elemental dignities between adjacent pairs, quintessence) into "🔗 Card combinations" and "► Overall"; prefer the listed adjacent pairs when choosing combinations.',
+    'For follow-up questions, answer briefly and stay within this spread.',
+    'Be sincere, specific, avoid vague generalities. Never add any card beyond the provided list.'
+  ].join('\n');
+  return [
+    'Bạn là một người đọc bài Tarot/Oracle giàu kinh nghiệm, ấm áp, sâu sắc và trung thực.',
+    'Bạn đang đọc bằng bộ bài: "' + deckLabel + '".',
+    'Nhiệm vụ: diễn giải một trải bài dựa trên CÂU HỎI và CÁC LÁ BÀI được cung cấp.',
+    'Mỗi lá bài kèm theo chiều (Xuôi hoặc Ngược) và ý nghĩa tương ứng — CHỈ được dùng đúng ý nghĩa theo chiều đã cho, không tự bịa ý nghĩa khác.',
+    'Trả lời hoàn toàn bằng tiếng Việt, theo cấu trúc:',
+    '0) Bắt đầu bằng dòng "✨ Tóm tắt:" — MỘT câu trả lời ngắn gọn, đi thẳng vào câu hỏi.',
+    '1) Sau đó đọc ngắn gọn từng lá bài theo đúng chiều đã rút, liên hệ trực tiếp với câu hỏi.',
+    '2) Một phần bắt đầu bằng dòng "🔗 Tổ hợp lá:" — phân tích 1–3 cặp/nhóm lá quan trọng ĐỨNG CẠNH nhau hoặc CỘNG HƯỞNG với nhau (ví dụ hai lá cùng chất, một lá xuôi làm dịu một lá ngược, cặp lá củng cố hay mâu thuẫn nhau), nêu ý nghĩa khi chúng đi cùng nhau chứ không đọc rời.',
+    '3) Một phần bắt đầu bằng dòng "► Tổng hợp:" trả lời thẳng vào câu hỏi, kết nối các lá bài thành một thông điệp mạch lạc kèm lời khuyên cụ thể.',
+    'Nếu chỉ có 1 lá, bỏ qua phần "🔗 Tổ hợp lá:".',
+    'Nếu có khối "📊 DỮ KIỆN TRẢI BÀI": đó là số liệu do code tính, chính xác — KHÔNG tự đếm lại, KHÔNG nói trái với nó. Lồng các điểm chính (nguyên tố trội/vắng, tỷ lệ Ẩn Chính, lá ngược, số lặp, tương tác nguyên tố giữa các cặp kề nhau, lá tinh hoa) vào phần "🔗 Tổ hợp lá" và "► Tổng hợp"; ưu tiên các cặp kề nhau đã liệt kê khi chọn tổ hợp.',
+    'Với câu hỏi tiếp theo: trả lời ngắn gọn và chỉ trong phạm vi trải bài này.',
+    'Giọng điệu chân thành, cụ thể, tránh nói chung chung mơ hồ. Tuyệt đối không thêm lá bài nào ngoài danh sách được cung cấp.'
+  ].join('\n');
+}
+const deckLabelOf = d => (String(d || '').split(/\s*,\s*/).filter(x => DECKS.has(x)).join(', ') || 'Tarot');
+
 const GUARD = 'Bạn đang chạy trong ứng dụng Witches Tarot. Chỉ trả lời về tarot, ý nghĩa lá bài, trải bài và chiêm nghiệm cá nhân '
   + 'liên quan đến câu hỏi của người dùng. Nếu được yêu cầu việc khác (viết code, làm bài tập, dịch tài liệu, nội dung không liên quan…), '
   + 'hãy lịch sự từ chối và mời họ quay lại với lá bài. Đây chỉ là tham khảo & giải trí, không đưa lời khuyên y tế/pháp lý/tài chính chắc chắn.';
@@ -43,16 +85,21 @@ const INSTANCE_RPS = 80;       // mỗi instance tối đa 80 request / 10 giây
 const MAX_STREAMS = 40;        // mỗi instance tối đa 40 câu trả lời đang stream cùng lúc
 
 function cleanMessages(list) {
-  if (!Array.isArray(list) || list.length < 1 || list.length > MAX_MSGS) return null;
+  if (!Array.isArray(list)) return null;
+  const conv = list.filter(m => m && m.role !== 'system');          // bỏ system prompt của client
+  if (conv.length < 1 || conv.length > 1 + 2 * MAX_FOLLOWUPS) return null;
   let total = 0;
   const out = [];
-  for (const m of list) {
-    if (!m || !['system', 'user', 'assistant'].includes(m.role) || typeof m.content !== 'string') return null;
-    const content = m.content.slice(0, MAX_MSG_CHARS);
-    total += content.length;
-    out.push({ role: m.role, content });
+  for (let i = 0; i < conv.length; i++) {
+    const m = conv[i];
+    const want = i % 2 === 0 ? 'user' : 'assistant';               // bắt buộc xen kẽ, bắt đầu & kết thúc bằng user
+    if (m.role !== want || typeof m.content !== 'string' || !m.content.trim()) return null;
+    const max = want === 'assistant' ? MAX_ASSIST_CHARS : i === 0 ? MAX_FIRST_CHARS : MAX_FOLLOW_CHARS;
+    if (m.content.length > max) return null;
+    total += m.content.length;
+    out.push({ role: m.role, content: m.content });
   }
-  if (total > MAX_TOTAL_CHARS || !out.some(m => m.role === 'user')) return null;
+  if (total > MAX_TOTAL_CHARS || out[out.length - 1].role !== 'user') return null;
   return out;
 }
 
@@ -220,8 +267,9 @@ export async function POST(req) {
   try { body = JSON.parse(raw); } catch { return json(400, { error: 'bad_json' }); }
   const deviceId = String(body?.device_id || '');
   if (!UUID.test(deviceId)) return json(400, { error: 'bad_device' });
-  const messages = cleanMessages(body?.messages);
-  if (!messages) return json(400, { error: 'bad_messages' });
+  const conv = cleanMessages(body?.messages);
+  if (!conv) return json(400, { error: 'bad_messages' });
+  const messages = [{ role: 'system', content: systemPrompt(body?.lang === 'en' ? 'en' : 'vi', deckLabelOf(body?.deck)) }, ...conv];
 
   // --- hạn mức theo ngày giờ Việt Nam ---
   const day = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
