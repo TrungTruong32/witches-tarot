@@ -10,3 +10,15 @@ supabase/.temp/
 
 # Công cụ xem trải bài chạy ở máy (có dùng khoá trong .env)
 local/
+
+# Dữ liệu bài (ý nghĩa lá, ảnh/biểu tượng) — KHÔNG đưa lên repo công khai.
+# Vẫn được deploy: scripts/deploy-prod.mjs tải file trong máy lên Vercel (Vercel dùng .vercelignore, không dùng .gitignore).
+# Chỉ có bản ở máy → nhớ sao lưu.
+/tarot.db
+/card_en.json
+/la-bai/
+/Data/*.json
+/Data/*.xlsx
+/Data/*.db
+/Data/decks/*.json
+!/Data/template.json
