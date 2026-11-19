@@ -58,7 +58,7 @@ Chủ dự án đã chọn: **Vite + React + TypeScript, viết lại phần gia
 - **Vite + React 18 + TypeScript strict**. Node 22+ (máy đang có Node 25).
 - **State**: Zustand cho trạng thái toàn app (ngôn ngữ, cài đặt, bộ bài, trải bài hiện tại). Lý do: nhẹ, ít boilerplate, dễ test; persist **tự viết** qua lớp `storage` để giữ đúng key/định dạng cũ (không dùng middleware persist mặc định vì nó đổi định dạng).
 - **Routing**: `react-router` với đường dẫn thật cho 7 màn hình (`/`, `/tra-cuu`, `/boc-bai`, `/trai-bai`, `/nhat-ky`, `/hom-nay`, `/yes-no`, `/bau-troi` — tên cuối cùng do builder chốt). Hash `#r=` vẫn xử lý ở `/` để link cũ chạy.
-- **CSS**: chuyển CSS hiện có sang **CSS Modules theo component** + một file `tokens.css` (biến theme) và `global.css`. **Không** Tailwind đợt này (đợt đổi giao diện sẽ quyết định).
+- **CSS**: ~~CSS Modules theo component~~ → **sửa 2026-11-19 (khi lập Kế hoạch 2):** CSS cũ gắn chặt vào id và thuộc tính gốc (`#aiSection`, `#spreadList`, `body[data-mode]`, `:root[data-theme|data-fx|lang]`…) nên đợt này giữ **nguyên văn CSS cũ**, chia thành nhiều file theo phần trong `src/styles/` (test: ghép lại đúng từng byte bản cũ). DOM React giữ đúng id/class cũ. Chuyển sang CSS Modules / token hoá để dành cho đợt đổi giao diện. **Không** Tailwind đợt này.
 - **i18n**: giữ cơ chế từ điển VI/EN hiện có, đưa thành `i18n/vi.ts`, `i18n/en.ts` + hook `useT()`; không thêm thư viện.
 - **Test**: Vitest (logic thuần + hook), React Testing Library (vài component chính), Playwright (smoke test luồng chính trên bản build).
 - **Chất lượng**: ESLint + Prettier, `tsc --noEmit`, GitHub Actions chạy lint/typecheck/test.
