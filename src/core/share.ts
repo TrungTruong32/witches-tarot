@@ -22,14 +22,14 @@ function b64urlFromBytes(bytes: Uint8Array): string {
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function bytesFromB64url(s: string): Uint8Array {
+function bytesFromB64url(s: string): Uint8Array<ArrayBuffer> {
   const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
   const b = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
   return b;
 }
 
-async function pipe(bytes: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {
+async function pipe(bytes: Uint8Array<ArrayBuffer>, stream: CompressionStream | DecompressionStream): Promise<Uint8Array<ArrayBuffer>> {
   const w = stream.writable.getWriter();
   // Lỗi ghi/đóng cũng hiện ra ở phía readable bên dưới → bỏ qua ở đây để khỏi thành unhandled rejection
   w.write(bytes).catch(() => {});
