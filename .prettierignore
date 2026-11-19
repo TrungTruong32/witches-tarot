@@ -1,0 +1,10 @@
+witches_tarot.html
+tests/legacy/
+la-bai/
+Data/
+local/
+api/
+scripts/
+sw.js
+*.md
+package-lock.json

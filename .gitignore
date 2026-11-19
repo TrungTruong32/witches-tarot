@@ -22,3 +22,7 @@ local/
 /Data/*.db
 /Data/decks/*.json
 !/Data/template.json
+
+# Build output & plan workspaces
+/dist/
+.superpowers/
