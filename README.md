@@ -7,13 +7,15 @@
 **Đặt câu hỏi, bốc bài, nhận lời giải AI viết riêng cho bạn.**<br>
 Tra cứu ý nghĩa 78 lá bài **Witches Tarot** và **Rider-Waite**: xuôi, ngược, từ khóa, biểu tượng.
 
+**Tiếng Việt** · [English](README.en.md)
+
 [![Dùng thử ngay](https://img.shields.io/badge/D%C3%B9ng_th%E1%BB%AD_ngay-tt--witches--tarot.vercel.app-7c5cff?style=for-the-badge&logo=vercel&logoColor=white)](https://tt-witches-tarot.vercel.app)
 
 ![AI miễn phí](https://img.shields.io/badge/AI-mi%E1%BB%85n_ph%C3%AD-f5c76b?style=flat-square)
 ![78 lá × 2 bộ](https://img.shields.io/badge/78_l%C3%A1-%C3%97_2_b%E1%BB%99_b%C3%A0i-a78bfa?style=flat-square)
 ![12 kiểu trải bài](https://img.shields.io/badge/12_ki%E1%BB%83u-tr%E1%BA%A3i_b%C3%A0i-a78bfa?style=flat-square)
 ![PWA](https://img.shields.io/badge/PWA-c%C3%A0i_nh%C6%B0_app-5a0fc8?style=flat-square&logo=pwa&logoColor=white)
-![Tiếng Việt · English](https://img.shields.io/badge/Ti%E1%BA%BFng_Vi%E1%BB%87t-English-555?style=flat-square)
+![Giao diện Việt / English](https://img.shields.io/badge/Giao_di%E1%BB%87n-Vi%E1%BB%87t_%2F_English-555?style=flat-square)
 
 <a href="https://tt-witches-tarot.vercel.app"><img src="docs/screenshots/landing.webp" width="880" alt="Trang mở đầu Witches Tarot: ô nhập câu hỏi, nút Bốc bài và quạt bài tarot trên nền trời đêm"></a>
 
@@ -75,12 +77,6 @@ Tra cứu ý nghĩa 78 lá bài **Witches Tarot** và **Rider-Waite**: xuôi, ng
 Một file HTML duy nhất (HTML + CSS + JS thuần) · dữ liệu bài trong SQLite chạy ngay trên trình duyệt bằng [sql.js](https://sql.js.org) · Service Worker cho chạy offline · API serverless trên [Vercel](https://vercel.com) · Supabase lưu hạn mức AI và trải bài · AI: Gemini → Ollama → OpenRouter, tự chuyển khi một nhà cung cấp hết lượt.
 
 Hướng dẫn deploy, đổi key AI, Supabase, chống spam/DDoS và CSP: **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
-
-## 🌍 In English
-
-**Witches Tarot** is a free online tarot reading app with AI interpretation. Ask a question, draw cards from 12 spreads (including Celtic Cross), and get a reading written for your question, based on each card's meaning, position and upright/reversed orientation. Browse all 78 card meanings of the **Witches Tarot** and **Rider-Waite** decks. Installable PWA, works offline, Vietnamese & English UI.
-
-👉 **[tt-witches-tarot.vercel.app](https://tt-witches-tarot.vercel.app)**
 
 ## 🙏 Ghi công
 

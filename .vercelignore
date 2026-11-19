@@ -17,4 +17,5 @@ local
 
 # Tài liệu nội bộ — không cần public trên web
 README.md
+README.en.md
 docs
