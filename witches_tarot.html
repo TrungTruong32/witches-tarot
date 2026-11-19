@@ -93,6 +93,14 @@
     input, textarea { font-family: inherit; }
     .search { width: min(100%, 420px); padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 16px; }
     button, select { font-family: inherit; }
+    /* Ô chọn: Safari (iPad/iPhone/Mac) vẽ <select> kiểu hệ thống khi appearance:auto → bỏ qua nền tối, ra ô trắng chữ kem
+       gần như không đọc được. Tắt giao diện hệ thống + tự vẽ mũi tên; color-scheme để control/thanh cuộn/danh sách hợp nền. */
+    :root { color-scheme: dark; }
+    :root[data-theme="light"] { color-scheme: light; }
+    select { -webkit-appearance: none; appearance: none; background-color: var(--input); color: var(--text); border: 1px solid var(--border); border-radius: 10px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23b8afcf' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+      background-repeat: no-repeat !important; background-position: right 12px center !important; background-size: 12px 8px !important; padding-right: 34px !important; }
+    select option, select optgroup { background-color: var(--input); color: var(--text); }
     button { padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--btn); color: var(--text); cursor: pointer; }
     button:hover { background: #5a4a9b; }
     button { transition: background-color .45s var(--soft, ease), border-color .45s var(--soft, ease), color .45s var(--soft, ease), box-shadow .45s var(--soft, ease), transform .35s var(--soft, ease), opacity .3s ease; }
@@ -247,7 +255,39 @@
     .status.error { color: #ffb4c6; }
 
     /* Reading view */
-    .reading { display: grid; gap: 18px; grid-template-columns: minmax(300px, 440px) 1fr; }
+    .reading { display: grid; gap: 18px; grid-template-columns: minmax(360px, 1fr) minmax(0, 1.15fr); align-items: start; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    .reading-steps { padding-top: 6px; padding-bottom: 6px; }
+    .reading-steps .step { padding: 16px 0; }
+    .reading-steps .step + .step { border-top: 1px solid var(--border3); }
+    .step-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .step-head h3 { margin: 0; font-size: 1.05rem; letter-spacing: .2px; }
+    .step-no { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: .82rem; font-weight: 700;
+      color: #fff; background: linear-gradient(135deg, var(--accent2), var(--accent)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+    .step-head .step-aside { margin-left: auto; max-width: 55%; padding: 6px 10px; font-size: .9rem; }
+    .reading-steps textarea, .reading-steps .step-select, .reading-steps .field-input { width: 100%; box-sizing: border-box; padding: 11px 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 16px; font-family: inherit; }
+    .reading-steps textarea:focus, .reading-steps .step-select:focus, .reading-steps .field-input:focus { outline: none; border-color: var(--accent2); }
+    .spread-hint { margin-top: 8px; font-size: .86rem; color: var(--muted); line-height: 1.5; }
+    .step-sub { margin: -6px 0 10px; font-size: .84rem; color: var(--muted); }
+    .draw-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .count-field { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: .9rem; }
+    .count-field input { width: 64px; box-sizing: border-box; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 16px; text-align: center; }
+    .count-field input:disabled { opacity: .6; }
+    .manual-add { margin-top: 14px; }
+    .manual-add summary { cursor: pointer; color: var(--accent2); font-size: .92rem; list-style: none; }
+    .manual-add summary::-webkit-details-marker { display: none; }
+    .manual-add[open] summary { margin-bottom: 10px; }
+    .reading-actions #interpretBtn { flex: 1 1 200px; padding: 13px 18px; font-size: 1.05rem; font-weight: 700; }
+    .btn-ghost { background: transparent; }
+    .reading-head h3 { margin: 0; font-size: 1.15rem; }
+    .ai-quota { font-size: .78rem; color: var(--muted); border: 1px solid var(--border2); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+    .reading-tools { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+    .reading-tools button { padding: 7px 11px; font-size: .88rem; }
+    /* Desktop: khung lời giải luôn nằm cạnh các bước khi cuộn (cuộn riêng nếu dài) */
+    @media (min-width: 981px) {
+      #readingView .reading > .panel:last-child { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; overscroll-behavior: contain; }
+    }
     label { display: block; margin: 0 0 6px; color: #d1c7b3; font-size: .95rem; }
     .field { margin-bottom: 14px; }
     .field input, .field textarea, .field select { width: 100%; box-sizing: border-box; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 16px; }
@@ -263,6 +303,14 @@
     .spread-item .name { flex: 1; min-width: 0; }
     .spread-item .name strong { display: block; font-size: .98rem; }
     .spread-item .name span { color: var(--muted); font-size: .85rem; }
+    /* Điện thoại: tên lá dùng hết chiều ngang, nút Xuôi/Ngược xuống hàng dưới */
+    @media (max-width: 600px) {
+      .spread-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "img name rm" "img orient orient"; align-items: start; column-gap: 12px; row-gap: 8px; }
+      .spread-item .spread-flip { grid-area: img; }
+      .spread-item .name { grid-area: name; }
+      .spread-item .orient { grid-area: orient; justify-self: start; }
+      .spread-item .rm { grid-area: rm; }
+    }
     .orient { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
     .orient button { padding: 6px 12px; border: none; border-radius: 0; background: transparent; font-size: .85rem; }
     .orient button.on { background: var(--accent); color: #fff; }
@@ -659,6 +707,10 @@
     input[type="file"] { color: #d1c7b3; }
     @media (max-width: 980px) {
       .layout, .reading { grid-template-columns: 1fr; }
+      /* nút Diễn giải luôn trong tầm tay khi cuộn trong cột các bước */
+      .reading-steps .reading-actions { position: sticky; bottom: 0; z-index: 3; margin: 0 -14px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+        background: var(--panel); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-top: 1px solid var(--border3); }
+      .reading-tools { margin-left: 0; width: 100%; }
       .page { padding: 14px; }
       header { margin-bottom: 12px; }
       .controls { margin: 14px 0; }
@@ -828,16 +880,12 @@
     <!-- ===== READING VIEW ===== -->
     <div id="readingView" style="display:none;">
       <div class="reading">
-        <div class="panel">
-          <div class="ai-hint" id="readingDeckInfo" style="margin-bottom:10px;"></div>
-          <div class="field">
-            <label for="spreadType" data-i18n="reading.spreadType">Kiểu trải bài</label>
-            <select id="spreadType"><!-- option sinh từ SPREADS trong JS (renderSpreadOptions) --></select>
-            <div class="hint" id="spreadHint"></div>
-          </div>
-          <div class="field">
-            <label for="questionInput" data-i18n="reading.question">Câu hỏi của bạn</label>
-            <textarea id="questionInput" placeholder="Ví dụ: Mối quan hệ này sẽ đi về đâu trong 3 tháng tới?"></textarea>
+        <div class="panel reading-steps">
+          <div class="ai-hint" id="readingDeckInfo" hidden></div>
+          <section class="step">
+            <div class="step-head"><span class="step-no">1</span><h3 data-i18n="reading.s1">Bạn muốn hỏi điều gì?</h3></div>
+            <label for="questionInput" class="sr-only" data-i18n="reading.question">Câu hỏi của bạn</label>
+            <textarea id="questionInput" rows="3" placeholder="Ví dụ: Mối quan hệ này sẽ đi về đâu trong 3 tháng tới?"></textarea>
             <div class="q-chips">
               <button type="button" class="qchip" data-i18n="chip.love" data-q="Tình cảm của tôi thời gian tới sẽ thế nào?" data-qen="How will my love life unfold in the near future?">♀︎ Tình cảm</button>
               <button type="button" class="qchip" data-i18n="chip.work" data-q="Công việc / sự nghiệp của tôi hiện tại ra sao?" data-qen="How is my work / career doing right now?">♄︎ Công việc</button>
@@ -845,48 +893,59 @@
               <button type="button" class="qchip" data-i18n="chip.focus" data-q="Tôi nên tập trung vào điều gì lúc này?" data-qen="What should I focus on right now?">☉︎ Định hướng</button>
               <button type="button" class="qchip" data-i18n="chip.msg" data-q="Thông điệp mà vũ trụ muốn nhắn nhủ tôi hôm nay là gì?" data-qen="What message does the universe have for me today?">☾︎ Thông điệp</button>
             </div>
-          </div>
-          <div class="field">
-            <label data-i18n="reading.spreadDraw">Bốc bài vào trải bài (xào ngẫu nhiên hoặc tự chọn từ bánh xe)</label>
-            <div class="draw-controls">
-              <input id="spreadDrawCount" type="number" min="1" max="12" value="3" />
-              <button id="spreadDrawBtn" data-i18n="reading.spreadDrawBtn">☍︎ Xào &amp; bốc (thay trải bài hiện tại)</button>
-              <button id="spreadPickBtn" data-i18n="reading.spreadPickBtn">☌︎ Tự chọn</button>
+          </section>
+          <section class="step">
+            <div class="step-head"><span class="step-no">2</span><h3 data-i18n="reading.s2">Chọn kiểu trải bài</h3></div>
+            <label for="spreadType" class="sr-only" data-i18n="reading.spreadType">Kiểu trải bài</label>
+            <select id="spreadType" class="step-select"><!-- option sinh từ SPREADS trong JS (renderSpreadOptions) --></select>
+            <div class="hint spread-hint" id="spreadHint"></div>
+          </section>
+          <section class="step">
+            <div class="step-head"><span class="step-no">3</span><h3 data-i18n="reading.s3">Rút bài</h3>
+              <select id="deckSelectReading" class="deck-inline step-aside" aria-label="Bộ bài" title="Bộ bài dùng để rút / tìm lá"></select>
+            </div>
+            <div class="draw-row">
+              <label class="count-field" for="spreadDrawCount"><span data-i18n="reading.count">Số lá</span>
+                <input id="spreadDrawCount" type="number" min="1" max="12" value="3" inputmode="numeric" /></label>
+              <button id="spreadDrawBtn" class="btn-primary" title="Xào bài và bốc ngẫu nhiên (thay trải bài hiện tại)" data-i18n="reading.spreadDrawBtn">☍︎ Xào &amp; bốc</button>
+              <button id="spreadPickBtn" title="Tự chọn từng lá trên bánh xe" data-i18n="reading.spreadPickBtn">☌︎ Tự chọn</button>
               <button id="spreadStopShuffle" data-i18n="reading.spreadStop" style="display:none;">✕︎ Dừng xào</button>
             </div>
             <div id="spreadOrbit" class="riffle"></div>
             <div class="ai-hint" id="spreadPickStatus" style="display:none; margin-top:10px;"></div>
             <div id="spreadFan" class="fan" style="display:none;"></div>
-          </div>
-          <div class="field">
-            <label for="pickerInput" data-i18n="reading.picker">Thêm lá bài đã rút (gõ để tìm)</label>
-            <div class="picker-row">
-              <select id="deckSelectReading" class="deck-inline" aria-label="Bộ bài" title="Chọn bộ bài để tìm lá"></select>
+            <details class="manual-add">
+              <summary data-i18n="reading.manual">＋ Đã rút bài thật? Tự thêm từng lá</summary>
+              <label for="pickerInput" class="sr-only" data-i18n="reading.picker">Thêm lá bài đã rút (gõ để tìm)</label>
               <input id="pickerInput" class="field-input" type="search" data-i18n-ph="reading.picker.ph" placeholder="Gõ tên lá bài, ví dụ: The Fool, Kiếm, Cups..." />
-            </div>
-            <div id="pickerResults" class="picker-results"></div>
-          </div>
-          <div class="field">
-            <label data-i18n="reading.spreadLabel">Trải bài (bấm để đổi Xuôi / Ngược)</label>
+              <div id="pickerResults" class="picker-results"></div>
+            </details>
+          </section>
+          <section class="step">
+            <div class="step-head"><span class="step-no">4</span><h3 data-i18n="reading.s4">Trải bài của bạn</h3></div>
+            <div class="hint step-sub" data-i18n="reading.flipHint">Bấm vào lá để đổi Xuôi / Ngược.</div>
             <div id="spreadList"></div>
             <details id="spreadFacts" class="facts-box" open style="display:none;"><summary></summary><div class="facts-body"></div></details>
-          </div>
-          <div class="reading-actions">
-            <button class="btn-primary" id="interpretBtn" disabled>✦︎ Diễn giải</button>
-            <button id="clearSpreadBtn" disabled>Xóa trải bài</button>
-          </div>
-          <div class="cloud-note" id="cloudNote"></div>
+            <div class="reading-actions">
+              <button class="btn-primary" id="interpretBtn" disabled>✦︎ Diễn giải</button>
+              <button id="clearSpreadBtn" class="btn-ghost" disabled>Xóa trải bài</button>
+            </div>
+            <div class="cloud-note" id="cloudNote"></div>
+          </section>
         </div>
         <div class="panel">
           <div class="section" id="aiSection">
             <div id="aiCardsBg" class="ai-cards-bg" aria-hidden="true"></div>
             <div class="reading-head">
-              <h3 id="readingProvider" style="margin:0;">Diễn giải của AI</h3>
-              <button id="ttsBtn" title="Đọc bài giải" style="display:none;">🔊 Đọc</button>
-              <button id="shareImgBtn" title="Tải ảnh trải bài để chia sẻ" style="display:none;">📸 Tải ảnh</button>
-              <button id="shareLinkBtn" title="Sao chép link chia sẻ trải bài" style="display:none;">🔗 Link</button>
+              <h3 id="readingProvider">✦︎ Lời giải</h3>
+              <span id="aiQuota" class="ai-quota" hidden></span>
+              <div class="reading-tools">
+                <button id="ttsBtn" title="Đọc bài giải" style="display:none;">🔊 Đọc</button>
+                <button id="shareImgBtn" title="Tải ảnh trải bài để chia sẻ" style="display:none;">📸 Tải ảnh</button>
+                <button id="shareLinkBtn" title="Sao chép link chia sẻ trải bài" style="display:none;">🔗 Link</button>
+              </div>
             </div>
-            <div id="aiOutput" class="ai-output ai-hint">Nhập câu hỏi, thêm các lá bài đã rút (chọn chiều xuôi/ngược), rồi bấm “Diễn giải”. Nhớ cấu hình AI ở nút “Cài đặt AI”.</div>
+            <div id="aiOutput" class="ai-output ai-hint">Viết câu hỏi, chọn kiểu trải, rút bài rồi bấm “Diễn giải” — lời giải sẽ hiện ở đây.</div>
             <div id="chatFollow" style="display:none;">
               <div id="chatLog"></div>
               <div class="chat-input-row">
@@ -1220,6 +1279,8 @@
       'draw.count': 'Cards:', 'draw.btn': '☍︎ Shuffle & draw', 'draw.pick': '☌︎ Pick manually', 'draw.stop': '✕︎ Stop', 'draw.toReading': '✦︎ Send to AI Reading',
       'reading.spreadType': 'Spread type', 'reading.question': 'Your question', 'reading.q.ph': 'E.g. What should I focus on in love right now?',
       'reading.interpret': '✦︎ Interpret', 'reading.clear': 'Clear spread', 'reading.aiHead': 'AI interpretation',
+      'reading.s1': 'What do you want to ask?', 'reading.s2': 'Choose a spread', 'reading.s3': 'Draw cards', 'reading.s4': 'Your spread',
+      'reading.count': 'Cards', 'reading.manual': '＋ Drew real cards? Add them one by one', 'reading.flipHint': 'Tap a card to toggle Upright / Reversed.',
       'reading.spread.free': 'Free (any number of cards)', 'reading.spread.ppf': '3 cards — Past · Present · Future',
       'reading.spread.sac': '5 cards — Situation · Challenge · Advice · Foundation · Outcome', 'reading.spread.celtic': 'Celtic Cross — 10 cards',
       'daily.head': '☾︎ Card of the day', 'daily.note': 'Card journal (auto-saved)', 'daily.note.ph': 'Note how you feel / what happened today…',
@@ -1240,7 +1301,7 @@
       'lbl.keywords': 'Keywords', 'browse.pages': '📖 Browse all 78 cards as web pages (Vietnamese) ↗', 'lbl.cardPage': 'Card page (shareable)', 'lbl.source': 'Source', 'lbl.upright': 'Upright meaning', 'lbl.reversed': 'Reversed meaning',
       'daily.xuoi': 'Upright', 'daily.meaning': 'Meaning',
       'browse.noResults': 'No cards found. Try a different keyword.',
-      'reading.spreadDraw': 'Draw cards into the spread', 'reading.spreadDrawBtn': '☍︎ Shuffle & draw (replace current spread)',
+      'reading.spreadDraw': 'Draw cards into the spread', 'reading.spreadDrawBtn': '☍︎ Shuffle & draw',
       'reading.spreadPickBtn': '☌︎ Pick yourself', 'reading.spreadStop': '✕︎ Stop shuffling',
       'reading.picker': 'Add drawn cards (type to search)', 'reading.picker.ph': 'Type a card name, e.g. The Fool, Sword, Cups...',
       'reading.spreadLabel': 'Spread (tap to toggle Upright / Reversed)',
@@ -1306,8 +1367,8 @@
       const ao = $('aiOutput');
       if (ao && ao.classList.contains('ai-hint')) {
         ao.textContent = lang === 'en'
-          ? 'Enter a question, add the cards you drew (choose upright/reversed), then tap “Interpret”. Configure AI via the “AI Settings” button.'
-          : 'Nhập câu hỏi, thêm các lá bài đã rút (chọn chiều xuôi/ngược), rồi bấm “Diễn giải”. Nhớ cấu hình AI ở nút “Cài đặt AI”.';
+          ? 'Write your question, pick a spread, draw the cards, then tap “Interpret” — your reading will appear here.'
+          : 'Viết câu hỏi, chọn kiểu trải, rút bài rồi bấm “Diễn giải” — lời giải sẽ hiện ở đây.';
       }
     }
 
@@ -2331,8 +2392,14 @@
     function activeProviderLabel() { return providerLabel(settings.provider); }
     // p: provider thực sự đã trả lời (có thể khác provider chính nếu đã tự chuyển)
     function updateProviderLabel(p) {
+      // Không hiện tên nhà cung cấp / model cho người dùng; chỉ hiện số lượt AI miễn phí còn lại
       const el = $('readingProvider');
-      if (el) el.textContent = (lang === 'en' ? 'AI interpretation — ' : 'Diễn giải của AI — ') + providerLabel(p || providerChain()[0]);
+      if (el) el.textContent = lang === 'en' ? '✦︎ Your reading' : '✦︎ Lời giải';
+      const q = $('aiQuota');
+      if (!q) return;
+      const usingFree = (p || providerChain()[0]) === 'free';
+      q.hidden = !(usingFree && freeAiInfo.remaining != null);
+      if (!q.hidden) q.textContent = lang === 'en' ? `${freeAiInfo.remaining} free readings left today` : `Còn ${freeAiInfo.remaining} lượt miễn phí hôm nay`;
     }
 
     // ---------- reading view ----------
@@ -2623,7 +2690,7 @@
       if (aiBg && bg && bg.classList.contains('on') && aiBgKey() !== aiBg.key) aiBgMode(spread.length ? (bg.classList.contains('thinking') ? 'thinking' : 'done') : 'off');
       spreadList.innerHTML = '';
       if (!spread.length) {
-        spreadList.innerHTML = '<div class="empty-spread">' + (lang === 'en' ? 'No cards yet. Use the search above to add some.' : 'Chưa có lá bài nào. Dùng ô tìm kiếm phía trên để thêm.') + '</div>';
+        spreadList.innerHTML = '<div class="empty-spread">' + (lang === 'en' ? 'No cards yet — tap “Shuffle & draw” in step 3.' : 'Chưa có lá nào — bấm “Xào & bốc” ở bước 3 để rút bài.') + '</div>';
       } else {
         spread.forEach((c, i) => {
           const row = document.createElement('div');
@@ -3326,9 +3393,8 @@
       const onToken = t => { first = false; raw += t; render(); };
       const onReasoning = t => { reasoning += t; if (first) render(); };
       const onSwitch = (from, to, e) => {
-        notice += (lang === 'en'
-          ? `⚠️ ${providerLabel(from)} failed (${e.message}) → switching to ${providerLabel(to)}…`
-          : `⚠️ ${providerLabel(from)} lỗi (${e.message}) → chuyển sang ${providerLabel(to)}…`) + '\n';
+        console.warn('[AI] ' + providerLabel(from) + ' lỗi → ' + providerLabel(to) + ':', e && e.message);
+        if (!notice) notice = (lang === 'en' ? '⏳ The AI is busy — switching to a backup…' : '⏳ AI đang bận — đang chuyển sang máy dự phòng…') + '\n';
         reasoning = '';
         targetEl.innerHTML = noticeHtml() + '<span class="spinner"></span> ' + (lang === 'en' ? 'Connecting…' : 'Đang kết nối…');
       };
@@ -3433,6 +3499,7 @@
         { role: 'user', content: buildUserPrompt() }
       ];
       aiBgMode('thinking');
+      if (window.matchMedia('(max-width: 980px)').matches) $('aiSection').scrollIntoView({ behavior: prefersReduced() ? 'auto' : 'smooth', block: 'start' });
       try {
         const answer = await streamInto(aiOutput, chatMessages);
         if (answer) {
@@ -4071,7 +4138,7 @@
         row.className = 'row';
         row.innerHTML =
           '<div class="info">' +
-          '<div class="time">' + escapeHtml(time) + ' · ' + escapeHtml(it.deck || '') + escapeHtml(spreadName) + ' · ' + escapeHtml(it.provider || '') + '</div>' +
+          '<div class="time">' + escapeHtml(time) + ' · ' + escapeHtml(it.deck || '') + escapeHtml(spreadName) + ' · ' + escapeHtml(/^free/.test(it.provider || '') ? (lang === 'en' ? 'Free AI' : 'AI miễn phí') : (it.provider || '')) + '</div>' +
           '<div class="q"><strong>' + escapeHtml(it.question || (en ? '(no question)' : '(không có câu hỏi)')) + '</strong></div>' +
           '<div class="time">' + escapeHtml(summary) + '</div>' +
           (it.note ? '<div class="hist-note-preview">📝 ' + escapeHtml(it.note.length > 140 ? it.note.slice(0, 140) + '…' : it.note) + '</div>' : '') +
@@ -5253,7 +5320,14 @@
         for (let i = 0; i < count; i++) { const [x1, y1] = pol(r1, i * 360 / count, ox, oy), [x2, y2] = pol(i % 2 ? r2b : r2a, i * 360 / count, ox, oy); out += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-width="${sw}"/>`; }
         return out;
       }
-      const crescent = (x, y, r, rot, id) => `<g transform="rotate(${rot} ${x} ${y})"><mask id="${id}"><rect width="${W}" height="${H}" fill="#000"/><circle cx="${x}" cy="${y}" r="${r}" fill="#fff"/><circle cx="${n(x + r * .42)}" cy="${n(y - r * .1)}" r="${n(r * .86)}" fill="#000"/></mask><rect width="${W}" height="${H}" fill="url(#cbGold)" mask="url(#${id})"/></g>`;
+      // Trăng lưỡi liềm = đĩa tròn trừ đĩa lệch. Vẽ thẳng bằng path (2 cung tròn qua 2 giao điểm), KHÔNG dùng <mask>:
+      // Safari/iPad vẽ sai mask trong SVG làm ảnh nền → lộ nguyên hình chữ nhật vàng phủ cả lá.
+      const crescent = (x, y, r, rot) => {
+        const dx = r * .42, dy = -r * .1, R2 = r * .86, d = Math.hypot(dx, dy);
+        const a = (r * r - R2 * R2 + d * d) / (2 * d), h = Math.sqrt(r * r - a * a), ux = dx / d, uy = dy / d;
+        const px = x + a * ux, py = y + a * uy, A = [n(px - h * uy), n(py + h * ux)], B = [n(px + h * uy), n(py - h * ux)];
+        return `<path transform="rotate(${rot} ${x} ${y})" fill="url(#cbGold)" d="M${A[0]} ${A[1]}A${n(r)} ${n(r)} 0 1 1 ${B[0]} ${B[1]}A${n(R2)} ${n(R2)} 0 1 0 ${A[0]} ${A[1]}Z"/>`;
+      };
       // Khung chung: viền đôi, góc có sao, chuỗi chấm dọc viền
       function frame(accent = GOLD) {
         let dots = '';
