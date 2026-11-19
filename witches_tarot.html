@@ -257,6 +257,7 @@
     /* Reading view */
     .reading { display: grid; gap: 18px; grid-template-columns: minmax(360px, 1fr) minmax(0, 1.15fr); align-items: start; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    .reading > * { min-width: 0; }   /* để ô chọn kiểu trải cuộn ngang trong cột, không kéo giãn trang */
     .reading-steps { padding-top: 6px; padding-bottom: 6px; }
     .reading-steps .step { padding: 16px 0; }
     .reading-steps .step + .step { border-top: 1px solid var(--border3); }
@@ -269,6 +270,43 @@
       border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 16px; font-family: inherit; }
     .reading-steps textarea:focus, .reading-steps .step-select:focus, .reading-steps .field-input:focus { outline: none; border-color: var(--accent2); }
     .spread-hint { margin-top: 8px; font-size: .86rem; color: var(--muted); line-height: 1.5; }
+    /* Chọn kiểu trải bằng ô hình (cuộn ngang) */
+    .spread-picker { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 2px 12px; margin: 0 -2px;
+      scrollbar-width: thin; scrollbar-color: var(--border2) transparent; -webkit-overflow-scrolling: touch; }
+    .sp-tile { flex: 0 0 162px; scroll-snap-align: start; position: relative; display: flex; flex-direction: column; gap: 5px; text-align: left;
+      padding: 9px 9px 11px; border-radius: 14px; border: 1px solid var(--border2); background: var(--section); color: var(--text); cursor: pointer;
+      font: inherit; transition: border-color .2s, transform .2s, box-shadow .2s; }
+    .sp-tile:hover { border-color: var(--accent2); transform: translateY(-2px); }
+    .sp-tile:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+    .sp-tile[aria-checked="true"] { border-color: var(--spark); box-shadow: 0 0 0 1px var(--spark), 0 10px 26px rgba(0,0,0,.35); }
+    .sp-art { height: 84px; border-radius: 10px; display: grid; place-items: center; overflow: hidden;
+      background: radial-gradient(circle at 50% 45%, rgba(255,225,168,.10), transparent 62%), #17121f; border: 1px solid rgba(255,225,168,.08); }
+    .sp-box { position: relative; width: min(92%, calc(66px * var(--ar))); aspect-ratio: var(--ar); }
+    .sp-card { position: absolute; border-radius: 2px; background: linear-gradient(160deg, #f3e6c4, #cfae74); box-shadow: 0 2px 5px rgba(0,0,0,.55); }
+    .sp-card.ghost { background: transparent; border: 1px dashed rgba(243,230,196,.6); box-shadow: none; }
+    .sp-name { font-weight: 700; font-size: .9rem; line-height: 1.25; margin-top: 3px; }
+    .sp-meta { font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+    .sp-desc { font-size: .78rem; color: var(--muted); line-height: 1.4; }
+    .sp-badge { position: absolute; top: 14px; left: 14px; z-index: 1; font-size: .66rem; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+      background: rgba(12,9,20,.78); color: var(--spark); border: 1px solid rgba(255,225,168,.35); }
+    .sp-tile[aria-checked="true"] .sp-badge { background: var(--spark); color: #2a1f3d; border-color: var(--spark); }
+    :root[data-theme="light"] .sp-art { background: radial-gradient(circle at 50% 45%, rgba(111,90,193,.12), transparent 62%), #2b2440; }
+    /* Bàn trải: lá đặt đúng vị trí theo sơ đồ của kiểu trải */
+    .spread-board { position: relative; width: min(100%, var(--bw)); aspect-ratio: var(--ar); margin: 4px auto 18px; }
+    .board-slot { position: absolute; box-sizing: border-box; border: 1.5px dashed color-mix(in srgb, var(--spark) 42%, transparent); border-radius: 8px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 3px; text-align: center; overflow: hidden;
+      color: var(--muted); font-size: .62rem; line-height: 1.15; background: rgba(255,225,168,.035); }
+    .board-slot b { color: var(--spark); font-size: .95rem; }
+    .board-slot.cross { transform: rotate(90deg); z-index: 1; }
+    .spread-board .board-card { position: absolute; width: auto; z-index: 2; }
+    .spread-board .board-card.cross { transform: rotate(90deg); z-index: 3; }
+    .spread-board .board-card.await { opacity: 0; }
+    .board-card .num { position: absolute; top: -8px; left: -8px; z-index: 4; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+      font-size: .68rem; font-weight: 700; color: #fff; background: var(--accent); border: 1px solid var(--accent2); box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+    .board-card.cross .num { transform: rotate(-90deg); }
+    .spread-board .board-card .sff { border-radius: 7px; box-shadow: 0 8px 20px rgba(0,0,0,.45); }
+    #spreadList.pending { opacity: 0; }
+    #spreadList { transition: opacity .4s ease; }
     .step-sub { margin: -6px 0 10px; font-size: .84rem; color: var(--muted); }
     .draw-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
     .count-field { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: .9rem; }
@@ -896,8 +934,10 @@
           </section>
           <section class="step">
             <div class="step-head"><span class="step-no">2</span><h3 data-i18n="reading.s2">Chọn kiểu trải bài</h3></div>
+            <div id="spreadPicker" class="spread-picker" role="radiogroup" aria-label="Kiểu trải bài"></div>
             <label for="spreadType" class="sr-only" data-i18n="reading.spreadType">Kiểu trải bài</label>
-            <select id="spreadType" class="step-select"><!-- option sinh từ SPREADS trong JS (renderSpreadOptions) --></select>
+            <!-- select ẩn: vẫn là nguồn giá trị/sự kiện change cho JS; người dùng chọn bằng các ô hình ở trên -->
+            <select id="spreadType" class="step-select" hidden tabindex="-1" aria-hidden="true"><!-- option sinh từ SPREADS trong JS (renderSpreadOptions) --></select>
             <div class="hint spread-hint" id="spreadHint"></div>
           </section>
           <section class="step">
@@ -923,6 +963,7 @@
           </section>
           <section class="step">
             <div class="step-head"><span class="step-no">4</span><h3 data-i18n="reading.s4">Trải bài của bạn</h3></div>
+            <div id="spreadBoard" class="spread-board" hidden></div>
             <div class="hint step-sub" data-i18n="reading.flipHint">Bấm vào lá để đổi Xuôi / Ngược.</div>
             <div id="spreadList"></div>
             <details id="spreadFacts" class="facts-box" open style="display:none;"><summary></summary><div class="facts-body"></div></details>
@@ -2494,6 +2535,7 @@
       const cur = sel.value || spreadKey;
       sel.innerHTML = SPREADS.map(s => `<option value="${s.k}">${escapeHtml(lang === 'en' ? s.en : s.vi)}</option>`).join('');
       sel.value = SPREAD_BY_KEY[cur] ? cur : 'free';
+      renderSpreadPicker();
     }
     function recomputePositions() { renderSpreadOptions(); spreadPositions = defsFor(spreadKey); updateSpreadHint(); renderSpread(); }
     function updateSpreadHint() {
@@ -2508,6 +2550,137 @@
         return '<div>' + (i + 1) + '. <strong>' + escapeHtml(p) + '</strong>' + (d ? ' — ' + escapeHtml(d) : '') + '</div>';
       }).join('');
     }
+    // ===== Sơ đồ vị trí từng kiểu trải (đơn vị: chiều rộng lá = 1, chiều cao lá = 1.75; [x, y, xoay90?]) =====
+    const CARD_H = 1.75;
+    const ROW3 = [[-1.2, 0], [0, 0], [1.2, 0]];
+    const SPREAD_LAYOUT = {
+      one: [[0, 0]], ppf: ROW3, sao: ROW3, mbs: ROW3,
+      moon: [[0, -1], [-1.2, 0], [1.2, 0], [0, 1]],
+      sac: [[0, 0], [-1.2, 0], [1.2, 0], [0, 1.95], [0, -1.95]],
+      love: [[-1.2, -1], [1.2, -1], [0, 0], [-1.2, 1], [1.2, 1]],
+      choice: [[0, 1], [-1.2, 0], [-2.4, -1], [1.2, 0], [2.4, -1]],
+      career: [[-2.4, .8], [-1.2, .4], [0, 0], [1.2, -.4], [2.4, -.8]],
+      horseshoe: Array.from({ length: 7 }, (_, i) => [(i - 3) * 1.2, (3 - Math.abs(i - 3)) * .5]),
+      celtic: [[0, 0], [0, 0, 1], [0, 2], [-1.6, 0], [0, -2], [1.6, 0], [3.3, 2.85], [3.3, .95], [3.3, -.95], [3.3, -2.85]],
+      year: Array.from({ length: 12 }, (_, i) => { const a = (i * 30 - 90) * Math.PI / 180; return [+(3.6 * Math.cos(a)).toFixed(3), +(3.6 * Math.sin(a)).toFixed(3)]; })
+    };
+    // Tên ngắn, nhãn & huy hiệu cho ô chọn
+    const SPREAD_UI = {
+      free: { n: ['Tự do', 'Free spread'], t: ['Tuỳ ý', 'Any'], use: ['Bốc bao nhiêu lá tuỳ bạn, không gắn vị trí.', 'Draw as many cards as you like, no positions.'] },
+      one: { n: ['Một lá', 'One card'], t: ['Nhanh', 'Quick'] },
+      ppf: { n: ['Quá khứ · Hiện tại · Tương lai', 'Past · Present · Future'], t: ['Thời gian', 'Timeline'], b: ['Phổ biến', 'Popular'] },
+      sao: { n: ['Tình huống · Hành động · Kết quả', 'Situation · Action · Outcome'], t: ['Hành động', 'Action'] },
+      mbs: { n: ['Tâm trí · Thể chất · Tinh thần', 'Mind · Body · Spirit'], t: ['Cân bằng', 'Balance'] },
+      moon: { n: ['Trăng mới', 'New Moon'], t: ['Ý định', 'Intentions'] },
+      sac: { n: ['Phân tích vấn đề', 'Problem analysis'], t: ['Rõ ràng', 'Clarity'] },
+      love: { n: ['Mối quan hệ', 'Relationship'], t: ['Tình cảm', 'Love'] },
+      choice: { n: ['Hai lựa chọn', 'Two paths'], t: ['Quyết định', 'Decision'] },
+      career: { n: ['Công việc & sự nghiệp', 'Work & career'], t: ['Sự nghiệp', 'Career'] },
+      horseshoe: { n: ['Móng ngựa', 'Horseshoe'], t: ['Tổng quan', 'Overview'] },
+      celtic: { n: ['Celtic Cross', 'Celtic Cross'], t: ['Chuyên sâu', 'Deep dive'], b: ['Kinh điển', 'Classic'] },
+      year: { n: ['Năm tới', 'Year ahead'], t: ['12 tháng', '12 months'] }
+    };
+    // Trải tự do: xếp theo hàng (tối đa 5 lá/hàng)
+    function freeLayout(n) { const cols = Math.min(Math.max(n, 1), 5); return Array.from({ length: n }, (_, i) => [(i % cols) * 1.2, Math.floor(i / cols) * 1.95]); }
+    // Tính hộp bao + vị trí % của từng lá (lá xoay 90° chiếm 1.75 × 1)
+    function layoutGeom(pts) {
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      pts.forEach(([x, y, r]) => { const hw = r ? CARD_H / 2 : .5, hh = r ? .5 : CARD_H / 2; x0 = Math.min(x0, x - hw); x1 = Math.max(x1, x + hw); y0 = Math.min(y0, y - hh); y1 = Math.max(y1, y + hh); });
+      const W = x1 - x0, H = y1 - y0;
+      return { W, H, ar: (W / H).toFixed(4), items: pts.map(([x, y, r]) => ({
+        r: !!r, left: ((x - .5 - x0) / W * 100).toFixed(3) + '%', top: ((y - CARD_H / 2 - y0) / H * 100).toFixed(3) + '%',
+        width: (1 / W * 100).toFixed(3) + '%', height: (CARD_H / H * 100).toFixed(3) + '%' })) };
+    }
+    function spreadArt(k) {
+      const g = layoutGeom(SPREAD_LAYOUT[k] || ROW3);
+      const ghost = !SPREAD_LAYOUT[k];
+      return `<div class="sp-box" style="--ar:${g.ar}">` + g.items.map(it =>
+        `<span class="sp-card${ghost ? ' ghost' : ''}" style="left:${it.left};top:${it.top};width:${it.width};height:${it.height}${it.r ? ';transform:rotate(90deg)' : ''}"></span>`).join('') + '</div>';
+    }
+    function renderSpreadPicker() {
+      const box = $('spreadPicker');
+      if (!box) return;
+      const en = lang === 'en', L = a => a ? (en ? a[1] : a[0]) : '';
+      box.setAttribute('aria-label', en ? 'Spread type' : 'Kiểu trải bài');
+      box.innerHTML = SPREADS.map(sp => {
+        const ui = SPREAD_UI[sp.k] || {}, n = sp.pos ? sp.pos.length : 0, on = sp.k === spreadKey;
+        const meta = L(ui.t) + ' · ' + (n ? n + (en ? (n > 1 ? ' cards' : ' card') : ' lá') : (en ? 'any count' : 'số lá tuỳ ý'));
+        const badge = on ? (en ? '✓ Selected' : '✓ Đang chọn') : L(ui.b);
+        return `<button type="button" class="sp-tile" role="radio" aria-checked="${on}" data-k="${sp.k}">` +
+          (badge ? `<span class="sp-badge">${escapeHtml(badge)}</span>` : '') +
+          `<div class="sp-art">${spreadArt(sp.k)}</div><div class="sp-name">${escapeHtml(L(ui.n) || (en ? sp.en : sp.vi))}</div>` +
+          `<div class="sp-meta">${escapeHtml(meta)}</div><div class="sp-desc">${escapeHtml(L(sp.use || ui.use))}</div></button>`;
+      }).join('');
+      box.querySelectorAll('.sp-tile').forEach(b => b.addEventListener('click', () => {
+        const sel = $('spreadType');
+        if (sel.value === b.dataset.k) return;
+        sel.value = b.dataset.k;
+        sel.dispatchEvent(new Event('change'));
+      }));
+      const cur = box.querySelector('[aria-checked="true"]');
+      if (cur) box.scrollLeft = Math.max(0, cur.offsetLeft - box.offsetLeft - 8);
+    }
+    // Bàn trải: ô trống đánh số theo vị trí + lá đã rút đặt đúng chỗ. mode 'deal' = lá ẩn, chờ dealBoard() chia vào
+    function renderBoard(mode) {
+      const board = $('spreadBoard');
+      if (!board) return;
+      const lay = SPREAD_LAYOUT[spreadKey];
+      const n = lay ? lay.length : spread.length;
+      if (!n) { board.hidden = true; board.innerHTML = ''; return; }
+      const g = layoutGeom(lay || freeLayout(n));
+      board.hidden = false;
+      board.style.setProperty('--ar', g.ar);
+      board.style.setProperty('--bw', Math.round(g.W * (g.W <= 1.2 ? 120 : g.W > 4 ? 82 : 96)) + 'px');
+      const en = lang === 'en';
+      let html = '';
+      if (lay) g.items.forEach((it, i) => {
+        const pos = spreadPositions && spreadPositions[i] ? spreadPositions[i] : '';
+        html += `<div class="board-slot${it.r ? ' cross' : ''}" style="left:${it.left};top:${it.top};width:${it.width};height:${it.height}" title="${escapeHtml(pos)}"><b>${i + 1}</b>${g.W > 6 ? '' : `<span>${escapeHtml(pos)}</span>`}</div>`;
+      });
+      spread.forEach((c, i) => {
+        const it = g.items[i];
+        if (!it) return;
+        const pos = spreadPositions && spreadPositions[i] ? spreadPositions[i] + ' — ' : '';
+        html += `<div class="spread-flip board-card${it.r ? ' cross' : ''}${mode === 'deal' ? ' await' : ' revealed'}" data-i="${i}" style="left:${it.left};top:${it.top};width:${it.width}" title="${escapeHtml(pos + c.ten + (c.orientation === 'nguoc' ? (en ? ' (reversed)' : ' (ngược)') : ''))}">` +
+          `<span class="num">${i + 1}</span><div class="sfi"><div class="sff front"></div><div class="sff back">` +
+          (c.image_url ? `<img src="${escapeHtml(c.image_url)}" class="${c.orientation === 'nguoc' ? 'rev' : ''}" alt="${escapeHtml(c.ten)}" />` : `<span class="sff-name">${escapeHtml(c.ten)}</span>`) +
+          `</div></div></div>`;
+      });
+      board.innerHTML = html;
+      board.querySelectorAll('.board-card').forEach(el => el.addEventListener('click', () => {
+        const c = spread[+el.dataset.i];
+        if (!c) return;
+        if (!el.classList.contains('revealed')) { el.classList.add('revealed'); haptic(8); burstAt(el, 12); }
+        else if (c.image_url) openLightbox(c.image_url, c.orientation === 'nguoc');
+      }));
+    }
+    // Chia lá: từng lá bay từ phía trên bàn vào đúng vị trí theo thứ tự, đáp xong thì lật
+    function dealBoard(done) {
+      const board = $('spreadBoard');
+      const cards = board ? [...board.querySelectorAll('.board-card.await')] : [];
+      if (!cards.length) { done && done(); return; }
+      if (prefersReduced() || !cards[0].animate) {
+        cards.forEach(el => el.classList.remove('await', 'revealed'));
+        cards.forEach(el => el.classList.add('revealed'));
+        done && done(); return;
+      }
+      const br = board.getBoundingClientRect();
+      const ox = br.left + br.width / 2, oy = br.top - 40;
+      const STEP = cards.length > 7 ? 190 : 280, FLY = 560;
+      cards.forEach((el, i) => {
+        const r = el.getBoundingClientRect();
+        const dx = ox - (r.left + r.width / 2), dy = oy - (r.top + r.height / 2);
+        const end = el.classList.contains('cross') ? 'rotate(90deg)' : 'none';
+        el.classList.remove('await');
+        el.animate([
+          { transform: `translate(${dx}px, ${dy}px) rotate(${(i % 2 ? 1 : -1) * 14}deg) scale(.55)`, opacity: 0 },
+          { opacity: 1, offset: .2 },
+          { transform: end, opacity: 1 }
+        ], { duration: FLY, delay: i * STEP, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'backwards' });
+        setTimeout(() => { el.classList.add('revealed'); haptic(8); burstAt(el, 10); }, i * STEP + FLY + 140);
+      });
+      setTimeout(() => done && done(), (cards.length - 1) * STEP + FLY + 700);
+    }
     function applySpreadType(v) {
       spreadKey = v;
       spreadPositions = defsFor(v);
@@ -2515,6 +2688,7 @@
       if (spreadPositions) { cnt.value = spreadPositions.length; cnt.disabled = true; }
       else { cnt.disabled = false; }
       updateSpreadHint();
+      renderSpreadPicker();
       renderSpread();
     }
 
@@ -2685,6 +2859,8 @@
     }
     function renderSpread(animate) {
       updateFactsBox();
+      renderBoard(animate === 'deal' ? 'deal' : '');
+      spreadList.classList.toggle('pending', animate === 'deal' && spread.length > 0 && !prefersReduced());
       // Trải bài đổi khi nền lá-trôi đang hiện → dựng lại theo trải bài mới (rỗng thì tắt)
       const bg = $('aiCardsBg');
       if (aiBg && bg && bg.classList.contains('on') && aiBgKey() !== aiBg.key) aiBgMode(spread.length ? (bg.classList.contains('thinking') ? 'thinking' : 'done') : 'off');
@@ -2696,7 +2872,7 @@
           const row = document.createElement('div');
           row.className = 'spread-item';
           row.innerHTML = `
-            ${c.image_url ? `<div class="spread-flip${animate ? '' : ' revealed'}" title="${lang === 'en' ? 'Tap to flip / zoom' : 'Bấm để lật / phóng to'}"><div class="sfi"><div class="sff front"></div><div class="sff back"><img src="${escapeHtml(c.image_url)}" class="${c.orientation === 'nguoc' ? 'rev' : ''}" alt="${escapeHtml(c.ten)}" loading="lazy" /></div></div></div>` : ''}
+            ${c.image_url ? `<div class="spread-flip${animate === true ? '' : ' revealed'}" title="${lang === 'en' ? 'Tap to flip / zoom' : 'Bấm để lật / phóng to'}"><div class="sfi"><div class="sff front"></div><div class="sff back"><img src="${escapeHtml(c.image_url)}" class="${c.orientation === 'nguoc' ? 'rev' : ''}" alt="${escapeHtml(c.ten)}" loading="lazy" /></div></div></div>` : ''}
             <div class="name"><strong>${i + 1}. ${spreadPositions && spreadPositions[i] ? `<span class="pos-badge" title="${escapeHtml(posDesc(spreadKey, i))}">${escapeHtml(spreadPositions[i])}</span> ` : ''}${escapeHtml(c.ten)}</strong><span>${escapeHtml(c.bo || '')}</span>${corrChips(c)}</div>
             <div class="orient">
               <button class="xuoi ${c.orientation === 'xuoi' ? 'on' : ''}" data-o="xuoi">${lang === 'en' ? 'Upright' : 'Xuôi'}</button>
@@ -2717,7 +2893,7 @@
           spreadList.appendChild(row);
         });
       }
-      if (animate) {
+      if (animate === true) {
         spreadList.querySelectorAll('.spread-flip:not(.revealed)').forEach((f, idx) =>
           setTimeout(() => { f.classList.add('revealed'); haptic(8); burstAt(f, 12); }, 220 + idx * 240));
       }
@@ -4524,11 +4700,20 @@
         count: () => spreadPositions ? spreadPositions.length : readDrawCount('spreadDrawCount'),
         onStart() {},
         onPicked(cards) {
-          spread = cards.map(toSpreadCard); renderSpread(true);
-          // Thu bánh xe lại sau khi lật xong để trải bài (kèm vị trí) hiện ngay bên dưới.
-          // Chốt mã lượt: nếu trong lúc chờ đã bắt đầu lượt bốc mới thì không ẩn bánh xe của lượt mới.
-          const s = DRAW_CTX.reading.session;
-          setTimeout(() => { if (DRAW_CTX.reading.session !== s) return; $('spreadFan').style.display = 'none'; spreadList.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, prefersReduced() ? 0 : 1600);
+          spread = cards.map(toSpreadCard); renderSpread('deal');
+          // Bánh xe lật xong → thu lại, cuộn tới bàn trải rồi chia từng lá vào đúng vị trí theo thứ tự.
+          // Chốt mã lượt: nếu trong lúc chờ đã bắt đầu lượt bốc mới thì bỏ qua.
+          const s = DRAW_CTX.reading.session, reduce = prefersReduced();
+          setTimeout(() => {
+            if (DRAW_CTX.reading.session !== s) return;
+            $('spreadFan').style.display = 'none';
+            const board = $('spreadBoard');
+            (board && !board.hidden ? board : spreadList).scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+            setTimeout(() => {
+              if (DRAW_CTX.reading.session !== s) return;
+              dealBoard(() => spreadList.classList.remove('pending'));
+            }, reduce ? 0 : 450);
+          }, reduce ? 0 : 1600);
         },
         doneMsg: k => lang === 'en'
           ? '✓ Drew ' + k + ' card' + (k > 1 ? 's' : '') + ' into the spread. Set Upright/Reversed if needed, then tap “Interpret”.'
