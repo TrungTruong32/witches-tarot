@@ -17,6 +17,8 @@ Chạy trên Vercel (project `tarot`, scope `trung-truong`); trải bài và lư
 | `vercel.json` | Rewrite `/` → app, header bảo mật (CSP…) |
 | `local/` | Trang xem lịch sử trải bài ở máy (không commit, xem `local/README.md`) |
 
+**Dữ liệu bài không nằm trong git** (`tarot.db`, `card_en.json`, `la-bai/`, `Data/*.json|xlsx|db` — xem `.gitignore`): repo công khai chỉ có code. Deploy vẫn kèm dữ liệu vì `deploy-prod.mjs` tải file trong máy lên Vercel. Bản duy nhất nằm ở máy này → **sao lưu** thư mục dự án.
+
 `.env` chứa mọi khoá bí mật — **không bao giờ commit** (đã có trong `.gitignore` và `.vercelignore`). `test.ipynb` cũng chứa key, không commit.
 
 ## Deploy
