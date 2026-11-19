@@ -1,0 +1,2 @@
+shared/__golden__/* -text
+tests/legacy/*.html -text
