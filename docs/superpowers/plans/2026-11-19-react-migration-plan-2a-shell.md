@@ -9,7 +9,7 @@
 **Tech Stack:** Vite, React 18, TS strict, Zustand 5, react-router 6 (`createBrowserRouter`), Vitest + @testing-library/react + user-event.
 
 **Spec:** `docs/superpowers/specs/2026-11-19-react-migration-design.md` (note the 2026-11-19 CSS amendment in §5.1)
-**Inputs:** Plan 1 interfaces (`src/core/*`, `src/services/*`). Legacy UI inventory: `C:\Users\tqtru\AppData\Local\Temp\claude\c16a54f08af8f444\7c657552-7d8f-497e-8680-4c5eeb39ae1b\scratchpad\legacy-ui-inventory.md`. Line numbers below refer to `witches_tarot.html` (== `tests/legacy/witches_tarot.legacy.html`).
+**Inputs:** Plan 1 interfaces (`src/core/*`, `src/services/*`). Legacy UI inventory: `docs/superpowers/research/legacy-ui-inventory.md`. Line numbers below refer to `witches_tarot.html` (== `tests/legacy/witches_tarot.legacy.html`).
 
 ## Global Constraints
 
