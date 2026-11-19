@@ -34,6 +34,9 @@ export default defineConfig({
   publicDir: false,
   test: {
     environment: 'jsdom',
+    // Node ≥25 bật sẵn localStorage riêng (webstorage) và che mất localStorage của jsdom → tắt đi khi chạy test.
+    pool: 'forks',
+    poolOptions: { forks: { execArgv: ['--no-experimental-webstorage'] } },
     include: ['src/**/*.test.{ts,tsx}', 'shared/**/*.test.ts', 'tests/**/*.test.ts', 'api/**/*.test.ts'],
   },
 });
