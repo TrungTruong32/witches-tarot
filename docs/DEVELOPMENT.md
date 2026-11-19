@@ -53,7 +53,6 @@ Các biến script đẩy lên (nếu có trong `.env`):
 | `AI_HASH_SECRET` | Bí mật dùng khi băm IP (không lưu IP thô) | dùng service key |
 | `READINGS_DAILY_MAX` | Số trải bài mới được lưu mỗi 24 giờ (toàn site) | 1500 |
 | `READINGS_MAX_MB` | Ngừng lưu khi database đạt dung lượng này (gói free 500MB) | 350 |
-| `READINGS_MAX_ROWS` | Trần số bản ghi dự phòng (khi chưa có hàm đo dung lượng) | 6000 |
 | `BACKFILL_UNTIL`, `BACKFILL_TOTAL_MAX` | Hạn chót (YYYY-MM-DD) và tổng số trải bài cũ được đồng bộ từ trình duyệt | 2027-01-31 / 5000 |
 
 ## Supabase
@@ -64,6 +63,8 @@ node scripts/setup-supabase.mjs     # tạo/dùng lại project, chạy mọi mi
 
 Chạy lại an toàn — dùng mỗi khi thêm file vào `supabase/migrations/`. Lần đầu cài thì tiếp theo chạy `push-vercel-env.mjs` + deploy.
 Các bảng bật RLS, trình duyệt không đọc/ghi trực tiếp được; chỉ API phía server (service key) truy cập. Không lưu IP / email / tên.
+
+**Chỉ body, không query string:** server gọi Supabase qua hàm RPC (`POST /rest/v1/rpc/<hàm>`, tham số trong body JSON) — `ai_usage_claim/release/set_provider`, `readings_counts/insert`, `readings_list/stats` (migration `20261119130000_rpc_body_only.sql`). Tham số có kiểu, không SQL động → chống SQL injection; chỉ `service_role` được EXECUTE. Thêm truy vấn mới thì viết thành hàm như vậy, **không** ghép giá trị vào URL kiểu `?cot=eq.${x}`.
 
 ## Chống spam / DDoS
 

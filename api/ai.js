@@ -274,30 +274,31 @@ export async function POST(req) {
   // --- hạn mức theo ngày giờ Việt Nam ---
   const day = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
   const ipHash = createHash('sha256').update((process.env.AI_HASH_SECRET || sbKey) + '|' + day + '|' + ip).digest('hex').slice(0, 32);
-  const base = sbUrl.replace(/\/+$/, '') + '/rest/v1/ai_usage';
-  const auth = { apikey: sbKey, authorization: 'Bearer ' + sbKey };
-  const count = async q => {
-    const r = await fetchT(`${base}?select=id&day=eq.${day}${q}`, { method: 'HEAD', headers: { ...auth, prefer: 'count=exact' } });
-    const n = Number((r.headers.get('content-range') || '').split('/')[1]);
-    if (!r.ok || !Number.isFinite(n)) throw new Error('count ' + r.status);
-    return n;
+  // Supabase chỉ qua hàm RPC: POST + tham số trong BODY (không ghép giá trị vào query string).
+  // Hàm có tham số kiểu rõ ràng, không SQL động — supabase/migrations/20261119130000_rpc_body_only.sql
+  const rpc = async (fn, args) => {
+    const r = await fetchT(sbUrl.replace(/\/+$/, '') + '/rest/v1/rpc/' + fn, {
+      method: 'POST', headers: { apikey: sbKey, authorization: 'Bearer ' + sbKey, 'content-type': 'application/json' }, body: JSON.stringify(args) });
+    if (!r.ok) throw new Error(fn + ' ' + r.status);
+    const t = await r.text();
+    return t ? JSON.parse(t) : null;
   };
   // Giữ một "chỗ" stream trên instance này; đầy thì trả 503 ngay (chưa ghi gì vào Supabase)
   const freeSlot = acquire('ai:streams', MAX_STREAMS);
   if (!freeSlot) return json(503, { error: 'busy' }, { 'retry-after': '30' });
-  // Ghi 1 lượt TRƯỚC rồi mới đếm (kể cả lượt vừa ghi) → nhiều request bắn song song không lọt quá hạn mức.
-  // Vượt hạn mức hoặc AI lỗi thì xoá lượt vừa ghi (không tính).
-  let rowId;
+  // Ghi 1 lượt rồi đếm (kể cả lượt vừa ghi) trong MỘT giao dịch có khoá theo ngày (ai_usage_claim)
+  // → nhiều request bắn song song không lọt quá hạn mức. Vượt hạn mức hoặc AI lỗi thì huỷ lượt vừa ghi (không tính).
+  let rowId, claim;
   try {
-    const ins = await fetchT(base, { method: 'POST', headers: { ...auth, 'content-type': 'application/json', prefer: 'return=representation' },
-      body: JSON.stringify({ day, device_id: deviceId, ip_hash: ipHash }) });
-    if (!ins.ok) throw new Error('insert ' + ins.status);
-    rowId = (await ins.json())?.[0]?.id;
+    claim = await rpc('ai_usage_claim', { p_day: day, p_device: deviceId, p_ip_hash: ipHash });
+    rowId = Number(claim?.id);
+    if (!Number.isSafeInteger(rowId)) throw new Error('claim');
   } catch { freeSlot(); return json(503, { error: 'usage_unavailable' }); }
-  const release = () => { freeSlot(); return rowId != null && fetchT(`${base}?id=eq.${rowId}`, { method: 'DELETE', headers: auth }).catch(() => {}); };
+  const release = () => { freeSlot(); return rpc('ai_usage_release', { p_id: rowId }).catch(() => {}); };
   let used;
   try {
-    const [d, i, g] = await Promise.all([count(`&device_id=eq.${deviceId}&id=lte.${rowId}`), count(`&ip_hash=eq.${ipHash}&id=lte.${rowId}`), count(`&id=lte.${rowId}`)]);
+    const d = Number(claim.device), i = Number(claim.ip), g = Number(claim.global);
+    if (![d, i, g].every(Number.isFinite)) throw new Error('claim counts');
     const over = g > GLOBAL_DAILY ? { error: 'quota', scope: 'global' }
       : d > DEVICE_DAILY ? { error: 'quota', scope: 'device', limit: DEVICE_DAILY }
       : i > IP_DAILY ? { error: 'quota', scope: 'ip' } : null;
@@ -323,7 +324,7 @@ export async function POST(req) {
       if (wait > 0) cooldown.set(id, Date.now() + wait);
       continue;
     }
-    fetchT(`${base}?id=eq.${rowId}`, { method: 'PATCH', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify({ provider: id.slice(0, 40) }) }).catch(() => {});
+    rpc('ai_usage_set_provider', { p_id: rowId, p_provider: id.slice(0, 40) }).catch(() => {});
     const enc = new TextEncoder();
     const hardStop = setTimeout(() => ctrl.abort(), 240000);   // một câu trả lời không được giữ function quá 4 phút
     const finish = () => { clearTimeout(hardStop); freeSlot(); };

@@ -6,17 +6,16 @@
 //   2) giới hạn trong RAM theo IP + theo instance — từ chối trước khi gọi Supabase
 //   3) trần toàn hệ thống: số trải bài mới mỗi ngày, DUNG LƯỢNG database (MB), tổng số bản ghi "lịch sử cũ"
 //   4) nhánh đồng bộ lịch sử cũ (batch) tự đóng sau BACKFILL_UNTIL
-//   Dung lượng đo bằng hàm db_size_bytes() (migration 20261118120000_storage_guard.sql). Chưa có hàm đó thì
-//   dùng tạm trần số bản ghi READINGS_MAX_ROWS (một bản ghi xấu nhất ~65KB → 6000 bản ghi ≈ 400MB).
+//   Mọi truy cập Supabase qua hàm RPC (POST, tham số trong body; không query string, không SQL động):
+//   readings_counts (dung lượng DB + các bộ đếm) và readings_insert — migration 20261119130000_rpc_body_only.sql.
 // Biến môi trường: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-//   (tuỳ chọn) READINGS_DAILY_MAX, READINGS_MAX_MB, READINGS_MAX_ROWS, BACKFILL_UNTIL (YYYY-MM-DD), BACKFILL_TOTAL_MAX
-import { json, clientIp, sameOrigin, limited, readText, fetchT, cached } from './_guard.js';
+//   (tuỳ chọn) READINGS_DAILY_MAX, READINGS_MAX_MB, BACKFILL_UNTIL (YYYY-MM-DD), BACKFILL_TOTAL_MAX
+import { json, clientIp, sameOrigin, limited, readText, fetchT } from './_guard.js';
 
 const num = (v, d) => (Number.isFinite(+v) && +v > 0 ? Math.floor(+v) : d);
 const RATE_MAX = 20, RATE_MIN = 10;                                  // mỗi device_id: 20 lần / 10 phút
 const DAILY_MAX = num(process.env.READINGS_DAILY_MAX, 1500);          // trải bài mới (live) toàn site mỗi 24 giờ
 const MAX_BYTES = num(process.env.READINGS_MAX_MB, 350) * 1048576;    // ngừng nhận khi database ≥ 350MB (gói free 500MB)
-const MAX_ROWS = num(process.env.READINGS_MAX_ROWS, 6000);            // dự phòng khi chưa có hàm db_size_bytes()
 const BACKFILL_TOTAL_MAX = num(process.env.BACKFILL_TOTAL_MAX, 5000); // tổng số trải bài cũ được đồng bộ
 const BACKFILL_UNTIL = Date.parse((process.env.BACKFILL_UNTIL || '2026-11-30') + 'T23:59:59+07:00');
 const BATCH_MAX = 25, BACKFILL_MAX_PER_DEVICE = 1000;
@@ -86,51 +85,43 @@ export async function POST(req) {
   if (!rows.length) return json(400, { ok: false, error: 'invalid reading' });
   const deviceId = rows[0].device_id;
 
-  const base = url.replace(/\/+$/, '') + '/rest/v1/readings';
-  const auth = { apikey: key, authorization: 'Bearer ' + key };
-  // Đếm bản ghi. Lỗi / quá giờ → ném lỗi (KHÔNG coi là 0, tránh lọt giới hạn khi DB chập chờn)
-  const count = async (q, mode = 'exact') => {
-    const r = await fetchT(`${base}?select=id&${q}`, { method: 'HEAD', headers: { ...auth, prefer: 'count=' + mode } });
-    const n = Number((r.headers.get('content-range') || '').split('/')[1]);
-    if (!r.ok || !Number.isFinite(n)) throw new Error('count ' + r.status);
-    return n;
+  // Supabase chỉ qua hàm RPC: POST + tham số trong BODY (không ghép giá trị vào query string).
+  // Hàm có tham số kiểu rõ ràng, không SQL động — supabase/migrations/20261119130000_rpc_body_only.sql
+  const rpc = async (fn, args, ms) => {
+    const r = await fetchT(url.replace(/\/+$/, '') + '/rest/v1/rpc/' + fn, {
+      method: 'POST', headers: { apikey: key, authorization: 'Bearer ' + key, 'content-type': 'application/json' }, body: JSON.stringify(args) }, ms);
+    if (!r.ok) throw new Error(fn + ' ' + r.status);
+    const t = await r.text();
+    return t ? JSON.parse(t) : null;
   };
 
   try {
-    // Chặn làm đầy database: đo dung lượng thật (nhớ 60 giây); chưa có hàm đo thì đếm số bản ghi
-    const full = await cached('rd:full', 60000, async () => {
-      const r = await fetchT(url.replace(/\/+$/, '') + '/rest/v1/rpc/db_size_bytes', { method: 'POST', headers: { ...auth, 'content-type': 'application/json' }, body: '{}' });
-      if (r.ok) { const b = Number(await r.json()); if (Number.isFinite(b)) return b >= MAX_BYTES; }
-      else if (r.status !== 404) throw new Error('size ' + r.status);
-      return await count('limit=1', 'estimated') >= MAX_ROWS;
-    });
-    if (full) { console.error('[api/readings] storage cap reached (READINGS_MAX_MB / READINGS_MAX_ROWS)'); return json(507, { ok: false, error: 'storage full' }); }
+    // Mọi con số cần để chặn spam / làm đầy DB lấy trong MỘT lần gọi (readings_counts): dung lượng DB,
+    // trải bài của thiết bị trong RATE_MIN phút, trải bài mới toàn site 24 giờ, số trải bài cũ đã đồng bộ.
+    const c = await rpc('readings_counts', { p_device: deviceId, p_rate_minutes: RATE_MIN });
+    const n = k => { const v = Number(c?.[k]); if (!Number.isFinite(v)) throw new Error('counts ' + k); return v; };   // thiếu số → lỗi, KHÔNG coi là 0
+    if (n('size_bytes') >= MAX_BYTES) { console.error('[api/readings] storage cap reached (READINGS_MAX_MB)'); return json(507, { ok: false, error: 'storage full' }); }
     if (isBatch) {
       // Mỗi thiết bị ≤ BACKFILL_MAX_PER_DEVICE, toàn site ≤ BACKFILL_TOTAL_MAX trải bài cũ
-      if (await count(`device_id=eq.${deviceId}&source=eq.backfill`) + rows.length > BACKFILL_MAX_PER_DEVICE) return json(429, { ok: false, error: 'backfill limit' });
-      if (await cached('rd:bftotal', 30000, () => count('source=eq.backfill')) + rows.length > BACKFILL_TOTAL_MAX) return json(429, { ok: false, error: 'backfill limit' });
+      if (n('device_backfill') + rows.length > BACKFILL_MAX_PER_DEVICE) return json(429, { ok: false, error: 'backfill limit' });
+      if (n('total_backfill') + rows.length > BACKFILL_TOTAL_MAX) return json(429, { ok: false, error: 'backfill limit' });
     } else {
-      // Theo device_id (đếm trong DB, không cần lưu IP) + trần trải bài mới toàn site trong 24 giờ (nhớ 15 giây)
-      const since = new Date(Date.now() - RATE_MIN * 60000).toISOString();
-      if (await count(`device_id=eq.${deviceId}&source=eq.live&created_at=gte.${encodeURIComponent(since)}`) >= RATE_MAX) return json(429, { ok: false, error: 'rate limited' });
-      const day = new Date(Date.now() - 864e5).toISOString();
-      if (await cached('rd:day', 15000, () => count(`source=eq.live&created_at=gte.${encodeURIComponent(day)}`)) >= DAILY_MAX) return json(429, { ok: false, error: 'busy' });
+      // Theo device_id (đếm trong DB, không cần lưu IP) + trần trải bài mới toàn site trong 24 giờ
+      if (n('device_recent') >= RATE_MAX) return json(429, { ok: false, error: 'rate limited' });
+      if (n('live_24h') >= DAILY_MAX) return json(429, { ok: false, error: 'busy' });
     }
   } catch (e) {
     return json(503, { ok: false, error: 'storage unavailable' });
   }
 
   // Trùng (cùng device_id + client_ts) thì bỏ qua → gửi lại bao nhiêu lần cũng không nhân đôi
-  let ins;
+  let inserted;
   try {
-    ins = await fetchT(base + '?on_conflict=device_id,client_ts', {
-      method: 'POST',
-      headers: { ...auth, 'content-type': 'application/json', prefer: 'return=minimal,resolution=ignore-duplicates' },
-      body: JSON.stringify(isBatch ? rows : rows[0])
-    }, 15000);
-  } catch { return json(503, { ok: false, error: 'storage unavailable' }); }
-  if (!ins.ok) return json(502, { ok: false, error: 'storage error', status: ins.status });
-  return json(201, { ok: true, received: rows.length, skipped: isBatch ? body.batch.length - rows.length : 0 });
+    inserted = Number(await rpc('readings_insert', { p_rows: rows }, 15000));
+  } catch (e) {
+    return /readings_insert \d/.test(String(e.message)) ? json(502, { ok: false, error: 'storage error' }) : json(503, { ok: false, error: 'storage unavailable' });
+  }
+  return json(201, { ok: true, received: rows.length, inserted: Number.isFinite(inserted) ? inserted : undefined, skipped: isBatch ? body.batch.length - rows.length : 0 });
 }
 
 export function GET() {
