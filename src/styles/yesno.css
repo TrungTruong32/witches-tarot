@@ -17,3 +17,10 @@
     .yesno-result img.rev { transform: rotate(180deg); }
     .yn-card-name { font-weight: 700; margin-top: 10px; color: var(--text); }
     .yn-why { color: var(--muted); max-width: 560px; margin: 8px auto 0; line-height: 1.55; }
+    /* Điện thoại: ô hỏi và nút "Rút một lá" xếp chồng, nút rộng hết hàng; chữ gợi ý nhỏ lại để không bị cắt (ô nhập vẫn 16px để iOS không phóng to) */
+    @media (max-width: 480px) {
+      .yesno-ask { flex-direction: column; flex-wrap: nowrap; }
+      .yesno-ask input { min-width: 0; width: 100%; box-sizing: border-box; padding: 12px 14px; }
+      .yesno-ask input::placeholder { font-size: .86rem; }
+      .yesno-ask #yesnoBtn { width: 100%; justify-content: center; }
+    }
