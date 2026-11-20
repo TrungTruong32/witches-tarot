@@ -43,9 +43,10 @@ export function YesNo({ deps = {} }: { deps?: YesNoDeps }) {
   // rời màn hình: huỷ lượt hỏi AI đang chạy
   useEffect(() => () => { abortRef.current?.abort(); drawId.current++; }, []);
   // bung hạt sau khi ảnh lá bài đã vẽ (mỗi lần rút một lá mới)
+  const drawNo = res?.n;
   useEffect(() => {
-    if (res) burstAt(imgRef.current, 16);
-  }, [res?.n]);
+    if (drawNo != null) burstAt(imgRef.current, 16);
+  }, [drawNo]);
 
   async function draw() {
     if (!db) return;
