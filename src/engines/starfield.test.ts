@@ -77,6 +77,20 @@ describe('startStarfield', () => {
     expect(pending.size).toBe(0);
   });
 
+  it('update(partial): chỉ đổi khoá được truyền, giữ các khoá còn lại', async () => {
+    loadSky.mockReturnValue(new Promise(() => {}));
+    const e = startStarfield(document.createElement('canvas'), OPTS);
+    e.update({ fx: 'off' });
+    expect(pending.size).toBe(0);
+    e.update({ fx: 'on' });
+    expect(pending.size).toBe(1);
+    expect(loadSky).not.toHaveBeenCalled();
+    e.update({ skyMode: 'real' });   // deco → real: nạp sky.json, fx vẫn 'on'
+    expect(loadSky).toHaveBeenCalledTimes(1);
+    expect(pending.size).toBe(1);
+    e.stop();
+  });
+
   it('document.hidden tạm dừng, visibilitychange chạy lại', () => {
     const e = startStarfield(document.createElement('canvas'), OPTS);
     const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);

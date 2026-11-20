@@ -13,7 +13,8 @@ export interface StarfieldOpts {
 }
 
 export interface Starfield {
-  update(opts: StarfieldOpts): void;
+  /** Cập nhật cài đặt (chỉ các khoá được truyền) — cùng kiểu update(partial) với skyMap. */
+  update(p: Partial<StarfieldOpts>): void;
   burst(x: number, y: number, n?: number): void;
   stop(): void;
 }
@@ -186,11 +187,11 @@ export function startStarfield(cv: HTMLCanvasElement, initial: StarfieldOpts): S
   start();
 
   return {
-    update(next) {
+    update(p) {
       const prev = o;
-      o = { ...next };
-      if (next.skyCity !== prev.skyCity) skyComputedAt = 0;
-      if (next.skyMode === 'real' && prev.skyMode !== 'real') { skyFailed = false; ensureSky(); skyComputedAt = 0; }
+      o = { ...o, ...p };
+      if (o.skyCity !== prev.skyCity) skyComputedAt = 0;
+      if (o.skyMode === 'real' && prev.skyMode !== 'real') { skyFailed = false; ensureSky(); skyComputedAt = 0; }
       if (o.fx === 'off') { halt(); ctx?.clearRect(0, 0, W, H); }
       else start();
     },
