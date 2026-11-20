@@ -89,3 +89,14 @@ describe('providerLabel matches legacy', () => {
         }
   });
 });
+
+describe('base URLs are trimmed like legacy (value.trim() || DEFAULT)', () => {
+  it('a trailing space or a blank URL never reaches fetch', async () => {
+    const ff = fakeFetch(() => new Response(JSON.stringify({ models: [] })));
+    await listModels('ollama', s({ ollamaUrl: ' http://localhost:11434/ ' }), ff.fetch);
+    expect(ff.calls[0]!.url).toBe('http://localhost:11434/api/tags');
+    const b = fakeFetch(() => new Response(JSON.stringify({ data: [] })));
+    await listModels('beeknoee', s({ beeknoeeKey: 'B', beeknoeeUrl: '   ' }), b.fetch);
+    expect(b.calls[0]!.url).toBe('https://platform.beeknoee.com/api/v1/models');
+  });
+});

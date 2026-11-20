@@ -38,6 +38,7 @@ describe('AiSettings markup matches legacy', () => {
 describe('AiSettings behaviour', () => {
   it('opening loads the saved settings and selects the saved provider tab', () => {
     localStorage.setItem('witchesTarotAI', JSON.stringify({ provider: 'zenmux', zenmuxKey: 'zk', autoFallback: false, freeAi: false }));
+    useApp.setState(initialState()); // khởi động lại app: store đọc từ localStorage (khoá cũ)
     render(<AiSettings />);
     open();
     expect($('provZenmux').classList.contains('on')).toBe(true);
@@ -129,5 +130,32 @@ describe('AiSettings behaviour', () => {
     expect($('geminiModel').value).toBe(DEFAULT_AI_SETTINGS.geminiModel);
     expect($('provGemini').classList.contains('on')).toBe(true);
     expect($('freeAi').checked).toBe(true);
+  });
+});
+
+describe('AiSettings async safety', () => {
+  it('a model list that arrives after close + reopen does not touch the fresh form', async () => {
+    let resolve!: (r: Response) => void;
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise<Response>(r => { resolve = r; }));
+    render(<AiSettings />);
+    open();
+    await userEvent.click($('provBeeknoee'));
+    fireEvent.change($('beeknoeeKey'), { target: { value: 'bk' } });
+    await userEvent.click($('loadBeeknoeeModels'));
+    await userEvent.keyboard('{Escape}');
+    open();
+    await act(async () => { resolve(new Response(JSON.stringify({ data: [{ id: 'late-model' }] }))); });
+    await new Promise(r => setTimeout(r, 0));
+    expect($('beeknoeeModel').value).toBe('');
+    expect($('beeknoeeModelStatus').textContent).not.toContain('✓');
+    expect([...document.querySelectorAll('#beeknoeeModelList option')].map(o => o.getAttribute('value'))).not.toContain('late-model');
+  });
+
+  it('reads the settings from the store (single source of truth)', () => {
+    act(() => useApp.setState({ aiSettings: { ...DEFAULT_AI_SETTINGS, provider: 'ollama', ollamaModel: 'qwen3' } }));
+    render(<AiSettings />);
+    open();
+    expect($('provOllama').classList.contains('on')).toBe(true);
+    expect($('ollamaModel').value).toBe('qwen3');
   });
 });

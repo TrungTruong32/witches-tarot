@@ -1,13 +1,13 @@
 // Hộp "Cài đặt AI": chọn provider (tab đang sáng lúc bấm Lưu), nhập key/URL/model, tải danh sách model, gọi thử.
 // Markup theo bản cũ L1156–1265; hành vi theo L3024–3363. Trạng thái form chỉ ghi xuống khi bấm Lưu.
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useApp } from '../../app/store';
 import { ModalOverlay } from '../../components/Overlay';
 import { useT } from '../../i18n/useT';
 import { providerChain } from '../../services/ai/chat';
 import { GEMINI_PREFERRED, listModels, orderModels, providerLabel, RECOMMENDED, testModel } from '../../services/ai/models';
 import { AiError, ollamaIsLocal } from '../../services/ai/providers';
-import { DEFAULT_AI_SETTINGS, loadAiSettings, type AiSettings as Settings, type BYOKProvider } from '../../services/storage';
+import { DEFAULT_AI_SETTINGS, type AiSettings as Settings, type BYOKProvider } from '../../services/storage';
 
 const PROVIDERS: { id: BYOKProvider; tab: string; label: string }[] = [
   { id: 'gemini', tab: 'provGemini', label: 'Gemini' },
@@ -39,7 +39,9 @@ export function AiSettings() {
   const open = useApp(s => s.overlay === 'ai');
   const close = useApp(s => s.closeOverlay);
   const save = useApp(s => s.saveAiSettings);
-  const [form, setForm] = useState<Form>(() => toForm(loadAiSettings()));
+  const [form, setForm] = useState<Form>(() => toForm(useApp.getState().aiSettings));
+  // Mỗi lần mở là một "phiên"; kết quả tải/thử model của phiên cũ (trả về muộn) bị bỏ qua
+  const session = useRef(0);
   const [tab, setTab] = useState<BYOKProvider>(form.provider);
   const [status, setStatus] = useState<Partial<Record<BYOKProvider, ReactNode>>>({});
   const [lists, setLists] = useState<Record<BYOKProvider, string[]>>({ gemini: [], beeknoee: [], zenmux: [], ollama: [] });
@@ -48,7 +50,8 @@ export function AiSettings() {
   // Mỗi lần mở: đọc lại cài đặt đã lưu, gợi ý sẵn model khuyến nghị, xoá trạng thái cũ
   useEffect(() => {
     if (!open) return;
-    const s = toForm(loadAiSettings());
+    session.current++;
+    const s = toForm(useApp.getState().aiSettings);
     setForm(s);
     setTab(s.provider);
     setStatus({});
@@ -63,11 +66,18 @@ export function AiSettings() {
   const set = <K extends keyof Form>(k: K) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   const say = (p: BYOKProvider, text: ReactNode) => setStatus(st => ({ ...st, [p]: text }));
+  /** Đánh dấu phiên lúc bắt đầu một tác vụ bất đồng bộ; hàm trả về cho biết hộp còn ở đúng phiên đó không. */
+  const current = () => {
+    const at = session.current;
+    return () => at === session.current;
+  };
 
   const load = async (p: BYOKProvider) => {
+    const live = current();
     say(p, p === 'ollama' ? 'Đang tải danh sách model từ Ollama…' : 'Đang kiểm tra key và tải danh sách model…');
     try {
       const models = await listModels(p, form);
+      if (!live()) return;
       if (!models.length) {
         say(p, p === 'gemini' ? '⚠️ Key hợp lệ nhưng không có model hỗ trợ generateContent.'
           : p === 'ollama' ? '⚠️ Không có model nào. Local: "ollama pull <model>". Cloud: gõ tay tên model (vd gpt-oss:120b-cloud).'
@@ -77,12 +87,13 @@ export function AiSettings() {
       const ordered = orderModels(models, p === 'gemini' ? GEMINI_PREFERRED : p === 'ollama' ? [] : RECOMMENDED[p]);
       setLists(l => ({ ...l, [p]: ordered }));
       const key = MODEL_KEY[p];
-      const savedModel = loadAiSettings()[key];
+      const savedModel = useApp.getState().aiSettings[key];
       setForm(f => ({ ...f, [key]: savedModel && ordered.includes(savedModel) ? savedModel : f[key].trim() ? f[key] : ordered[0] ?? '' }));
       say(p, p === 'gemini' ? `✓ Key hợp lệ — ${models.length} model dùng được (model khuyến nghị ở đầu danh sách). Chọn model rồi bấm Lưu.`
         : p === 'ollama' ? `✓ Kết nối OK — ${models.length} model. Chọn model rồi bấm Lưu.`
           : `✓ Key hợp lệ — ${models.length} model. Chọn model rồi bấm Lưu.`);
     } catch (e) {
+      if (!live()) return;
       if (isValidation(e)) return say(p, '⚠️ ' + msgOf(e));
       if (p === 'ollama') {
         const base = (form.ollamaUrl.trim() || DEFAULT_AI_SETTINGS.ollamaUrl).replace(/\/$/, '');
@@ -97,12 +108,15 @@ export function AiSettings() {
 
   const test = async (p: BYOKProvider) => {
     const model = form[MODEL_KEY[p]].trim();
+    const live = current();
     try {
       const pending = testModel(p, form);
       say(p, '🧪 Đang thử gọi thật model “' + model + '”' + (p === 'beeknoee' || p === 'zenmux' ? ' (stream)…' : '…'));
       await pending;
+      if (!live()) return;
       say(p, '✓ Model “' + model + '” GỌI ĐƯỢC. Bấm Lưu để dùng.');
     } catch (e) {
+      if (!live()) return;
       if (isValidation(e)) return say(p, '⚠️ ' + msgOf(e));
       say(p, '✗ “' + model + '” không gọi được: ' + msgOf(e) + (p === 'gemini' ? ' — chọn model khác rồi Thử lại.' : ''));
     }

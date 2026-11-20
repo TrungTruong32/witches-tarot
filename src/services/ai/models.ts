@@ -29,13 +29,12 @@ export function orderModels(models: string[], preferred: string[] = []): string[
   return head.concat(models.filter(m => !seen.has(normModel(m))));
 }
 
-const trim = (u: string) => u.replace(/\/$/, '');
+// Form đang nhập chưa qua bước Lưu (chưa trim) → trim ở đây, ô trống thì dùng URL mặc định như bản cũ.
+const urlOr = (v: string, def: string) => (v.trim() || def).replace(/\/$/, '');
 const baseOf = (p: BYOKProvider, s: AiSettings) =>
-  trim(
-    p === 'beeknoee' ? s.beeknoeeUrl || 'https://platform.beeknoee.com/api/v1'
-      : p === 'zenmux' ? s.zenmuxUrl || 'https://zenmux.ai/api/v1'
-        : s.ollamaUrl || 'http://localhost:11434',
-  );
+  p === 'beeknoee' ? urlOr(s.beeknoeeUrl, 'https://platform.beeknoee.com/api/v1')
+    : p === 'zenmux' ? urlOr(s.zenmuxUrl, 'https://zenmux.ai/api/v1')
+      : urlOr(s.ollamaUrl, 'http://localhost:11434');
 
 async function failure(resp: Response): Promise<AiError> {
   let msg = 'HTTP ' + resp.status;
