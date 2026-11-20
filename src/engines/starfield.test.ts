@@ -22,7 +22,7 @@ function fakeCtx() {
   const ctx = new Proxy(target, {
     get(t, p: string) {
       if (p in t) return t[p];
-      if (p === 'createLinearGradient') return () => ({ addColorStop: () => {} });
+      if (p === 'createLinearGradient') return () => (calls.push('gradient'), { addColorStop: () => {} });
       return (...a: unknown[]) => void calls.push(`${p}(${a.length})`);
     },
     set(t, p: string, v) {
@@ -80,13 +80,37 @@ describe('startStarfield', () => {
     e.stop();
   });
 
-  it('burst vẽ hạt lấp lánh; reduce thì bỏ qua', () => {
+  it('burst vẽ hạt lấp lánh', () => {
     const e = startStarfield(document.createElement('canvas'), OPTS);
     flush();
     const before = fc.calls.filter(c => c === 'arc(5)').length;
     e.burst(10, 10, 5);
     flush();
     expect(fc.calls.filter(c => c === 'arc(5)').length - before).toBeGreaterThanOrEqual(5);
+    e.stop();
+  });
+
+  it('reduce: không gắn mousemove, burst không vẽ hạt, không có sao băng', () => {
+    const wa = vi.spyOn(window, 'addEventListener');
+    const e = startStarfield(document.createElement('canvas'), { ...OPTS, reduce: true });
+    expect(wa.mock.calls.some(c => c[0] === 'mousemove')).toBe(false);
+    flush();
+    fc.calls.length = 0;
+    flush();
+    const base = fc.calls.filter(c => c === 'arc(5)').length;   // chỉ sao trang trí tĩnh
+    e.burst(10, 10, 5);
+    fc.calls.length = 0;
+    flush();
+    expect(fc.calls.filter(c => c === 'arc(5)').length).toBe(base);
+    for (let i = 0; i < 80; i++) flush();
+    expect(fc.calls).not.toContain('gradient');
+    e.stop();
+  });
+
+  it('không reduce: sao băng đầu tiên xuất hiện trong ~80 khung (1.2s)', () => {
+    const e = startStarfield(document.createElement('canvas'), OPTS);
+    for (let i = 0; i < 80; i++) flush();
+    expect(fc.calls).toContain('gradient');
     e.stop();
   });
 
