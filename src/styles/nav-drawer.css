@@ -1,6 +1,10 @@
     /* Nav dạng drawer trượt bên phải + nút hamburger */
     .nav-toggle { position: fixed; top: 12px; right: 12px; z-index: 140; width: 48px; height: 48px; padding: 0; border-radius: 14px;
-      background: var(--panel); border: 1px solid var(--border); color: var(--text); font-size: 1.35rem; line-height: 1; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+      border: 1px solid var(--border); color: var(--text); font-size: 1.35rem; line-height: 1; box-shadow: 0 6px 20px rgba(0,0,0,.35);
+      /* nút nổi: nền đặc hơn --panel một chút + làm mờ nội dung cuộn bên dưới (như .nav/.modal) → không lẫn vào ảnh lá, nút ✕/Tải lại…
+         Hành vi giữ nguyên: trên điện thoại ☰ luôn hiện (tự ẩn khi cuộn chỉ áp cho thanh menu ≥1024px, lúc đó ☰ bị ẩn) */
+      background: color-mix(in srgb, var(--panel) 70%, var(--input));
+      backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); }
     .nav { position: fixed; top: 0; right: 0; height: 100%; width: min(300px, 84vw); margin: 0; padding: 60px 14px 20px;
       display: flex; flex-direction: column; gap: 8px; background: var(--panel); border-left: 1px solid var(--border);
       box-shadow: -10px 0 44px rgba(0,0,0,.45); transform: translateX(104%); transition: transform .32s cubic-bezier(.2,.8,.2,1);

@@ -53,6 +53,7 @@
     .section-more:not([open]):hover { border-color: var(--border2); }
     @media (prefers-reduced-motion: reduce) { .section-more > summary::after { transition: none; } }
     @media (max-width: 760px) {
-      /* điện thoại: ảnh lá không chiếm hết màn hình → tên lá + từ khóa lọt vào khung nhìn đầu tiên sau khi cuộn */
-      #cardDetails .card-image { max-height: 58vh; width: auto; }
+      /* điện thoại: ảnh lá ~44vh → tên lá + mục Từ khóa lọt vào khung nhìn đầu tiên sau khi cuộn;
+         ảnh hẹp lại (~215px, căn giữa) nên không còn chạm nút ☰ ở góc phải */
+      #cardDetails .card-image { max-height: 44vh; width: auto; }
     }
