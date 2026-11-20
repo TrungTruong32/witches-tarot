@@ -74,7 +74,7 @@ Tra cứu ý nghĩa 78 lá bài **Witches Tarot** và **Rider-Waite**: xuôi, ng
 
 ## 🛠️ Kỹ thuật (dành cho người đọc code)
 
-App là PWA một trang viết bằng **React 18 + TypeScript strict**, build bằng **Vite**. Trước đây toàn bộ app nằm trong một file HTML gần 6.000 dòng (HTML + CSS + JS thuần); bản React được port lại từng màn và **so khớp với bản cũ** bằng test, nên hành vi giữ nguyên. Bản cũ đóng băng ở `tests/legacy/witches_tarot.legacy.html`, chỉ dùng làm tham chiếu.
+App là PWA một trang viết bằng **React 18 + TypeScript strict**, build bằng **Vite**. Trước đây toàn bộ app nằm trong một file HTML gần 6.000 dòng (HTML + CSS + JS thuần); bản React được port lại từng màn và **so khớp với bản cũ** bằng test, nên hành vi giữ nguyên — trừ tab **Bốc bài**, được thiết kế lại có chủ đích theo yêu cầu của chủ dự án (dùng chung ô chọn kiểu trải, bàn trải và hiệu ứng chia lá với Trải bài AI, tự cuộn, tên nút rõ nghĩa; xem spec §5.8 trong `docs/superpowers/specs/2026-11-19-react-migration-design.md`). Bản cũ đóng băng ở `tests/legacy/witches_tarot.legacy.html`, chỉ dùng làm tham chiếu.
 
 | Lớp | Công nghệ |
 |---|---|
@@ -120,10 +120,16 @@ api/               ai.js (AI miễn phí), readings.js (lưu trải bài), llm.j
 - **Smoke** (`scripts/smoke-flows.mjs`): chạy các luồng chính trên Chrome thật. `/api/ai` và `/api/readings` luôn được giả lập, nên không tốn lượt AI và không ghi dữ liệu.
 - **CSP** (`scripts/csp-check.mjs`): phục vụ `dist/` với đúng header của `vercel.json`. Yêu cầu không có vi phạm CSP nào; `script-src` không có `'unsafe-inline'`, script inline duy nhất được cho phép bằng hash.
 - **Offline / cập nhật PWA** (`scripts/offline-check.mjs`):
-  - máy đã cài bản cũ: cache cũ bị xoá;
+  - có sẵn cache tên `wtarot-v9` (giả lập): bị xoá;
   - bản build chỉ đổi thẻ meta: không tải lại gì;
   - bản build đổi code: giữ cache dữ liệu;
   - mất mạng: app vẫn mở.
+- **Nâng cấp từ bản cũ** (`scripts/upgrade-check.mjs`, Chrome thật, chỉ `127.0.0.1`): chạy bản cũ đóng băng **cùng `sw.js` cũ** trên cổng P, tạo dữ liệu bằng chính code cũ (một lượt trải bài trong IndexedDB `witchesTarotDecks`, theme / mặt lưng / ngôn ngữ qua control cũ, ghi chú hôm nay, `tarotDeviceId`, cache `wtarot-v9` do SW cũ điền), rồi phục vụ `dist/` trên **cùng cổng P** (cùng origin) và tải lại. Script khẳng định:
+  - SW mới điều khiển trang (`controllerchange`), chỉ còn cache `wtarot-app-*` + `wtarot-data-*`;
+  - `/nhat-ky` có lượt trải bài cũ, theme / mặt lưng / ngôn ngữ được áp, `/hom-nay` hiện ghi chú cũ, `tarotDeviceId` không đổi;
+  - 3 link chia sẻ `#r=` tạo bằng bản cũ (ppf có lá ngược, Celtic Cross, Tự do 5 lá) mở trên bản mới đúng câu hỏi, kiểu trải, số lá, chiều xuôi/ngược, tên lá và lời giải;
+  - sau đó tắt máy chủ, mất mạng: `/tra-cuu` liệt kê lá, `/boc-bai` xòe được bài.
+  Không kiểm tra: nâng cấp từ bản cũ hơn `wtarot-v9`, ghi chú hỏi-tiếp/ghi chú lượt, Safari/Firefox.
 - **Sau deploy:** `deploy-*.mjs` kiểm tra `app-version` trên trang thật phải khớp với bản build ở máy, kiểm tra các route, trang SEO và API.
 
 ### Lệnh
@@ -135,6 +141,7 @@ api/               ai.js (AI miễn phí), readings.js (lưu trải bài), llm.j
 | `npm run build` | Build `dist/` + chép dữ liệu tĩnh + sinh service worker (cần dữ liệu bài ở máy) |
 | `node scripts/smoke-flows.mjs [BASE]` | Smoke trên dev server, hoặc trên `BASE` có sẵn |
 | `node scripts/csp-check.mjs` · `node scripts/offline-check.mjs` | Kiểm tra CSP / offline trên `dist/` |
+| `node scripts/upgrade-check.mjs` | Nâng cấp thật bản cũ → bản React trên cùng origin + link chia sẻ cũ (cần `dist/`) |
 | `node scripts/parity-screens.mjs [màn]` | So ảnh bản cũ ↔ bản React |
 | `node scripts/deploy-preview.mjs` · `node scripts/deploy-prod.mjs` | Deploy prebuilt từ máy lên Vercel Preview / Production (prod chỉ từ `main`) |
 

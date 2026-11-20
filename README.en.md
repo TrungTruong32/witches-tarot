@@ -76,7 +76,7 @@ Look up all 78 card meanings of the **Witches Tarot** and **Rider-Waite** decks:
 
 ## 🛠️ Engineering (for code reviewers)
 
-The app is a single-page PWA written in **React 18 + strict TypeScript** and built with **Vite**. It started as a single HTML file of almost 6,000 lines (plain HTML + CSS + JS). The React version was ported screen by screen and is **checked against the old app** by tests, so behaviour is unchanged. The legacy file is frozen at `tests/legacy/witches_tarot.legacy.html` and serves only as a reference.
+The app is a single-page PWA written in **React 18 + strict TypeScript** and built with **Vite**. It started as a single HTML file of almost 6,000 lines (plain HTML + CSS + JS). The React version was ported screen by screen and is **checked against the old app** by tests, so behaviour is unchanged — except the **Draw** tab, which was redesigned on purpose at the project owner's request (it shares the spread picker, numbered board and deal animation with AI Reading, auto-scrolls and has clearer button labels; see spec §5.8 in `docs/superpowers/specs/2026-11-19-react-migration-design.md`). The legacy file is frozen at `tests/legacy/witches_tarot.legacy.html` and serves only as a reference.
 
 | Layer | Tech |
 |---|---|
@@ -129,10 +129,16 @@ api/               ai.js (free AI), readings.js (saved readings), llm.js / img.j
 - **Smoke** (`scripts/smoke-flows.mjs`): runs the main flows in real Chrome. `/api/ai` and `/api/readings` are always mocked, so no free-AI quota is spent and nothing is written.
 - **CSP** (`scripts/csp-check.mjs`): serves `dist/` with the exact `vercel.json` headers and requires zero CSP violations. `script-src` has no `'unsafe-inline'`; the single inline script is allowed by hash.
 - **Offline / PWA updates** (`scripts/offline-check.mjs`):
-  - an installed legacy app has its old caches removed;
+  - a pre-existing `wtarot-v9` cache (simulated) is removed;
   - a meta-only rebuild refetches nothing;
   - a code change keeps the data cache;
   - the app still opens offline.
+- **Upgrade from the legacy app** (`scripts/upgrade-check.mjs`, real Chrome, `127.0.0.1` only): runs the frozen legacy app **with the legacy `sw.js`** on port P and creates user state with the legacy code itself (one reading in IndexedDB `witchesTarotDecks`, theme / card back / language through the legacy controls, today's note, `tarotDeviceId`, and the `wtarot-v9` cache filled by the legacy SW). It then serves `dist/` on the **same port P** (same origin) and reloads. The script asserts that:
+  - the new SW controls the page (`controllerchange`) and only `wtarot-app-*` + `wtarot-data-*` caches remain;
+  - `/nhat-ky` lists the legacy reading, theme / card back / language are applied, `/hom-nay` shows the legacy note, and `tarotDeviceId` is unchanged;
+  - 3 `#r=` share links made by the legacy app (ppf with a reversed card, Celtic Cross, Free with 5 cards) open on the new build with the same question, spread, card count, orientations, card names and answer;
+  - with the server stopped and the browser offline, `/tra-cuu` lists the cards and `/boc-bai` can fan the deck.
+  Not covered: upgrades from builds older than `wtarot-v9`, follow-up chats and per-reading notes, Safari/Firefox.
 - **Post-deploy:** `deploy-*.mjs` checks that the live `app-version` matches the local build, then checks the app routes, the SEO pages and the API.
 
 ### Scripts
@@ -144,6 +150,7 @@ api/               ai.js (free AI), readings.js (saved readings), llm.js / img.j
 | `npm run build` | Builds `dist/`, copies static data, generates the service worker (needs local card data) |
 | `node scripts/smoke-flows.mjs [BASE]` | Smoke on the dev server, or on an existing `BASE` |
 | `node scripts/csp-check.mjs` · `node scripts/offline-check.mjs` | CSP / offline checks on `dist/` |
+| `node scripts/upgrade-check.mjs` | Real legacy → React upgrade on the same origin + legacy share links (needs `dist/`) |
 | `node scripts/parity-screens.mjs [screen]` | Legacy ↔ React screenshot diff |
 | `node scripts/deploy-preview.mjs` · `node scripts/deploy-prod.mjs` | Local prebuilt deploy to Vercel Preview / Production (prod only from `main`) |
 
