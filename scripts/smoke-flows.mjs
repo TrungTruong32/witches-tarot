@@ -138,6 +138,35 @@ try {
     await ctx2.close();
   });
 
+  await step('Bầu trời: bản đồ sao vẽ được, đổi vị trí + phóng to không lỗi', async () => {
+    await page.goto(BASE + '/bau-troi');
+    await page.waitForFunction(() => {
+      const c = document.getElementById('skyCanvas');
+      if (!c || !c.width) return false;
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      let lit = 0;
+      for (let i = 3; i < d.length; i += 4 * 97) if (d[i] > 0) lit++;
+      return lit > 50;
+    }, null, { timeout: 15000 });
+    await page.selectOption('#skyLoc', 'danang');
+    await page.click('#skyZoomIn');
+    await page.click('#skyTgGrid');
+    if (!(await page.textContent('#skyInfo'))?.includes('Đà Nẵng')) throw new Error('sky info: ' + (await page.textContent('#skyInfo')));
+  });
+
+  await step('Cài đặt trang: nền bầu trời thật + nhạc nền bật/tắt không lỗi', async () => {
+    await page.goto(BASE + '/hom-nay');
+    await page.evaluate(() => document.getElementById('openSite').click());
+    await page.selectOption('#skyMode', 'real');
+    await page.selectOption('#ambientMode', 'mystic');
+    await page.waitForTimeout(1500);
+    await page.selectOption('#ambientMode', 'candle');
+    await page.waitForTimeout(800);
+    await page.selectOption('#ambientMode', 'off');
+    await page.selectOption('#skyMode', 'deco');
+    expectEq(await page.evaluate(() => document.documentElement.dataset.sky), 'deco', 'html[data-sky]');
+  });
+
   await step('Không có lỗi JS/console trong suốt các bước', async () => {
     if (errors.length) throw new Error(errors.join(' | '));
   });

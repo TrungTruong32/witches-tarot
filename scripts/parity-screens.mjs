@@ -24,7 +24,8 @@ const REACT = 'http://localhost:5311';
 // Giống nhau cho cả hai: Math.random cố định, tắt animation/transition, ẩn nền sao động (Kế hoạch 2c)
 const INIT = `(() => { let s = 42; Math.random = () => ((s = (s * 16807) % 2147483647) / 2147483647); })();`;
 const FREEZE_CSS = `*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}
-#bgStars,#bgAura{display:none!important}`;
+#bgStars,#bgAura{display:none!important}
+#skyCanvas{visibility:hidden!important}`;   // bản đồ sao vẽ theo giờ thật → chỉ so phần điều khiển
 
 const browser = await chromium.launch({ channel: 'chrome' });
 
@@ -109,6 +110,7 @@ const SCREENS = {
     react: async p => { await reactGo('/nhat-ky')(p); await p.waitForTimeout(400); },
   },
   yesno: { legacy: legacyEnter('yesno'), react: reactGo('/yes-no') },
+  sky: { legacy: legacyEnter('sky'), react: reactGo('/bau-troi') },
   ai: {
     legacy: async p => { await legacyEnter('daily')(p); await p.evaluate(() => document.getElementById('openSettings').click()); },
     react: async p => { await reactGo('/hom-nay')(p); await p.evaluate(() => document.getElementById('openSettings').click()); },
