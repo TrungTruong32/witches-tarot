@@ -1,0 +1,6 @@
+    /* Cài đặt trang */
+    .site-check { display: flex; align-items: center; gap: 8px; font-size: .92rem; color: var(--text); cursor: pointer; margin-top: 4px; }
+    .site-check input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .site-vol { display: flex; align-items: center; gap: 10px; margin-top: 8px; color: var(--muted); font-size: .85rem; }
+    .site-vol input[type="range"] { flex: 1; accent-color: var(--accent); }
+    :root[data-fx="off"] #bgAura, :root[data-fx="off"] #bgStars { display: none; }

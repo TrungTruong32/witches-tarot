@@ -1,0 +1,7 @@
+    /* Icon SVG nét mảnh */
+    .ico { width: 1.45em; height: 1.45em; flex: none; vertical-align: -.4em; overflow: visible; transition: filter .25s ease, transform .25s ease; }
+    button[data-ico] { display: inline-flex; align-items: center; justify-content: center; gap: .5em; }
+    .nav .tab-btn[data-ico] { justify-content: flex-start; }
+    .nav .tab-btn .ico { width: 1.65em; height: 1.65em; }
+    button[data-ico]:hover:not(:disabled) .ico { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--spark) 70%, transparent)); transform: scale(1.08); }
+    .qchip[data-ico] .ico { width: 1.3em; height: 1.3em; }

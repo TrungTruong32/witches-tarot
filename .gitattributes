@@ -1,2 +1,3 @@
 shared/__golden__/* -text
 tests/legacy/*.html -text
+src/styles/*.css -text

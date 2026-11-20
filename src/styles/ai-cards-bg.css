@@ -1,0 +1,21 @@
+    /* Các lá trong trải bài trôi mờ phía sau khung diễn giải AI (lúc AI đang đọc & sau khi có câu trả lời) */
+    #aiSection { position: relative; overflow: hidden; isolation: isolate; transition: min-height .8s var(--soft, ease); }
+    #aiSection.bg-on { min-height: 380px; }   /* đủ chỗ cho các lá trôi ngay cả khi câu trả lời mới có vài dòng */
+    #aiSection > :not(.ai-cards-bg) { position: relative; z-index: 1; }
+    .ai-cards-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+      opacity: 0; transition: opacity 1.2s var(--soft, ease);
+      -webkit-mask-image: radial-gradient(ellipse 85% 75% at 50% 45%, #000 40%, transparent 100%);
+              mask-image: radial-gradient(ellipse 85% 75% at 50% 45%, #000 40%, transparent 100%); }
+    .ai-cards-bg.on { opacity: 1; }
+    .aibg-card { position: absolute; width: var(--w, 96px); aspect-ratio: 300 / 525; margin-left: calc(var(--w, 96px) / -2);
+      border-radius: 9px; overflow: hidden; background: var(--cardback); box-shadow: 0 10px 30px rgba(0,0,0,.45);
+      opacity: .14; filter: blur(1.4px) saturate(.85); transition: opacity 1.1s ease, filter 1.1s ease, box-shadow 1.1s ease; will-change: transform; }
+    .aibg-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .aibg-card img.rev { transform: rotate(180deg); }
+    .ai-cards-bg.thinking .aibg-card { opacity: .24; filter: blur(.8px) saturate(.95); }
+    .ai-cards-bg.thinking .aibg-card.lit { opacity: .55; filter: blur(0) saturate(1.1);
+      box-shadow: 0 0 26px color-mix(in srgb, var(--accent2) 70%, transparent), 0 10px 30px rgba(0,0,0,.45); }
+    .ai-cards-bg.done .aibg-card { opacity: .16; filter: blur(1.5px) saturate(.85); }
+    :root[data-theme="light"] .ai-cards-bg .aibg-card { box-shadow: 0 8px 22px rgba(60,40,120,.25); }
+    @media (max-width: 600px) { .aibg-card { --w: 70px; } #aiSection.bg-on { min-height: 300px; } }
+    @media (prefers-reduced-motion: reduce) { .aibg-card { transition: none; } }

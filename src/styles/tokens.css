@@ -1,0 +1,37 @@
+
+    :root {
+      --bg: radial-gradient(circle at 50% -8%, #2a2342, #1f1b2f 62%); --text: #f5f0e9; --muted: #c8c2b4;
+      --panel: rgba(30, 26, 44, 0.6); --section: rgba(38, 32, 54, 0.5);
+      --input: #2f2a44; --border: #5b5470; --border2: #4d4561; --border3: #3f3954;
+      --btn: #3d3563; --accent: #6f5ac1; --accent2: #b49bff;
+      --aura1: rgba(111,90,193,.30); --aura2: rgba(176,87,127,.22); --star: rgba(233,227,255,.9); --spark: #ffe1a8;
+    }
+    :root[data-theme="night"] {
+      --bg: radial-gradient(circle at 50% -8%, #16294f, #0f1830 62%); --panel: rgba(18, 28, 52, 0.6); --section: rgba(20, 30, 56, 0.5);
+      --input: #182644; --border: #2f4670; --border2: #26385c; --border3: #213050;
+      --btn: #1e3a63; --accent: #3f6fb0; --accent2: #79b0ff;
+      --aura1: rgba(63,111,176,.32); --aura2: rgba(40,70,130,.26); --star: rgba(200,220,255,.9); --spark: #9fd0ff;
+    }
+    :root[data-theme="rose"] {
+      --bg: radial-gradient(circle at 50% -8%, #3c1d2e, #2a1420 62%); --panel: rgba(46, 26, 38, 0.6); --section: rgba(52, 30, 44, 0.5);
+      --input: #3a2030; --border: #6b4058; --border2: #5a3548; --border3: #4a2c3c;
+      --btn: #5a2f45; --accent: #b0577f; --accent2: #ff9db6;
+      --aura1: rgba(176,87,127,.34); --aura2: rgba(120,60,90,.26); --star: rgba(255,220,235,.9); --spark: #ffd0a8;
+    }
+    :root[data-theme="light"] {
+      --bg: linear-gradient(180deg, #f8f3ff, #eee6fb 55%, #f3eefb); --text: #2a2440; --muted: #6a6386;
+      --panel: rgba(255, 255, 255, 0.68); --section: rgba(250, 247, 255, 0.6);
+      --input: #ffffff; --border: #c9c0e6; --border2: #d8d0ef; --border3: #e3ddf3;
+      --btn: #e7e0fa; --accent: #6f5ac1; --accent2: #7a63d6;
+      --aura1: rgba(150,120,235,.35); --aura2: rgba(255,175,205,.34); --star: rgba(140,110,205,.5); --spark: #c79a34;
+    }
+    :root[data-theme="light"] .card-item, :root[data-theme="light"] .spread-item,
+    :root[data-theme="light"] .hist-item { background: #efe9fb; }
+    :root[data-theme="light"] .card-item span, :root[data-theme="light"] .card-item strong,
+    :root[data-theme="light"] .badge, :root[data-theme="light"] .section h3 { color: #2a2440; }
+    :root[data-theme="light"] .qchip { background: #ece5fb; color: #3a2f66; }
+    :root[data-theme="light"] .chat-a { background: #f2eefc; }
+    :root[data-theme="light"] .chat-q { background: #e6dffb; }
+    :root[data-theme="light"] .think-box summary { color: #4a3f7a; }
+    :root[data-theme="light"] button { color: #2a2440; }
+    :root[data-theme="light"] .tab-btn.active, :root[data-theme="light"] .btn-primary { color: #fff; }

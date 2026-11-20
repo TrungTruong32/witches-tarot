@@ -1,0 +1,30 @@
+    /* Hiệu ứng tự rút bài: chia bài úp → lật reveal */
+    .flip { perspective: 1000px; cursor: pointer; }
+    .flip-inner { position: relative; width: 100%; aspect-ratio: 300 / 525; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.2,.8,.2,1); }
+    .flip.revealed .flip-inner { transform: rotateY(180deg); }
+    .flip-face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+    :root { --cardback: #141019 url('/cardback.png') center / cover no-repeat; }
+    .flip-front, .riffle-card, .spread-flip .sff.front { background: var(--cardback); }
+    .cb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 10px; margin-top: 10px; }
+    .cb-opt { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px 4px 8px; border-radius: 12px; background: transparent; border: 1px solid transparent; color: var(--muted); font-size: .72rem; }
+    .cb-opt:hover { background: color-mix(in srgb, var(--spark) 8%, transparent); color: var(--text); }
+    .cb-thumb { display: block; width: 100%; max-width: 70px; aspect-ratio: 300 / 525; border-radius: 7px; box-shadow: 0 6px 16px rgba(0,0,0,.35); transition: transform .5s var(--soft, ease), box-shadow .5s var(--soft, ease); }
+    .cb-opt:hover .cb-thumb { transform: translateY(-3px) rotate(-2deg); }
+    .cb-opt.on { border-color: color-mix(in srgb, var(--spark) 55%, transparent); color: var(--spark); }
+    .cb-opt.on .cb-thumb { box-shadow: 0 0 0 2px var(--spark), 0 0 18px color-mix(in srgb, var(--spark) 45%, transparent); }
+    .cb-name { line-height: 1.2; text-align: center; }
+    .spread-flip { width: 52px; flex: none; cursor: zoom-in; perspective: 500px; }
+    .spread-flip .sfi { position: relative; width: 100%; aspect-ratio: 300 / 525; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+    .spread-flip.revealed .sfi { transform: rotateY(180deg); }
+    .spread-flip .sff { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+    .spread-flip .sff.back { transform: rotateY(180deg); background: #141019; }
+    .spread-flip .sff.back img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .spread-flip .sff.back img.rev { transform: rotate(180deg); }
+    .flip-back { transform: rotateY(180deg); background: #141019; }
+    .flip-back img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .flip-back img.rev { transform: rotate(180deg); }
+    .flip-back .noimg { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--muted); padding: 10px; text-align: center; }
+    .draw-card.dealt { animation: dealIn .5s cubic-bezier(.2,.8,.2,1) backwards; }
+    .draw-meta { margin-top: 10px; opacity: 0; transform: translateY(6px); transition: opacity .45s ease, transform .45s ease; }
+    .draw-card.revealed .draw-meta { opacity: 1; transform: none; }
+    @keyframes dealIn { from { opacity: 0; transform: translateY(-26px) scale(.92); } to { opacity: 1; transform: none; } }

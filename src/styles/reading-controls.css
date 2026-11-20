@@ -1,0 +1,16 @@
+    .step-sub { margin: -6px 0 10px; font-size: .84rem; color: var(--muted); }
+    .draw-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .count-field { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: .9rem; }
+    .count-field input { width: 64px; box-sizing: border-box; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 16px; text-align: center; }
+    .count-field input:disabled { opacity: .6; }
+    .manual-add { margin-top: 14px; }
+    .manual-add summary { cursor: pointer; color: var(--accent2); font-size: .92rem; list-style: none; }
+    .manual-add summary::-webkit-details-marker { display: none; }
+    .manual-add[open] summary { margin-bottom: 10px; }
+    .reading-actions #interpretBtn { flex: 1 1 200px; padding: 13px 18px; font-size: 1.05rem; font-weight: 700; }
+    .btn-ghost { background: transparent; }
+    .reading-head h3 { margin: 0; font-size: 1.15rem; }
+    .ai-quota { font-size: .78rem; color: var(--muted); border: 1px solid var(--border2); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+    .reading-tools { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+    .reading-tools button { padding: 7px 11px; font-size: .88rem; }
+

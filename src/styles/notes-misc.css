@@ -1,0 +1,10 @@
+    .fallback-note { white-space: pre-wrap; font-size: .88rem; color: var(--muted); border-left: 3px solid #e0a84f; padding: 4px 10px; margin-bottom: 10px; }
+    .chk-row { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .chk-row input { width: auto; margin: 0; }
+    #spreadHint div { margin-top: 2px; }
+    .hist-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .hist-actions button { padding: 6px 10px; font-size: .85rem; }
+    .hist-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border3); display: none; }
+    .hist-detail.open { display: block; }
+    .hist-cards { margin: 0 0 10px; color: #d9d2ea; }
+    .hist-empty { color: var(--muted); }

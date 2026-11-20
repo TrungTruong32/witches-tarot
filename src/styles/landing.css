@@ -1,0 +1,95 @@
+    /* Trang mở đầu (thấy rõ nền/theme phía sau) */
+    /* ===== Trang mở đầu (kiểu sảnh trải bài) ===== */
+    #landing { position: fixed; inset: 0; z-index: 100; overflow-x: hidden; overflow-y: auto; text-align: center; animation: landFade .6s ease;
+      display: flex; flex-direction: column; align-items: center; }
+    #landing.hide { display: none; }
+    /* Khối giới thiệu + FAQ tĩnh (SEO) dưới màn đầu landing */
+    .lt-seo { position: relative; z-index: 2; width: calc(100% - 32px); max-width: 760px; margin: 0 16px 48px; padding: 22px 24px; box-sizing: border-box; text-align: left;
+      background: color-mix(in srgb, var(--panel) 92%, #000 8%); border: 1px solid var(--border); border-radius: 18px; backdrop-filter: blur(6px); line-height: 1.65; font-size: .95rem; }
+    .lt-seo h2 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 700; font-size: 1.2rem; color: var(--spark); margin: 4px 0 10px; }
+    .lt-seo h2 + p, .lt-seo ul { color: var(--text); }
+    .lt-seo ul { padding-left: 20px; margin: 0 0 18px; }
+    .lt-seo li { margin: 4px 0; }
+    .lt-seo a { color: var(--accent2); }
+    .lt-seo details { border-top: 1px solid var(--border3); padding: 8px 0; }
+    .lt-seo summary { cursor: pointer; font-weight: 600; }
+    .lt-seo details p { margin: 6px 0 2px; color: var(--muted); }
+    :root[lang="en"] .lt-seo { display: none; }
+    .lt-top { position: relative; z-index: 3; width: 100%; max-width: 1200px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; box-sizing: border-box; }
+    .lt-brand { background: transparent; border: none; padding: 6px 4px; font-family: 'Cinzel', 'Noto Sans Symbols 2', Georgia, serif; font-size: 1.05rem; letter-spacing: 1.2px; color: var(--text); }
+    .lt-brand:hover { background: transparent; color: var(--spark); }
+    .lt-nav { display: flex; gap: 4px; }
+    .lt-nav button { background: transparent; border: 1px solid transparent; border-radius: 999px; padding: 8px 14px; color: var(--muted);
+      font-size: .74rem; font-weight: 600; letter-spacing: 1.1px; text-transform: uppercase; }
+    .lt-nav button:hover { background: color-mix(in srgb, var(--spark) 8%, transparent); color: var(--spark); }
+    .lt-burger { display: none; width: 44px; height: 44px; padding: 0; border-radius: 14px; font-size: 1.25rem; background: color-mix(in srgb, var(--panel) 80%, transparent); }
+    .landing-inner { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 640px;
+      padding: clamp(8px, 4vh, 48px) 20px calc(clamp(170px, 30vh, 280px)); box-sizing: border-box; margin: auto 0; }
+    .landing-moon { display: inline-flex; align-items: center; gap: 8px; color: var(--text); background: color-mix(in srgb, var(--section) 80%, transparent); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; font-size: .82rem; }
+    .lt-pre { margin: 6px 0 0; font-size: .8rem; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+    .lt-title { margin: 0; font-family: 'Cinzel', 'Noto Sans Symbols 2', Georgia, serif; font-weight: 700; font-size: clamp(2.5rem, 9vw, 4.4rem); line-height: 1.05; letter-spacing: 1px; }
+    .lt-emblem { position: relative; display: inline-block; width: 1.25em; height: 1.25em; margin: 0 .22em; vertical-align: -.24em; }
+    .lt-emblem .logo-lg { width: 100%; height: 100%; border-radius: 22%; filter: drop-shadow(0 8px 24px rgba(0,0,0,.5)); }
+    .lt-emblem::before { content: ''; position: absolute; inset: -14%; border-radius: 50%; border: 1px dashed color-mix(in srgb, var(--spark) 55%, transparent); animation: zwSpin 30s linear infinite; }
+    .lt-emblem::after { content: ''; position: absolute; inset: -30%; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--accent2) 30%, transparent), transparent 65%); z-index: -1; }
+    .landing-sub { color: var(--muted); margin: 0; font-size: .95rem; }
+    .lt-form { position: relative; display: flex; flex-direction: column; align-items: center; width: 100%; margin-top: 4px; }
+    .lt-stars { width: min(300px, 80%); height: auto; margin-bottom: 6px; animation: ltFloat 6s ease-in-out infinite; }
+    @keyframes ltFloat { 0%,100% { transform: translateY(0); opacity: .85; } 50% { transform: translateY(-4px); opacity: 1; } }
+    .lt-input { position: relative; width: 100%; max-width: 560px; border-radius: 26px 10px; background: color-mix(in srgb, #120b1c 62%, transparent);
+      box-shadow: 0 18px 40px rgba(0,0,0,.35); transition: box-shadow .6s var(--soft, ease); }
+    :root[data-theme="light"] .lt-input { background: rgba(255,255,255,.75); }
+    .lt-input::before { content: ''; position: absolute; inset: 6px; border-radius: 22px 7px; border: 1px solid var(--spark); opacity: .28; pointer-events: none; transition: opacity .5s var(--soft, ease); }
+    .lt-input:focus-within { box-shadow: 0 18px 40px rgba(0,0,0,.35), 0 0 30px color-mix(in srgb, var(--spark) 22%, transparent); }
+    .lt-input:focus-within::before { opacity: .65; }
+    .lt-orn { position: absolute; left: 50%; top: -7px; width: 80px; height: 14px; transform: translateX(-50%); }
+    .lt-arrow { position: absolute; left: 22px; top: 50%; width: 26px; height: 16px; margin-top: -8px; color: var(--spark); opacity: .8; transition: transform .5s var(--soft, ease); }
+    .lt-arrow svg { width: 100%; height: 100%; display: block; }
+    .lt-input:focus-within .lt-arrow { transform: translateX(4px); }
+    .lt-input input { width: 100%; box-sizing: border-box; padding: 22px 24px 22px 62px; border: none; outline: none; background: transparent; color: var(--text); font-size: 16px; }
+    .lt-input input::placeholder { color: color-mix(in srgb, var(--muted) 85%, transparent); }
+    .lt-count { position: absolute; left: 50%; bottom: -24px; transform: translate(-50%, 6px); font-size: .72rem; color: var(--muted); opacity: 0; transition: opacity .3s, transform .4s var(--soft, ease); }
+    .lt-count.show { opacity: 1; transform: translate(-50%, 0); }
+    .lt-err { position: absolute; left: 50%; top: -38px; transform: translate(-50%, 6px); padding: 5px 12px; border-radius: 8px; font-size: .78rem; white-space: nowrap; color: #fff;
+      background: color-mix(in srgb, #b0577f 90%, transparent); opacity: 0; pointer-events: none; transition: opacity .3s, transform .4s var(--soft, ease); }
+    .lt-err.show { opacity: 1; transform: translate(-50%, 0); }
+    .lt-form.shake .lt-input { animation: askShake .45s var(--soft, ease); }
+    @keyframes askShake { 20% { transform: translateX(-6px); } 45% { transform: translateX(5px); } 70% { transform: translateX(-3px); } }
+    .lt-disc { margin: 30px 0 0; font-size: .72rem; color: var(--muted); opacity: .8; }
+    /* nút viền kiểu "Pick the cards": viền vàng, hai chấm hai đầu, rê vào thì nền vàng tràn lên */
+    .lt-cta { position: relative; overflow: hidden; width: min(320px, 100%); margin-top: 14px; padding: 16px 28px; border-radius: 999px; background: transparent;
+      border: 1px solid color-mix(in srgb, var(--spark) 75%, transparent); color: var(--spark); font-size: .95rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+    .lt-cta i { position: absolute; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--spark); box-shadow: 0 0 8px var(--spark); transition: transform .6s var(--soft, ease); }
+    .lt-cta i:first-child { left: 18px; } .lt-cta i:nth-child(2) { right: 18px; }
+    .lt-cta::before { content: ''; position: absolute; inset: 0; background: linear-gradient(120deg, color-mix(in srgb, var(--spark) 90%, #fff 10%), var(--spark)); transform: translateY(101%); transition: transform .6s var(--soft, ease); z-index: 0; border-radius: inherit; }
+    .lt-cta span { position: relative; z-index: 1; transition: color .5s var(--soft, ease); }
+    .lt-cta:hover:not(:disabled) { background: transparent; box-shadow: 0 0 28px color-mix(in srgb, var(--spark) 35%, transparent); }
+    .lt-cta:hover:not(:disabled)::before { transform: translateY(0); }
+    .lt-cta:hover:not(:disabled) span { color: #1b1230; }
+    .lt-cta:hover:not(:disabled) i { transform: scale(0); }
+    :root[data-theme="light"] .lt-cta { color: #8a5f12; }
+    .lt-skip { margin-top: 10px; padding: 6px 10px; background: transparent; border: none; color: var(--muted); font-size: .85rem; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: color-mix(in srgb, var(--muted) 45%, transparent); }
+    .lt-skip:hover { background: transparent; color: var(--spark); }
+    /* trang trí đáy: vòng tròn đồng tâm + quả cầu sáng + quạt bài ló lên */
+    .lt-deco { position: fixed; left: 0; right: 0; bottom: 0; height: clamp(170px, 30vh, 300px); z-index: 1; pointer-events: none; overflow: hidden; }
+    .lt-circles { position: absolute; left: 50%; bottom: 0; width: min(1300px, 140vw); aspect-ratio: 1; transform: translate(-50%, 62%); }
+    .lt-circles span { position: absolute; inset: 0; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--spark) 22%, transparent); }
+    .lt-circles span:nth-child(2) { inset: 14%; border-style: dashed; opacity: .7; animation: zwSpin 160s linear infinite; }
+    .lt-circles span:nth-child(3) { inset: 30%; opacity: .5; }
+    .lt-orb { position: absolute; left: 50%; bottom: 18px; width: 90px; height: 90px; margin-left: -45px; border-radius: 50%;
+      background: radial-gradient(circle, #fff 0, color-mix(in srgb, var(--accent2) 90%, #fff) 22%, color-mix(in srgb, var(--accent2) 40%, transparent) 50%, transparent 72%);
+      filter: blur(2px); animation: orbBreath 6s ease-in-out infinite; }
+    .lt-orb::after { content: ''; position: absolute; left: 50%; bottom: 60%; width: 1px; height: 160px; background: linear-gradient(to top, var(--accent2), transparent); opacity: .7; }
+    @keyframes orbBreath { 0%,100% { transform: scale(.9); opacity: .75; } 50% { transform: scale(1.08); opacity: 1; } }
+    .lt-fan { position: absolute; left: 50%; bottom: 0; width: 0; height: 0; }
+    /* kích thước & bán kính do JS tính theo bề rộng màn hình (--cw, --R) */
+    .lt-fan { --cw: 64px; --R: 520px; }
+    .lt-fan .lc { position: absolute; left: calc(var(--cw) / -2); bottom: calc(var(--cw) * -.62 - var(--drop, 0px)); width: var(--cw); aspect-ratio: 300 / 525; border-radius: calc(var(--cw) * .1); background: var(--cardback);
+      border: 1px solid color-mix(in srgb, var(--spark) 25%, transparent); box-shadow: 0 6px 18px rgba(0,0,0,.5);
+      transform-origin: 50% calc(100% + var(--R)); transform: rotate(var(--a)); animation: lcSway 8s ease-in-out infinite; animation-delay: var(--dl); }
+    @keyframes lcSway { 0%,100% { transform: rotate(var(--a)) translateY(0); } 50% { transform: rotate(calc(var(--a) + .5deg)) translateY(-7px); } }
+    @media (max-width: 860px) { .lt-nav { display: none; } .lt-burger { display: inline-flex; align-items: center; justify-content: center; } .lt-top { padding: 12px 16px; } }
+    @media (max-width: 560px) { .lt-pre { font-size: .7rem; letter-spacing: 1.4px; } .lt-input input { padding: 18px 18px 18px 54px; } .lt-arrow { left: 18px; } }
+    @media (prefers-reduced-motion: reduce) { .lt-stars, .lt-orb, .lt-fan .lc, .lt-circles span, .lt-emblem::before { animation: none; } .lt-form.shake .lt-input { animation: none; } }
+    @keyframes landFade { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    @keyframes landOut { to { opacity: 0; transform: scale(1.05); } }

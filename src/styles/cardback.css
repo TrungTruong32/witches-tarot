@@ -1,0 +1,10 @@
+    /* Mặt lưng: khung viền + ánh sáng quét */
+    .riffle-card { overflow: hidden; }
+    .flip-front::before, .riffle-card::before, .spread-flip .sff.front::before {
+      content: ''; position: absolute; inset: 5px; border: 1px solid rgba(255,225,168,.28); border-radius: 5px; pointer-events: none; }
+    .flip-front::after, .riffle-card::after, .spread-flip .sff.front::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+      background: linear-gradient(115deg, transparent 34%, rgba(255,255,255,.22) 48%, transparent 60%);
+      background-size: 250% 100%; background-repeat: no-repeat; animation: cardShine 5s ease-in-out infinite; }
+    @keyframes cardShine { 0% { background-position: 190% 0; } 55%, 100% { background-position: -80% 0; } }
+    @media (prefers-reduced-motion: reduce) { #bgAura { animation: none; } .flip-front::after, .riffle-card::after, .spread-flip .sff.front::after { animation: none; } .flame { animation: none !important; } .breathe-ring { animation: none !important; } }

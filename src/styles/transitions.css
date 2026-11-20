@@ -1,0 +1,7 @@
+    /* Hiệu ứng chuyển trang */
+    .view-in { animation: viewIn .34s cubic-bezier(.2,.8,.2,1); }
+    @keyframes viewIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    /* Fade toàn trang: CHỈ opacity — tránh transform trên tổ tiên làm drawer (position:fixed) nhảy */
+    .page-in { animation: pageFade .34s ease; }
+    @keyframes pageFade { from { opacity: 0; } to { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .view-in, .page-in { animation: none; } #landing { animation: none; } }

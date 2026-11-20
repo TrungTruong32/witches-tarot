@@ -1,0 +1,21 @@
+    .spread-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(66,57,97,.85); border: 1px solid var(--border2); margin-bottom: 8px; }
+    .spread-item .name { flex: 1; min-width: 0; }
+    .spread-item .name strong { display: block; font-size: .98rem; }
+    .spread-item .name span { color: var(--muted); font-size: .85rem; }
+    /* Điện thoại: tên lá dùng hết chiều ngang, nút Xuôi/Ngược xuống hàng dưới */
+    @media (max-width: 600px) {
+      .spread-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "img name rm" "img orient orient"; align-items: start; column-gap: 12px; row-gap: 8px; }
+      .spread-item .spread-flip { grid-area: img; }
+      .spread-item .name { grid-area: name; }
+      .spread-item .orient { grid-area: orient; justify-self: start; }
+      .spread-item .rm { grid-area: rm; }
+    }
+    .orient { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+    .orient button { padding: 6px 12px; border: none; border-radius: 0; background: transparent; font-size: .85rem; }
+    .orient button.on { background: var(--accent); color: #fff; }
+    .orient button.nguoc.on { background: #b0577f; }
+    .rm { border: none; background: transparent; color: #ff9db6; font-size: 1.2rem; padding: 2px 8px; }
+    .rm:hover { background: transparent; color: #ff5c86; }
+    .spread-thumb { width: 52px; height: auto; border-radius: 7px; border: 1px solid var(--border); flex: none; cursor: zoom-in; }
+    .spread-thumb.flip { transform: rotate(180deg); }
+    .pos-badge { display: inline-block; font-size: .72rem; padding: 1px 7px; border-radius: 999px; background: rgba(255,225,168,.16); border: 1px solid rgba(255,225,168,.35); color: #ffe1a8; margin-right: 4px; }

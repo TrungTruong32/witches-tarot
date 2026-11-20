@@ -1,0 +1,13 @@
+    /* Nav dạng drawer trượt bên phải + nút hamburger */
+    .nav-toggle { position: fixed; top: 12px; right: 12px; z-index: 140; width: 48px; height: 48px; padding: 0; border-radius: 14px;
+      background: var(--panel); border: 1px solid var(--border); color: var(--text); font-size: 1.35rem; line-height: 1; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+    .nav { position: fixed; top: 0; right: 0; height: 100%; width: min(300px, 84vw); margin: 0; padding: 60px 14px 20px;
+      display: flex; flex-direction: column; gap: 8px; background: var(--panel); border-left: 1px solid var(--border);
+      box-shadow: -10px 0 44px rgba(0,0,0,.45); transform: translateX(104%); transition: transform .32s cubic-bezier(.2,.8,.2,1);
+      z-index: 150; overflow-y: auto; backdrop-filter: blur(20px) saturate(1.2); -webkit-backdrop-filter: blur(20px) saturate(1.2); }
+    .nav.open { transform: none; }
+    .nav .nav-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; color: var(--muted); font-size: .8rem; letter-spacing: .5px; }
+    .nav .nav-close { width: 34px; height: 34px; padding: 0; border-radius: 10px; font-size: 1rem; }
+    .nav .tab-btn { width: 100%; text-align: left; }
+    .nav-scrim { position: fixed; inset: 0; background: rgba(6,4,12,.55); opacity: 0; pointer-events: none; transition: opacity .3s ease; z-index: 145; }
+    .nav-scrim.open { opacity: 1; pointer-events: auto; }

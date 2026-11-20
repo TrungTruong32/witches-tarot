@@ -1,0 +1,67 @@
+    /* ===== Laptop/desktop (≥1024px): thanh menu dạng vòm trời, dính trên đầu, tự ẩn khi cuộn xuống ===== */
+    :root { --soft: cubic-bezier(.22,1,.36,1); }          /* easeOutQuint — chuyển động chậm dần, mềm */
+    .nav-deco, .nav-sep { display: none; }
+    @media (min-width: 1024px) {
+      .nav-toggle, .nav-scrim { display: none !important; }
+      .nav { --padT: 10px; --icoS: 1.95rem;
+        position: sticky; top: 10px; z-index: 120; height: auto; width: auto; max-width: 1180px; margin: 0 auto 22px; padding: 16px 30px 14px;
+        flex-direction: row; flex-wrap: nowrap; justify-content: center; align-items: flex-start; gap: 2px; overflow: visible;
+        transform: none; opacity: 1; border: 1px solid color-mix(in srgb, var(--spark) 20%, var(--border)); border-radius: 26px;
+        background: radial-gradient(120% 140% at 50% -30%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 60%), color-mix(in srgb, var(--panel) 95%, transparent);
+        box-shadow: 0 14px 40px rgba(0,0,0,.30), inset 0 1px 0 color-mix(in srgb, var(--spark) 18%, transparent);
+        transition: transform .75s var(--soft), opacity .6s var(--soft), box-shadow .6s var(--soft); }
+      .nav.nav-hidden { transform: translateY(calc(-100% - 24px)); opacity: 0; pointer-events: none; }
+      .nav .nav-head { display: none; }
+      /* trang trí: vòm chỉ vàng + sao hai đầu + bụi sao trôi */
+      .nav .nav-deco { display: block; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; overflow: hidden; z-index: 0; }
+      .nav-deco .arch { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
+      .nav-deco .st { position: absolute; width: 14px; height: 14px; color: var(--spark); filter: drop-shadow(0 0 5px var(--spark)); animation: navTwinkle 4.5s ease-in-out infinite; }
+      .nav-deco .st.l { left: 9px; top: calc(38% - 7px); }
+      .nav-deco .st.r { right: 9px; top: calc(38% - 7px); animation-delay: -2.2s; }
+      .nav-deco .dust { position: absolute; inset: -40px; opacity: .55;
+        background-image: radial-gradient(1px 1px at 12% 30%, var(--star) 50%, transparent 52%), radial-gradient(1px 1px at 27% 72%, var(--star) 50%, transparent 52%),
+          radial-gradient(1.4px 1.4px at 41% 18%, var(--spark) 50%, transparent 54%), radial-gradient(1px 1px at 58% 64%, var(--star) 50%, transparent 52%),
+          radial-gradient(1px 1px at 73% 26%, var(--star) 50%, transparent 52%), radial-gradient(1.4px 1.4px at 86% 70%, var(--spark) 50%, transparent 54%),
+          radial-gradient(1px 1px at 95% 40%, var(--star) 50%, transparent 52%), radial-gradient(1px 1px at 4% 80%, var(--star) 50%, transparent 52%);
+        background-size: 420px 120px; animation: navDust 60s linear infinite; }
+      @keyframes navDust { to { background-position: 420px 0; } }
+      @keyframes navTwinkle { 0%,100% { opacity: .55; transform: scale(.85) rotate(0deg); } 50% { opacity: 1; transform: scale(1.1) rotate(45deg); } }
+      /* các mục xếp theo vòm: --ay do JS tính (giữa cao, hai bên thấp) */
+      .nav .tab-btn, .nav .tab-btn[data-ico] { position: relative; z-index: 1; width: auto; flex: 0 1 auto; min-width: 74px; flex-direction: column; justify-content: center; gap: 6px;
+        padding: var(--padT) 10px 8px; border: 1px solid transparent; border-radius: 14px; background: transparent; color: var(--muted);
+        font-size: .72rem; font-weight: 600; letter-spacing: .7px; text-transform: uppercase; text-align: center; line-height: 1.15; white-space: nowrap;
+        transform: translateY(var(--ay, 0px));
+        transition: transform .6s var(--soft), color .5s var(--soft), background-color .5s var(--soft); }
+      .nav .tab-btn .ico { width: var(--icoS); height: var(--icoS); transition: transform .7s var(--soft), filter .7s var(--soft); }
+      .nav .tab-btn:hover { background: radial-gradient(ellipse 60% 55% at 50% 34%, color-mix(in srgb, var(--spark) 16%, transparent), transparent 75%); border-color: transparent; color: var(--text); transform: translateY(calc(var(--ay, 0px) - 3px)); }
+      .nav .tab-btn:hover .ico { transform: scale(1.1); filter: drop-shadow(0 0 7px color-mix(in srgb, var(--spark) 75%, transparent)); }
+      .nav .tab-btn:active { transform: translateY(var(--ay, 0px)) scale(.96); transition-duration: .18s; }
+      /* tia sáng nhỏ khi rê chuột */
+      .nav .tab-btn::after { content: ''; position: absolute; left: calc(50% + var(--icoS) / 2 - 2px); top: calc(var(--padT) - 4px); width: 9px; height: 9px;
+        background: var(--spark); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+        opacity: 0; transform: scale(.2) rotate(-90deg); transition: opacity .5s var(--soft), transform .7s var(--soft); filter: drop-shadow(0 0 4px var(--spark)); }
+      .nav .tab-btn:hover::after { opacity: 1; transform: scale(1) rotate(0deg); }
+      /* mục đang mở: vòng hoàng đạo nhỏ xoay chậm sau icon + chữ vàng */
+      .nav .tab-btn.active, :root[data-theme="light"] .nav .tab-btn.active { background: transparent; border-color: transparent; color: var(--spark); }
+      .nav .tab-btn.active::before { content: ''; position: absolute; left: 50%; top: calc(var(--padT) + var(--icoS) / 2); width: calc(var(--icoS) + 16px); aspect-ratio: 1;
+        margin: calc((var(--icoS) + 16px) / -2) 0 0 calc((var(--icoS) + 16px) / -2); border-radius: 50%; pointer-events: none;
+        border: 1px dashed color-mix(in srgb, var(--spark) 70%, transparent);
+        background: radial-gradient(circle, color-mix(in srgb, var(--spark) 20%, transparent), transparent 68%);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--spark) 7%, transparent), 0 0 18px color-mix(in srgb, var(--spark) 22%, transparent);
+        animation: navRing 14s linear infinite, navRingIn .8s var(--soft) both; }
+      @keyframes navRing { to { rotate: 360deg; } }
+      @keyframes navRingIn { from { opacity: 0; scale: .4; } to { opacity: 1; scale: 1; } }
+      .nav .tab-btn.active .ico { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--spark) 80%, transparent)); }
+      /* vạch ngăn nhóm cài đặt */
+      .nav .nav-sep { display: block; flex: none; width: 1px; align-self: center; height: 34px; margin: 0 8px; transform: translateY(var(--ay, 0px));
+        background: linear-gradient(transparent, color-mix(in srgb, var(--spark) 45%, transparent), transparent); }
+      @media (max-width: 1279px) {
+        .nav { --padT: 9px; --icoS: 1.75rem; padding: 15px 22px 12px; }
+        .nav .tab-btn, .nav .tab-btn[data-ico] { min-width: 0; padding-left: 7px; padding-right: 7px; font-size: .64rem; letter-spacing: .3px; }
+        .nav .nav-sep { margin: 0 3px; }
+      }
+    }
+    @media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
+      .nav, .nav .tab-btn, .nav .tab-btn .ico, .nav .tab-btn::after { transition: none; }
+      .nav-deco .dust, .nav-deco .st, .nav .tab-btn.active::before { animation: none; }
+    }

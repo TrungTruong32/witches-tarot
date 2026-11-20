@@ -1,0 +1,17 @@
+    input[type="file"] { color: #d1c7b3; }
+    @media (max-width: 980px) {
+      .layout, .reading { grid-template-columns: 1fr; }
+      /* nút Diễn giải luôn trong tầm tay khi cuộn trong cột các bước */
+      .reading-steps .reading-actions { position: sticky; bottom: 0; z-index: 3; margin: 0 -14px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+        background: var(--panel); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-top: 1px solid var(--border3); }
+      .reading-tools { margin-left: 0; width: 100%; }
+      .page { padding: 14px; }
+      header { margin-bottom: 12px; }
+      .controls { margin: 14px 0; }
+      .category-tabs { margin: 14px 0; gap: 6px; }
+      .cards-list { max-height: 340px; overflow-y: auto; padding-right: 4px; }
+      .panel { padding: 14px; }
+      .details h2 { font-size: 1.5rem; }
+      .modal { padding: 18px; }
+    }
+  

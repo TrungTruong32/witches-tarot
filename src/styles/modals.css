@@ -1,0 +1,15 @@
+    /* Settings modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(10,8,18,.72); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 160; }
+    .modal-overlay.open { display: flex; }
+    .modal { width: min(100%, 520px); background: var(--panel); border: 1px solid rgba(255,225,168,.16); border-radius: 18px; padding: 22px; max-height: 90vh; overflow-y: auto;
+      backdrop-filter: blur(22px) saturate(1.2); -webkit-backdrop-filter: blur(22px) saturate(1.2); box-shadow: 0 24px 70px rgba(0,0,0,.5); }
+    .modal h2 { margin: 0 0 14px; font-size: 1.4rem; }
+    .modal .hint { font-size: .85rem; color: #b9b0cf; margin-top: 6px; }
+    .provider-toggle { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .provider-toggle button { flex: 1 1 auto; min-width: 92px; }
+    .provider-toggle button.on { background: var(--accent); border-color: var(--accent2); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+    .saved-note { color: #9fe6b4; font-size: .9rem; margin-top: 10px; min-height: 18px; }
+    .model-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+    .model-row select, .model-row input { flex: 1; min-width: 130px; }
+    .model-row button { white-space: nowrap; padding: 10px 12px; }

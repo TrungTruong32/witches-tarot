@@ -1,0 +1,40 @@
+    .pages-link { text-align: center; margin: -8px 0 14px; font-size: .9rem; }
+    .pages-link a { color: var(--accent, #b49bff); }
+    .category-tabs { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 20px 0; }
+    /* ===== Nhóm bài dạng chồng bài 3D (Tra cứu): nghỉ = xấp nghiêng có độ dày; rê chuột / đang chọn = dựng thẳng & xoè 3 lá ===== */
+    .category-tabs.suits { gap: 12px; align-items: stretch; }
+    .suit-tile { position: relative; width: 150px; padding: 12px 8px 12px; border: 1px solid var(--border3); border-radius: 18px; background: var(--panel); color: var(--text);
+      font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; text-align: center; transition: background-color .3s, border-color .3s; }
+    .suit-tile:hover, .suit-tile:focus-visible { border-color: color-mix(in srgb, var(--accent2) 45%, var(--border3)); outline: none; }
+    .suit-tile.active { border-color: var(--accent2); background: color-mix(in srgb, var(--accent) 18%, var(--panel)); }
+    .st-scene { position: relative; width: 84px; height: 132px; margin: 4px 0 8px; }
+    .st-bob { position: absolute; inset: 0; animation: stBob 3.4s ease-in-out infinite; }
+    .suit-tile:hover .st-bob, .suit-tile.active .st-bob { animation-play-state: paused; }
+    @keyframes stBob { 50% { transform: translateY(-5px); } }
+    /* Cùng một chuỗi hàm transform ở 2 trạng thái → trình duyệt nội suy mượt từng hàm. perspective() riêng từng lá (chung tâm) → không cần preserve-3d */
+    .st-card, .st-layer { position: absolute; left: 10px; top: 8px; width: 64px; height: 110px; border-radius: 6px; transform-origin: 50% 85%;
+      transform: perspective(900px) rotateX(30deg) rotateY(20deg) rotateZ(-10deg) translateZ(calc(var(--z) * 1.4px)) translate(0, 0) rotateZ(var(--j, 0deg));
+      transition: transform .45s cubic-bezier(.2,.8,.2,1) var(--dl, 0s), opacity .3s ease var(--od, 0s); }
+    .st-layer { background: linear-gradient(90deg, #cfc5ae, #e9e1cf); border: 1px solid rgba(0,0,0,.2); --od: .22s; }
+    .st-card { object-fit: cover; background: var(--cardback); border: 1px solid rgba(0,0,0,.3); box-shadow: -2px 2px 5px rgba(0,0,0,.25); }
+    .st-card[data-k="-1"] { --fx: -26px; --fy: 6px; --fr: -12deg; --dl: .04s; }
+    .st-card[data-k="0"]  { --fx: 0px;   --fy: -4px; --fr: 0deg; }
+    .st-card[data-k="1"]  { --fx: 26px;  --fy: 6px; --fr: 12deg; --dl: .08s; }
+    .suit-tile:hover .st-card, .suit-tile.active .st-card, .suit-tile:focus-visible .st-card {
+      transform: perspective(900px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) translateZ(calc(var(--z) * 1.4px)) translate(var(--fx), var(--fy)) rotateZ(var(--fr)); }
+    .suit-tile:hover .st-layer, .suit-tile.active .st-layer, .suit-tile:focus-visible .st-layer { opacity: 0; --od: 0s;
+      transform: perspective(900px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) translateZ(calc(var(--z) * 1.4px)) translate(0, 0) rotateZ(0deg); }
+    .st-shadow { position: absolute; left: 50%; bottom: -4px; width: 76px; height: 12px; margin-left: -38px; border-radius: 50%;
+      background: radial-gradient(closest-side, rgba(0,0,0,.45), transparent); filter: blur(2px); animation: stShadow 3.4s ease-in-out infinite; transition: width .4s, margin .4s; }
+    @keyframes stShadow { 50% { transform: scaleX(.85); opacity: .7; } }
+    .suit-tile:hover .st-shadow, .suit-tile.active .st-shadow { width: 116px; margin-left: -58px; animation-play-state: paused; }
+    .st-name { font-family: Cinzel, serif; font-weight: 700; font-size: 1rem; line-height: 1.2; }
+    .st-meta { margin-top: 3px; font-size: .74rem; letter-spacing: 1.2px; text-transform: uppercase; color: var(--spark); }
+    @media (max-width: 760px) {
+      /* điện thoại: một hàng cuộn ngang, ô nhỏ hơn */
+      .category-tabs.suits { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding: 0 22px; padding: 4px 22px 10px; margin-left: -14px; margin-right: -14px; scrollbar-width: none; }
+      .category-tabs.suits::-webkit-scrollbar { display: none; }
+      .suit-tile { flex: 0 0 116px; width: 116px; scroll-snap-align: start; padding: 10px 4px; }
+      .st-name { font-size: .9rem; }
+    }
+    @media (prefers-reduced-motion: reduce) { .st-bob, .st-shadow { animation: none; } .st-card, .st-layer { transition: none; } }

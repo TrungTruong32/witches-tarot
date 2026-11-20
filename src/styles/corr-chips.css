@@ -1,0 +1,10 @@
+    /* Thẻ tương ứng: nguyên tố / số học / chiêm tinh */
+    .corr-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 2px; }
+    .corr-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px;
+      font-size: .78rem; border: 1px solid var(--border); background: var(--section); color: var(--text); }
+    .corr-chip .ci { font-size: 1rem; color: var(--spark); text-shadow: 0 0 8px color-mix(in srgb, var(--spark) 55%, transparent); }
+    .corr-chip.fire { border-color: rgba(255,120,60,.5); box-shadow: inset 0 0 12px rgba(255,120,60,.12); }
+    .corr-chip.water { border-color: rgba(70,150,255,.5); box-shadow: inset 0 0 12px rgba(70,150,255,.12); }
+    .corr-chip.air { border-color: rgba(180,200,255,.5); box-shadow: inset 0 0 12px rgba(180,200,255,.12); }
+    .corr-chip.earth { border-color: rgba(120,190,90,.5); box-shadow: inset 0 0 12px rgba(120,190,90,.12); }
+    .corr-chip.astro { border-color: rgba(200,160,255,.5); }

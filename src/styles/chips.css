@@ -1,0 +1,10 @@
+    .q-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .qchip { padding: 7px 12px; font-size: .9rem; border-radius: 999px; background: #3a3358; border: 1px solid var(--border); color: #e6dffa; }
+    .qchip:hover { background: #4a4278; }
+    .reading-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    #ttsBtn { padding: 6px 10px; font-size: .85rem; }
+    .ai-hint { color: var(--muted); }
+    .empty-spread { color: var(--muted); padding: 8px 0; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--accent2); border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+

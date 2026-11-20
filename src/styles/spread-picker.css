@@ -1,0 +1,21 @@
+    /* Chọn kiểu trải bằng ô hình (cuộn ngang) */
+    .spread-picker { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 2px 12px; margin: 0 -2px;
+      scrollbar-width: thin; scrollbar-color: var(--border2) transparent; -webkit-overflow-scrolling: touch; }
+    .sp-tile { flex: 0 0 162px; scroll-snap-align: start; position: relative; display: flex; flex-direction: column; gap: 5px; text-align: left;
+      padding: 9px 9px 11px; border-radius: 14px; border: 1px solid var(--border2); background: var(--section); color: var(--text); cursor: pointer;
+      font: inherit; transition: border-color .2s, transform .2s, box-shadow .2s; }
+    .sp-tile:hover { border-color: var(--accent2); transform: translateY(-2px); }
+    .sp-tile:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+    .sp-tile[aria-checked="true"] { border-color: var(--spark); box-shadow: 0 0 0 1px var(--spark), 0 10px 26px rgba(0,0,0,.35); }
+    .sp-art { height: 84px; border-radius: 10px; display: grid; place-items: center; overflow: hidden;
+      background: radial-gradient(circle at 50% 45%, rgba(255,225,168,.10), transparent 62%), #17121f; border: 1px solid rgba(255,225,168,.08); }
+    .sp-box { position: relative; width: min(92%, calc(66px * var(--ar))); aspect-ratio: var(--ar); }
+    .sp-card { position: absolute; border-radius: 2px; background: linear-gradient(160deg, #f3e6c4, #cfae74); box-shadow: 0 2px 5px rgba(0,0,0,.55); }
+    .sp-card.ghost { background: transparent; border: 1px dashed rgba(243,230,196,.6); box-shadow: none; }
+    .sp-name { font-weight: 700; font-size: .9rem; line-height: 1.25; margin-top: 3px; }
+    .sp-meta { font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+    .sp-desc { font-size: .78rem; color: var(--muted); line-height: 1.4; }
+    .sp-badge { position: absolute; top: 14px; left: 14px; z-index: 1; font-size: .66rem; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+      background: rgba(12,9,20,.78); color: var(--spark); border: 1px solid rgba(255,225,168,.35); }
+    .sp-tile[aria-checked="true"] .sp-badge { background: var(--spark); color: #2a1f3d; border-color: var(--spark); }
+    :root[data-theme="light"] .sp-art { background: radial-gradient(circle at 50% 45%, rgba(111,90,193,.12), transparent 62%), #2b2440; }

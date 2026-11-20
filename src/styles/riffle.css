@@ -1,0 +1,18 @@
+    /* Xào bài kiểu riffle: tách 2 nửa rồi đan xen cài vào nhau */
+    .riffle { display: none; position: relative; height: 340px; margin-top: 16px; perspective: 900px; overflow: hidden; }
+    .riffle.on { display: block; }
+    .riffle-card { position: absolute; left: 50%; top: 50%; width: 66px; aspect-ratio: 300 / 525; margin-left: -33px; margin-top: -58px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 10px 22px rgba(0,0,0,.5); }
+    /* chuyển động xào do JS (Web Animations) điều khiển — xem startShuffleLoop */
+    @keyframes riffle {
+      0%   { transform: translateX(var(--sx)) translateY(var(--sy)) rotateZ(var(--sr)); }
+      34%  { transform: translateX(var(--mx)) translateY(-10px) rotateZ(0deg); }
+      50%  { transform: translateX(var(--mx)) translateY(0) rotateZ(0deg); }
+      100% { transform: translateX(var(--sx)) translateY(var(--sy)) rotateZ(var(--sr)); }
+    }
+    @media (max-width: 600px) { .riffle { height: 260px; } .riffle-card { width: 52px; margin-left: -26px; margin-top: -46px; } }
+    @media (prefers-reduced-motion: reduce) { .riffle.on .riffle-card { animation: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      .flip-inner, .draw-meta { transition: none; }
+      .draw-card.dealt { animation: none; }
+      .shuffle-stage.on { display: none; }
+    }
