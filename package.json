@@ -17,6 +17,7 @@
     "@vercel/speed-insights": "^2.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.6",
     "sql.js": "1.10.3",
     "zustand": "^5.1.0"
   },
@@ -24,6 +25,7 @@
     "@eslint/js": "^9.39.5",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.13",
     "@types/node": "^22.20.5",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
