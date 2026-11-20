@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { useNavigate } from 'react-router-dom';
 import { PATH_BY_MODE, type Mode } from '../../app/modes';
 import { useApp } from '../../app/store';
+import { IconLabel } from '../../components/Icon';
 import { Logo } from '../../components/Logo';
 import { moonPhase, moonSvg } from '../../core/moon';
 import type { I18nKey } from '../../i18n/vi';
@@ -147,7 +148,7 @@ export function Landing() {
       <header className="lt-top">
         <button type="button" className="lt-brand" id="landingEnter" title="Bước vào ứng dụng" disabled={waiting}
           onClick={() => whenReady(() => navigate(PATH_BY_MODE.daily))}>
-          {waiting ? <><span className="spinner" /> {pick({ vi: 'Đang chuẩn bị bầu trời…', en: 'Preparing the sky…' })}</> : t('landing.enter')}
+          {waiting ? <><span className="spinner" /> {pick({ vi: 'Đang chuẩn bị bầu trời…', en: 'Preparing the sky…' })}</> : <IconLabel icon="compass" text={t('landing.enter')} />}
         </button>
         <nav className="lt-nav" aria-label="Menu">
           {NAV.map(n => (

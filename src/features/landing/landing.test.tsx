@@ -88,6 +88,13 @@ describe('Landing', () => {
     expect(where()).toBe('/tra-cuu|null');
   });
 
+  it('the brand button carries the compass icon and a glyph-free label, like legacy initIcons', () => {
+    renderLanding();
+    const b = document.getElementById('landingEnter')!;
+    expect(b.querySelector('svg.ico use')!.getAttribute('href')).toBe('#i-compass');
+    expect(b.querySelector('.lbl')!.textContent).toBe('Witches Tarot');
+  });
+
   it('the brand button enters on Today; the burger enters with the menu open', () => {
     renderLanding();
     fireEvent.click(document.getElementById('landingEnter')!);

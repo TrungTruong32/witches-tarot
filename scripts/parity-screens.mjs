@@ -54,6 +54,9 @@ async function shot(name, { width, height, lang, theme, go }) {
     await page.addStyleTag({ content: FREEZE_CSS });
     await page.waitForTimeout(700);
     await page.evaluate(() => document.fonts.ready);
+    // Chờ mọi ảnh (ảnh lá bài tải chậm) xong để kết quả không phụ thuộc thời điểm chụp
+    await page.waitForFunction(() => [...document.images].every(i => i.complete), null, { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(300);
     const file = `${OUT}/${name}-${which}.png`;
     await page.screenshot({ path: file, fullPage: false });
     pages[which] = file;
@@ -77,7 +80,8 @@ const waitDb = page => page.waitForFunction(() => {
 // Thao tác vào từng màn hình. Bản cũ: bấm trên trang mở đầu; bản mới: vào thẳng đường dẫn.
 const legacyEnter = mode => async page => {
   await page.waitForFunction(() => !document.getElementById('landingEnter')?.disabled, null, { timeout: 30000 });
-  await page.click(`.lt-nav [data-go="${mode}"]`);
+  // Trên điện thoại các nút này nằm trong menu ẩn → bấm qua DOM
+  await page.evaluate(m => document.querySelector(`.lt-nav [data-go="${m}"]`).click(), mode);
   await waitDb(page);
 };
 const reactGo = path => async page => { await page.goto(REACT + path); await waitDb(page); };

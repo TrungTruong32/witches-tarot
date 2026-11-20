@@ -122,5 +122,25 @@ Làm trên nhánh `react-migration` **ở máy**, commit theo từng bước, **
 - **Bất biến bảo mật của API phải giữ:** `cleanMessages` và system prompt do server tự dựng trong `api/ai.js`; allowlist bộ bài trong `api/readings.js`; `/api/img` giữ phương thức GET (CDN cache, chỉ cho host tarot.vn). Module prompt dùng chung (mục 5.6) chỉ đổi chỗ đặt code, server vẫn tự dựng prompt và vẫn bỏ tin `system` của client.
 - **PWA:** cache của `tarot.db`, icon và mặt lưng bài phải được làm mới mỗi khi các file đó đổi. Với Workbox thì hash nội dung tự lo việc này, nhưng file nào cấu hình cache-first ngoài precache thì phải có phiên bản rõ ràng.
 
+## 5.8 Tab "Bốc bài": yêu cầu của chủ dự án (2026-11-20)
+
+Chủ dự án nhận xét tab Bốc bài ở bản cũ chưa khớp với Trải bài AI. Ba điểm cụ thể:
+- Nhìn đơn điệu, không có trải bài mẫu.
+- Rút bài xong không tự cuộn tới kết quả.
+- Không rõ nút nào là máy tự bốc, nút nào là tự tay chọn.
+
+Chủ dự án chọn **không sửa bản cũ (đang đóng băng)** mà làm việc này trong bản React. Đây là ngoại lệ có chủ đích cho mục "giữ giống bản cũ" (mục 2), chỉ áp dụng cho tab Bốc bài:
+
+1. **Dùng chung bộ phận với Trải bài AI.** Khi chuyển màn Trải bài AI, tách các phần sau thành component dùng chung (ví dụ `components/spread/`) để tab Bốc bài dùng lại y nguyên:
+   - Ô chọn kiểu trải dạng ô hình cuộn ngang: `#spreadPicker`, `SPREAD_LAYOUT`, `SPREAD_UI`, `spreadArt()`.
+   - Bàn trải có ô vị trí đánh số: `#spreadBoard`, `layoutGeom()`, `renderBoard()`.
+   - Hiệu ứng chia lá bay vào đúng vị trí theo thứ tự rồi lật: `dealBoard()`.
+2. **Tab Bốc bài có cùng luồng:** chọn kiểu trải → rút → lá bay vào bàn trải theo thứ tự 1 → n → hiện ý nghĩa từng lá bên dưới, kèm tên vị trí. Kiểu trải "Tự do" giữ ô "Số lá". Kiểu trải đang chọn được mang sang khi bấm "Đưa sang Trải bài AI".
+3. **Tự cuộn.** Khi bắt đầu xào thì cuộn tới vùng bánh xe. Rút xong thì cuộn tới bàn trải, rồi mới chia lá, giống `DRAW_CTX.reading.onPicked` ở bản cũ. Tôn trọng `prefers-reduced-motion`.
+4. **Tên nút rõ nghĩa** ở **cả hai tab** Bốc bài và Trải bài AI, kèm một dòng mô tả nhỏ dưới mỗi nút:
+   - "Xào & bốc" → **"🎲 Máy bốc ngẫu nhiên"** (máy xào rồi tự rút giúp bạn). EN: "🎲 Draw for me".
+   - "Tự chọn" → **"✋ Tự tay chọn lá"** (xào xong, bạn bấm chọn từng lá trên bánh xe). EN: "✋ Pick my own cards".
+5. Thứ tự làm: sau khi màn Trải bài AI đạt parity. Ghi rõ trong checklist rằng tab Bốc bài **cố ý khác** bản cũ, để bước so ảnh không báo lỗi giả.
+
 ## 6. Để builder tự quyết
 Tên route cụ thể; cách chia component chi tiết; thư viện nhỏ (ví dụ clsx); cách tổ chức test; thứ tự nhỏ trong mỗi giai đoạn; có chuyển `api/` sang TS hay không (chỉ khi không đổi hành vi).

@@ -4,8 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { MODE_BY_PATH, PATH_BY_MODE, type Mode } from '../app/modes';
 import { useApp } from '../app/store';
 import type { I18nKey } from '../i18n/vi';
-import { stripGlyph, useT } from '../i18n/useT';
-import { Icon, type IconName } from './Icon';
+import { useT } from '../i18n/useT';
+import { IconLabel, type IconName } from './Icon';
 import { media, prefersReducedMotion, useOverlay } from './useOverlay';
 
 const STAR = '<svg viewBox="0 0 16 16"><path fill="currentColor" d="M8 0Q9 6 16 8Q9 10 8 16Q7 10 0 8Q7 6 8 0Z"/></svg>';
@@ -35,15 +35,6 @@ const MODE_ITEMS: NavItem[] = [
 ];
 
 /** Nút có icon: <svg.ico> + <span.lbl> với nhãn đã bỏ ký hiệu đầu (như setLabel của bản cũ). */
-export function IconLabel({ icon, text }: { icon: IconName; text: string }) {
-  return (
-    <>
-      <Icon name={icon} />
-      <span className="lbl">{stripGlyph(text)}</span>
-    </>
-  );
-}
-
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<unknown>;
