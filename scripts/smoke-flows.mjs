@@ -1,14 +1,33 @@
 // Kiểm tra nhanh các luồng chính trên trình duyệt thật (Chrome qua Playwright) với dữ liệu bài thật ở gốc repo.
 // AI miễn phí (/api/ai) được giả lập bằng page.route nên không tốn lượt, không cần mạng.
-// Chạy: node scripts/smoke-flows.mjs        → in từng bước PASS/FAIL, thoát mã 1 nếu có bước lỗi.
+// Mọi vi phạm CSP (securitypolicyviolation) trên mọi trang/mọi lần điều hướng đều được gom về Node và làm hỏng bước cuối.
+// Chạy: node scripts/smoke-flows.mjs        → dev server Vite (cổng 5312), in từng bước PASS/FAIL, thoát mã 1 nếu có bước lỗi.
+//       node scripts/smoke-flows.mjs <BASE> → chạy với máy chủ có sẵn (vd. dist/ qua serve-dist, hoặc bản preview), không bật Vite.
+//       (hoặc biến môi trường BASE=...)
 import { chromium } from '@playwright/test';
-import { createServer as createVite } from 'vite';
 
-const vite = await createVite({ server: { port: 5312, strictPort: true }, logLevel: 'error' });
-await vite.listen();
-const BASE = 'http://localhost:5312';
+const ARG_BASE = (process.argv[2] || process.env.BASE || '').replace(/\/+$/, '');
+let vite = null;
+if (!ARG_BASE) {
+  const { createServer: createVite } = await import('vite');
+  vite = await createVite({ server: { port: 5312, strictPort: true }, logLevel: 'error' });
+  await vite.listen();
+}
+const BASE = ARG_BASE || 'http://localhost:5312';
 const browser = await chromium.launch({ channel: 'chrome' });
+const cspViolations = [];
+/** Lắng nghe vi phạm CSP từ trước khi trang chạy script; binding sống qua mọi lần điều hướng của context. */
+async function watchCsp(c) {
+  await c.exposeBinding('__cspViolation', (_src, v) => { cspViolations.push(v); });
+  await c.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', e => {
+      // @ts-ignore — binding do Playwright gắn
+      window.__cspViolation({ page: location.pathname, directive: e.violatedDirective, blocked: e.blockedURI, source: e.sourceFile, line: e.lineNumber, sample: e.sample });
+    });
+  });
+}
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' });
+await watchCsp(ctx);
 await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
 await ctx.addInitScript(() => {
   if (!sessionStorage.getItem('smokeInit')) {
@@ -21,11 +40,17 @@ let aiReply = 'Xin **chào** — lời giải thử.';
 await ctx.route('**/api/ai', route =>
   route.fulfill({ status: 200, headers: { 'content-type': 'text/plain; charset=utf-8', 'x-ai-provider': 'm', 'x-ai-remaining': '4' }, body: aiReply }));
 await ctx.route('**/api/readings', route => route.fulfill({ status: 200, body: '{}' }));
+// proxy ảnh tarot.vn (dùng khi vẽ ảnh chia sẻ) → ảnh PNG 1×1 cùng nguồn, không đi mạng
+const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+await ctx.route('**/api/img?*', route => route.fulfill({ status: 200, contentType: 'image/png', body: PNG_1PX }));
 
 const errors = [];
+const watchErrors = (p, tag) => {
+  p.on('pageerror', e => errors.push(`pageerror${tag}: ` + e.message));
+  p.on('console', m => { if (m.type() === 'error') errors.push(`console${tag}: ` + m.text() + ' @ ' + (m.location().url || '')); });
+};
 const page = await ctx.newPage();
-page.on('pageerror', e => errors.push('pageerror: ' + e.message));
-page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+watchErrors(page, '');
 
 let failed = 0;
 async function step(name, fn) {
@@ -86,9 +111,14 @@ try {
     if (!link.startsWith(BASE + '/#r=')) throw new Error('link: ' + link.slice(0, 60));
   });
 
+  await step('Tải ảnh trải bài: canvas → blob: → tải file PNG', async () => {
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.click('#shareImgBtn')]);
+    if (!/^witches-tarot-.*\.png$/.test(dl.suggestedFilename())) throw new Error('file: ' + dl.suggestedFilename());
+  });
+
   await step('Mở link chia sẻ ở tab mới: đúng câu hỏi, 3 lá, lời giải, ghi chú cảnh báo', async () => {
     const p2 = await ctx.newPage();
-    p2.on('pageerror', e => errors.push('pageerror(p2): ' + e.message));
+    watchErrors(p2, '(p2)');
     await p2.goto(link);
     await p2.waitForURL('**/trai-bai#r=*');
     await p2.waitForSelector('.shared-note', { timeout: 30000 });
@@ -102,6 +132,8 @@ try {
     await page.goto(BASE + '/nhat-ky');
     await page.waitForSelector('#historyList .hist-item', { timeout: 10000 });
     expectEq(await page.locator('#historyList .hist-item').count(), 1, 'items');
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#exportJson')]);
+    if (!dl.suggestedFilename().endsWith('.json')) throw new Error('export: ' + dl.suggestedFilename());
     const reload = page.locator('#historyList .hist-item button', { hasText: /Tải lại/ });
     await reload.first().click();
     await page.waitForURL('**/trai-bai');
@@ -120,9 +152,10 @@ try {
 
   await step('Hiệu ứng đầy đủ (không giảm chuyển động): xào → dừng → máy tự bốc → chia vào bàn trải AI', async () => {
     const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'no-preference', serviceWorkers: 'block' });
+    await watchCsp(ctx2);
     await ctx2.addInitScript(() => localStorage.setItem('tarotRitual', '0'));
     const p3 = await ctx2.newPage();
-    p3.on('pageerror', e => errors.push('pageerror(motion): ' + e.message));
+    watchErrors(p3, '(motion)');
     await p3.goto(BASE + '/trai-bai');
     await waitDb(p3);
     await p3.click('.sp-tile[data-k="ppf"]');
@@ -154,6 +187,19 @@ try {
     if (!(await page.textContent('#skyInfo'))?.includes('Đà Nẵng')) throw new Error('sky info: ' + (await page.textContent('#skyInfo')));
   });
 
+  await step('Bầu trời: Permissions-Policy cho phép GPS, lấy được vị trí', async () => {
+    await ctx.grantPermissions(['geolocation'], { origin: BASE });
+    await ctx.setGeolocation({ latitude: 21.03, longitude: 105.85 });
+    const allowed = await page.evaluate(() => {
+      // @ts-ignore — featurePolicy chỉ có trên Chrome
+      const fp = document.featurePolicy;
+      return fp ? fp.allowsFeature('geolocation') : true;
+    });
+    if (!allowed) throw new Error('Permissions-Policy chặn geolocation');
+    const lat = await page.evaluate(() => new Promise((ok, no) => navigator.geolocation.getCurrentPosition(p => ok(p.coords.latitude), e => no(new Error(e.message)))));
+    expectEq(lat, 21.03, 'latitude');
+  });
+
   await step('Cài đặt trang: nền bầu trời thật + nhạc nền bật/tắt không lỗi', async () => {
     await page.goto(BASE + '/hom-nay');
     await page.evaluate(() => document.getElementById('openSite').click());
@@ -167,12 +213,29 @@ try {
     expectEq(await page.evaluate(() => document.documentElement.dataset.sky), 'deco', 'html[data-sky]');
   });
 
+  if (ARG_BASE) {
+    // trang SEO tĩnh chỉ có trong bản build (dev server không phục vụ la-bai/)
+    await step('Trang SEO /la-bai/ và một trang lá: tải được với CSP thật', async () => {
+      for (const p of ['/la-bai/', '/la-bai/rider-waite/10-of-cups/']) {
+        const r = await page.goto(BASE + p);
+        expectEq(r?.status(), 200, p);
+      }
+      const r = await page.request.get(BASE + '/trai-bai');
+      expectEq(r.status(), 200, '/trai-bai');
+    });
+  }
+
+  await step('Không vi phạm CSP trên mọi trang', async () => {
+    console.log(`      vi phạm CSP: ${cspViolations.length}`);
+    if (cspViolations.length) throw new Error(cspViolations.map(v => JSON.stringify(v)).join(' | '));
+  });
+
   await step('Không có lỗi JS/console trong suốt các bước', async () => {
     if (errors.length) throw new Error(errors.join(' | '));
   });
 } finally {
   await browser.close();
-  await vite.close();
+  await vite?.close();
 }
 console.log(failed ? `\n${failed} bước lỗi` : '\nTất cả các bước đều qua');
 process.exit(failed ? 1 : 0);
