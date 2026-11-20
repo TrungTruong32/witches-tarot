@@ -1,8 +1,8 @@
 // Ô chọn chất bài dạng chồng bài 3D (renderCategoryTabs của bản cũ). Mỗi ô tải ngay 1 ảnh (lá giữa);
 // 2 lá xoè hai bên chỉ tải khi rê chuột / focus / chọn ô đó → trang nhẹ.
 import { useMemo, useState, type CSSProperties } from 'react';
-import { useApp } from '../../app/store';
-import { BO_LABELS, SUIT_META } from '../../core/suits';
+import { useApp, useDeckOrGuess } from '../../app/store';
+import { BO_LABELS, STATIC_SUITS, SUIT_META } from '../../core/suits';
 import { useT } from '../../i18n/useT';
 
 interface Tile {
@@ -50,9 +50,12 @@ function SuitTile({ tile, active, onSelect }: { tile: Tile; active: boolean; onS
 
 export function SuitTiles({ category, onSelect }: { category: string; onSelect: (cat: string) => void }) {
   const db = useApp(s => s.db);
-  const deck = useApp(s => s.deck);
+  const deck = useDeckOrGuess();
   const tiles = useMemo<Tile[]>(() => {
-    if (!db || !deck) return [];
+    if (!deck) return [];
+    // DB chưa về: vẽ ngay khung ô từ cấu trúc cố định (mặt lưng bài, đúng số lá); ảnh lá giữa điền vào khi DB về.
+    // Cùng key (bộ|chất) → ô không dựng lại (giữ độ lệch ngẫu nhiên), chỉ <span> mặt lưng đổi thành <img> cùng khung.
+    if (!db) return [{ cat: 'all', count: STATIC_SUITS.reduce((n, [, c]) => n + c, 0), cards: [] }, ...STATIC_SUITS.map(([cat, count]) => ({ cat, count, cards: [] }))];
     const out: Tile[] = [{ cat: 'all', count: db.count(deck), cards: [] }]; // "Tất cả": xấp mặt lưng, không tốn ảnh
     for (const r of db.suits(deck)) if (r.bo) out.push({ cat: r.bo, count: r.c, cards: db.topCards(deck, r.bo) });
     return out;

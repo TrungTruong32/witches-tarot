@@ -1,6 +1,6 @@
 // Trang Tra cứu: ô tìm kiếm thông minh, ô chọn chất bài, danh sách lá và chi tiết. Markup theo bản cũ L944–961.
 import { useEffect, useMemo, useRef } from 'react';
-import { useApp } from '../../app/store';
+import { useApp, useDeckOrGuess } from '../../app/store';
 import { DeckSelect } from '../../components/DeckSelect';
 import { media, prefersReducedMotion } from '../../lib/media';
 import { createCardSearch } from '../../core/search';
@@ -13,7 +13,8 @@ import { SuitTiles } from './SuitTiles';
 export function Browse() {
   const { t } = useT();
   const db = useApp(s => s.db);
-  const deck = useApp(s => s.deck);
+  // DB đang nạp: bộ boot() sẽ chọn → bấm ô chất bài trước khi DB về vẫn được giữ (browse.deck khớp bộ thật)
+  const deck = useDeckOrGuess();
   // Bộ lọc/ô tìm/lá đang chọn nằm trong store → rời Tra cứu rồi quay lại vẫn đúng chỗ cũ
   const browse = useApp(s => s.browse);
   const setBrowse = useApp(s => s.setBrowse);
@@ -80,7 +81,7 @@ export function Browse() {
               </button>
             ))}
           </div>
-          <div id="noResults" className="no-results" style={{ display: rows.length ? 'none' : 'block' }}>{t('browse.noResults')}</div>
+          <div id="noResults" className="no-results" style={{ display: rows.length || !db ? 'none' : 'block' }}>{t('browse.noResults')}</div>
         </div>
         <div className="panel">
           <CardDetails ref={detailsRef} card={selected} />

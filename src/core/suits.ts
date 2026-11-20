@@ -36,3 +36,18 @@ export const BO_LABELS: Record<string, string> = {
   'Bo Swords': 'Swords - Khí',
   'Bo Pentacles': 'Pentacles - Đất',
 };
+
+// ---- Dựng trước khi tarot.db nạp xong ----
+// Danh sách bộ và chất bài của tarot.db là cố định (mỗi bộ 78 lá: 22 Ẩn Chính + 4 chất × 14), nên trang Tra cứu
+// vẽ được ô chất bài / ô chọn bộ ngay, không chờ DB. DB về thì số thật từ DB thay vào (bình thường trùng khớp).
+/** Các bộ theo đúng thứ tự db.decks() (Witches Tarot trước). */
+export const STATIC_DECKS: readonly string[] = ['Witches Tarot', 'Rider-Waite'];
+/** Chất bài theo thứ tự db.suits() (ORDER BY MIN(id)) và số lá mỗi chất. */
+export const STATIC_SUITS: readonly (readonly [bo: string, count: number])[] = [
+  ['Bo An Chinh', 22], ['Bo Wands', 14], ['Bo Cups', 14], ['Bo Swords', 14], ['Bo Pentacles', 14],
+];
+
+/** Bộ bài boot() sẽ chọn: bộ đã lưu nếu có trong danh sách, không thì bộ đầu (cùng luật với boot). */
+export function guessDeck(saved: string): string {
+  return STATIC_DECKS.includes(saved) ? saved : STATIC_DECKS[0]!;
+}

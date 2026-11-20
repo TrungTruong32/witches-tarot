@@ -1,6 +1,7 @@
 // Trạng thái toàn app (Zustand). Phần cần nhớ được ghi qua services/storage với ĐÚNG key + định dạng của bản cũ.
 import { create } from 'zustand';
 import { normalizeCardBack } from '../core/cardBacks';
+import { guessDeck, STATIC_DECKS } from '../core/suits';
 import type { AmbientMode, CardEnMap, Lang } from '../core/types';
 import type { CardsDb } from '../services/cardsDb';
 import type { BeforeInstallPromptEvent } from './pwaInstall';
@@ -168,3 +169,18 @@ export const useApp = create<AppState>()(set => ({
   requestRitual: r => set({ ritual: r }),
   closeRitual: () => set({ ritual: null }),
 }));
+
+/** Bộ bài đang chọn; lúc DB còn đang nạp thì đoán trước bộ mà boot() sẽ chọn (guessDeck) để vẽ sẵn
+ *  ô chọn bộ / ô chất bài mà không xô trang khi DB về. DB lỗi → null như cũ. */
+export function useDeckOrGuess(): string | null {
+  const deck = useApp(s => s.deck);
+  const loading = useApp(s => s.dbStatus === 'loading');
+  return deck ?? (loading ? guessDeck(getStr(KEYS.deck, '')) : null);
+}
+
+/** Danh sách bộ cho ô chọn; lúc DB đang nạp dùng danh sách cố định (cùng thứ tự với db.decks()). */
+export function useDecksOrStatic(): readonly string[] {
+  const decks = useApp(s => s.decks);
+  const loading = useApp(s => s.dbStatus === 'loading');
+  return decks.length || !loading ? decks : STATIC_DECKS;
+}

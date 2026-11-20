@@ -171,3 +171,53 @@ describe('Browse resets on any deck change, even while not shown (legacy setDeck
     expect(search().value).toBe('');
   });
 });
+
+describe('Tra cứu vẽ trước khi tarot.db nạp xong (LCP / không xô trang)', () => {
+  // DB giả đúng cấu trúc tarot.db: 2 bộ × (22 Ẩn Chính + 4 chất × 14), thứ tự id như dữ liệu thật
+  let full: CardsDb;
+  beforeAll(async () => {
+    const cards: Card[] = [];
+    let id = 0;
+    for (const deck of ['Witches Tarot', 'Rider-Waite']) {
+      for (const [bo, n] of [['Bo An Chinh', 22], ['Bo Wands', 14], ['Bo Cups', 14], ['Bo Swords', 14], ['Bo Pentacles', 14]] as const) {
+        for (let i = 0; i < n; i++) cards.push({ id: id++, deck, bo, so: String(i), ten: `${bo} ${i}`, image_url: `https://x.test/${id}.jpg` } as Card);
+      }
+    }
+    full = openCardsDb(await makeDb(cards), await sqlJs());
+  });
+  const tiles = () => [...document.querySelectorAll<HTMLButtonElement>('#categoryTabs .suit-tile')];
+  const metas = () => tiles().map(t => t.querySelector('.st-meta')!.textContent);
+
+  it('DB đang nạp: đủ 6 ô chất bài (mặt lưng, đúng số lá) + ô chọn bộ; DB về thì giữ nguyên các ô, chỉ thêm ảnh', () => {
+    localStorage.setItem('witchesTarotDeck', 'Rider-Waite');
+    useApp.setState({ ...initialState() }); // db null, deck null, dbStatus 'loading'
+    renderBrowse();
+    expect(tiles()).toHaveLength(6);
+    expect(metas()).toEqual(['✧ 78 lá', '✦ 22 lá', '🜂 Lửa · 14 lá', '🜄 Nước · 14 lá', '🜁 Khí · 14 lá', '🜃 Đất · 14 lá']);
+    expect(document.querySelectorAll('#categoryTabs img')).toHaveLength(0);
+    const sel = document.getElementById('deckSelectBrowse') as HTMLSelectElement;
+    expect([...sel.options].map(o => o.value)).toEqual(['Witches Tarot', 'Rider-Waite']);
+    expect(sel.value).toBe('Rider-Waite'); // bộ đã lưu = bộ boot() sẽ chọn
+    expect(document.getElementById('noResults')!.style.display).toBe('none'); // chưa có DB thì không báo "không tìm thấy"
+    const before = tiles();
+    act(() => useApp.setState({ db: full, decks: full.decks(), deck: 'Rider-Waite', dbStatus: 'ready' }));
+    expect(tiles()).toEqual(before); // cùng phần tử DOM → không dựng lại, không đổi độ lệch ngẫu nhiên
+    expect(metas()).toEqual(['✧ 78 lá', '✦ 22 lá', '🜂 Lửa · 14 lá', '🜄 Nước · 14 lá', '🜁 Khí · 14 lá', '🜃 Đất · 14 lá']);
+    expect(document.querySelectorAll('#categoryTabs img').length).toBeGreaterThan(0);
+  });
+
+  it('bấm ô chất bài trước khi DB về → vẫn giữ bộ lọc khi DB về', async () => {
+    useApp.setState({ ...initialState() });
+    renderBrowse();
+    await userEvent.click(tiles()[2]!);
+    act(() => useApp.setState({ db: full, decks: full.decks(), deck: 'Witches Tarot', dbStatus: 'ready' }));
+    expect(tiles()[2]!.getAttribute('aria-pressed')).toBe('true');
+    expect(listNames().length).toBeGreaterThan(0);
+  });
+
+  it('DB lỗi → không đoán bộ, không vẽ ô (như cũ)', () => {
+    useApp.setState({ ...initialState(), dbStatus: 'error' });
+    renderBrowse();
+    expect(tiles()).toHaveLength(0);
+  });
+});
