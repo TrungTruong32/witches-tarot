@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ensureAudio, getAudioCtx, resetForTests } from './audio';
+import { ensureAudio, getAudioCtx, getNoiseBuf, resetForTests } from './audio';
 import { resetAmbientForTests, startAmbient } from './ambient';
 
 // AudioContext giả: ghi lại mọi node + lời gọi start/stop/connect
@@ -112,8 +112,7 @@ describe('startAmbient', () => {
     expect(master.disconnected).toBe(true);
   });
 
-  it('candle: nền 68Hz qua lowpass 300, lách tách nhiễu băng thông; stop dọn sạch', async () => {
-    const { getNoiseBuf } = await import('./audio');
+  it('candle: nền 68Hz qua lowpass 300, lách tách nhiễu băng thông; stop dọn sạch', () => {
     expect(getNoiseBuf()).not.toBeNull();
     const eng = startAmbient('candle', 0.5)!;
     const lp = all.find(n => n.kind === 'biquad' && n.type === 'lowpass') as FakeNode;

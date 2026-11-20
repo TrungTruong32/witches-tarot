@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { julianDay, localSiderealDeg } from '../core/astro';
 import type { SkyData } from '../services/skyData';
 
 const loadSky = vi.fn<() => Promise<SkyData>>();
@@ -145,7 +146,6 @@ describe('startSkyMap', () => {
 
   it('chạm < 6px chọn sao gần nhất trong 20px → hộp thông tin trên canvas', async () => {
     // một sao gần thiên đỉnh HCM lúc này: dùng phép chiếu để lấy toạ độ; ở đây chỉ cần sao ở đúng tâm → RA = LST, Dec = vĩ độ
-    const { julianDay, localSiderealDeg } = await import('../core/astro');
     const lst = localSiderealDeg(julianDay(new Date()), OPTS.lon);
     loadSky.mockResolvedValue({ stars: [[lst, OPTS.lat, 1]], lines: [], names: [[lst, OPTS.lat, 'Zen']], consts: [] });
     const cv = document.createElement('canvas');
@@ -162,7 +162,6 @@ describe('startSkyMap', () => {
   });
 
   it('chụm 2 ngón → 1 ngón: không nhảy góc xoay, nhấc hết tay thì map rỗng và không chọn sao (phán quyết)', async () => {
-    const { julianDay, localSiderealDeg } = await import('../core/astro');
     const lst = localSiderealDeg(julianDay(new Date()), OPTS.lon);
     loadSky.mockResolvedValue({ stars: [[lst, OPTS.lat, 1]], lines: [], names: [], consts: [] });
     const cv = document.createElement('canvas');
@@ -195,7 +194,6 @@ describe('startSkyMap', () => {
   });
 
   it('chụm rồi nhấc cả hai ngón gần như không di chuyển → không chọn sao', async () => {
-    const { julianDay, localSiderealDeg } = await import('../core/astro');
     const lst = localSiderealDeg(julianDay(new Date()), OPTS.lon);
     loadSky.mockResolvedValue({ stars: [[lst, OPTS.lat, 1]], lines: [], names: [], consts: [] });
     const cv = document.createElement('canvas');
@@ -206,6 +204,21 @@ describe('startSkyMap', () => {
     ev('pointerdown', 1, 162); ev('pointerdown', 2, 170); ev('pointerup', 1, 162); ev('pointerup', 2, 170);
     frame();
     expect(fc.calls.some(c => c.fn === 'fillText' && c.args[0] === 'Cấp sáng 1.0')).toBe(false);
+    e.stop();
+  });
+
+  it('lấy ctx 2D đúng một lần; DPR transform đặt lại sau mỗi lần resize, không phải mỗi khung', async () => {
+    loadSky.mockResolvedValue(SKY);
+    const e = startSkyMap(document.createElement('canvas'), OPTS, { onInfo: () => {} });
+    await vi.waitFor(() => expect(loadSky).toHaveBeenCalled());
+    await Promise.resolve();
+    frame();
+    frame();
+    expect(HTMLCanvasElement.prototype.getContext).toHaveBeenCalledTimes(1);
+    expect(fc.calls.some(c => c.fn === 'setTransform')).toBe(false);
+    fc.calls.length = 0;
+    window.dispatchEvent(new Event('resize'));
+    expect(fc.calls).toEqual([{ fn: 'setTransform', args: [1, 0, 0, 1, 0, 0] }]);
     e.stop();
   });
 

@@ -67,6 +67,7 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
   let cx = 0, cy = 0, R = 0;
   let sel: Sel | null = null, selConst: string | null = null;
 
+  const ctx = cv.getContext('2d');   // lấy một lần; null (môi trường không có canvas) → engine không vẽ
   const info = () => cb.onInfo(failed ? text.fail : text.info(locName));
 
   function load() {
@@ -80,7 +81,8 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
   const dpr = () => Math.min(window.devicePixelRatio || 1, 2);
   function resize() {
     const d = dpr(), w = cv.clientWidth || 320, h = cv.clientHeight || 420;
-    cv.width = Math.round(w * d); cv.height = Math.round(h * d);
+    cv.width = Math.round(w * d); cv.height = Math.round(h * d);   // gán width/height xoá mọi trạng thái ctx…
+    ctx?.setTransform(d, 0, 0, d, 0, 0);                            // …nên đặt lại tỉ lệ DPR ngay sau đó (không cần mỗi khung)
     computedAt = 0;
   }
   function compute() {
@@ -97,8 +99,8 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
   }
 
   function draw() {
-    const ctx = cv.getContext('2d'); if (!ctx) return;
-    const d = dpr(); ctx.setTransform(d, 0, 0, d, 0, 0);
+    if (!ctx) return;
+    const d = dpr();
     const W = cv.width / d, H = cv.height / d; ctx.clearRect(0, 0, W, H);
     if (!data || !scene) {
       ctx.fillStyle = 'rgba(233,227,255,.6)'; ctx.font = '14px system-ui'; ctx.textAlign = 'center';
