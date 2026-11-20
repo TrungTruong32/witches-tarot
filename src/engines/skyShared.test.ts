@@ -1,6 +1,6 @@
 // Hai engine dùng chung một lượt nạp sky.json thật (services/skyData, không mock): engine này nạp lại được thì engine kia cũng thấy.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetSkyForTests, type SkyData } from '../services/skyData';
+import { resetForTests, type SkyData } from '../services/skyData';
 import { startSkyMap } from './skyMap';
 import { startStarfield } from './starfield';
 import { skyMapText } from '../features/sky/skyText';
@@ -28,7 +28,7 @@ const ok = () => Promise.resolve({ ok: true, json: async () => SKY } as unknown 
 const settle = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
 
 beforeEach(() => {
-  resetSkyForTests();
+  resetForTests();
   pending = new Map();
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => { const id = nextId++; pending.set(id, cb); return id; });
   vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => void pending.delete(id));
@@ -47,7 +47,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  resetSkyForTests();
+  resetForTests();
 });
 
 describe('sky.json dùng chung giữa nền và bản đồ sao', () => {

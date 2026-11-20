@@ -23,7 +23,8 @@ vi.mock('../../engines/skyMap', async importOriginal => {
 });
 
 import { initialState, useApp } from '../../app/store';
-import { resetSkyGpsForTests, Sky } from './Sky';
+import { resetForTests as resetGpsForTests } from './gpsMemory';
+import { Sky } from './Sky';
 
 const legacyHtml = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'tests', 'legacy', 'witches_tarot.legacy.html'), 'utf8');
 const legacyPanel = new DOMParser().parseFromString(legacyHtml, 'text/html').querySelector('#skyView > .panel')!;
@@ -38,7 +39,7 @@ const geo = { getCurrentPosition: vi.fn() };
 
 beforeEach(() => {
   localStorage.clear();
-  resetSkyGpsForTests();
+  resetGpsForTests();
   engines.length = 0;
   useApp.setState({ ...initialState() });
   pending = new Map();

@@ -7,6 +7,7 @@ import { SKY_CITIES } from '../../engines/skyScene';
 import { pickLang, useT } from '../../i18n/useT';
 import { readColors } from '../../lib/themeColors';
 import { getJson, getStr, KEYS, setStr } from '../../services/storage';
+import { lastGps, rememberGps } from './gpsMemory';
 import { skyMapText } from './skyText';
 
 const LOCS = ['hcm', 'hanoi', 'danang', 'cantho', 'gps'];
@@ -20,11 +21,6 @@ const GPS_DENIED = { vi: 'Bị từ chối định vị — hãy chọn một th
 const GPS_NONE = { vi: 'Thiết bị không hỗ trợ định vị.', en: 'Geolocation not supported.' };
 const FS_NONE = { vi: 'Thiết bị không hỗ trợ toàn màn hình.', en: 'Fullscreen not supported on this device.' };
 const GPS_NAME = { vi: 'vị trí của bạn', en: 'your location' };
-
-/** Toạ độ GPS lần gần nhất trong phiên: rời màn hình rồi quay lại (vẫn chọn 'gps') thì giữ vị trí như bản cũ (trang không tải lại). */
-let lastGps: { lat: number; lon: number } | null = null;
-/** Chỉ cho test: quên toạ độ GPS đã nhớ. */
-export function resetSkyGpsForTests(): void { lastGps = null; }
 
 /** Nơi đã lưu (chỉ nhận giá trị có trong danh sách), mặc định TP.HCM. */
 function savedLoc(): string {
@@ -65,8 +61,9 @@ export function Sky() {
     if (!cv) return;
     // 'gps' đã lưu: dùng toạ độ đã nhớ trong phiên; chưa có thì như bản cũ — không tự xin vị trí, vẽ TP.HCM
     const lang0 = useApp.getState().lang;
-    const c: [number, number, string] = locRef.current === 'gps' && lastGps
-      ? [lastGps.lat, lastGps.lon, pickLang(lang0, GPS_NAME)]
+    const fix = lastGps();
+    const c: [number, number, string] = locRef.current === 'gps' && fix
+      ? [fix.lat, fix.lon, pickLang(lang0, GPS_NAME)]
       : SKY_CITIES[locRef.current] ?? HCM;
     const engine = startSkyMap(
       cv,
@@ -101,9 +98,10 @@ export function Sky() {
         navigator.geolocation.getCurrentPosition(
           pos => {
             if (!live()) return;
-            lastGps = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+            const fix = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+            rememberGps(fix);
             ownStatus.current = false;
-            engineRef.current!.setLocation(lastGps.lat, lastGps.lon, pickLang(useApp.getState().lang, GPS_NAME));
+            engineRef.current!.setLocation(fix.lat, fix.lon, pickLang(useApp.getState().lang, GPS_NAME));
           },
           () => { if (live()) showStatus(GPS_DENIED); },
         );

@@ -39,7 +39,8 @@ export function loadSky(f: typeof fetch = fetch): Promise<SkyData> {
   return p;
 }
 
-export function resetSkyForTests(): void {
+/** Chỉ cho test: quên bộ nhớ đệm và mọi bên nghe. */
+export function resetForTests(): void {
   cached = null;
   listeners.clear();
 }
