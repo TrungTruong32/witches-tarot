@@ -20,3 +20,8 @@ if (root) {
   );
 }
 void boot();
+
+// Service worker (dist/sw.js sinh lúc build) — chỉ bản production; đăng ký sau 'load' như bản cũ, lỗi thì bỏ qua.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}

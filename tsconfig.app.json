@@ -20,5 +20,6 @@
     "resolveJsonModule": true,
     "types": ["node"]
   },
-  "include": ["src", "shared", "tests"]
+  "include": ["src", "shared", "tests"],
+  "exclude": ["src/sw"]
 }
