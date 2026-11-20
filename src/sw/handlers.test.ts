@@ -239,7 +239,7 @@ describe('service worker handlers', () => {
     expect(await ((await sw.handle(nav('/la-bai/y/'))) as Response).text()).toBe('shell');
   });
 
-  it('opaque chỉ được cache cho font Google', async () => {
+  it('opaque (no-cors) không bao giờ được cache', async () => {
     const env = fakeEnv([]);
     const opaque = () => {
       const r = new Response(null);
@@ -249,10 +249,9 @@ describe('service worker handlers', () => {
     };
     env.setFetch((async () => opaque()) as unknown as typeof fetch);
     const sw = createSw(env.deps, cfg());
-    await sw.handle(new Request('https://fonts.gstatic.com/s/a.woff2'));
     await sw.handle(new Request(BASE + '/odd.png'));
     await tick();
-    expect(keys(env, APP)).toEqual(['/s/a.woff2']);
+    expect(keys(env, APP)).toEqual([]);
   });
 
   it('cache-first: tìm cả hai cache, có thì không gọi mạng; /api và non-GET thì bỏ qua (null)', async () => {

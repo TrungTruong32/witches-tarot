@@ -70,6 +70,7 @@ def page(title, desc, path, body, jsonld, og_image=None, og_type='website'):
     url = SITE + path
     img = og_image or SITE + '/og-image.jpg'
     ld = '\n'.join(f'<script type="application/ld+json">{json.dumps(x, ensure_ascii=False)}</script>' for x in jsonld)
+    # Font tự host: /la-bai/fonts.css do scripts/copy-static.mjs sinh lúc build (CSP font-src chỉ 'self')
     return f'''<!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -89,9 +90,7 @@ def page(title, desc, path, body, jsonld, og_image=None, og_type='website'):
 <meta property="og:url" content="{e(url)}" />
 <meta property="og:image" content="{e(img)}" />
 <meta name="twitter:card" content="summary_large_image" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Be+Vietnam+Pro:wght@400;600;700&display=swap" />
+<link rel="stylesheet" href="/la-bai/fonts.css" />
 <link rel="stylesheet" href="/la-bai/seo.css" />
 {ld}
 </head>

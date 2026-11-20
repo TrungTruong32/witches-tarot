@@ -39,6 +39,11 @@ describe('CSP không có script inline tuỳ tiện', () => {
     expect(inlineScripts(html)).toEqual(['a', 'b']);
   });
 
+  it("style-src / font-src: font tự host — không host ngoài (Google Fonts đã bỏ), font không cần data:", () => {
+    expect(directive('style-src')).toEqual(["'self'", "'unsafe-inline'"]);
+    expect(directive('font-src')).toEqual(["'self'"]);
+  });
+
   it('Permissions-Policy cho phép geolocation của chính site (bản đồ sao dùng GPS)', () => {
     const pp = headersFor(config, '/bau-troi')['Permissions-Policy'] ?? '';
     expect(pp.split(/,\s*/)).toContain('geolocation=(self)');

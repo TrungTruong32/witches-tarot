@@ -50,6 +50,10 @@ function appVersionMeta(): Plugin {
 export default defineConfig({
   plugins: [react(), serveRootStatic(), appVersionMeta()],
   publicDir: false,
+  build: {
+    // Font không bao giờ nhúng data: vào CSS (CSP font-src chỉ 'self'; file riêng thì preload + SW cache được)
+    assetsInlineLimit: (file: string) => (file.endsWith('.woff2') ? false : undefined),
+  },
   server: {
     // Gốc dự án là gốc repo → chặn file bí mật / dữ liệu riêng (test.ipynb có API key, Data/ là dữ liệu bài gốc…)
     fs: { deny: ['.env', '.env.*', '*.{crt,pem}', '**/*.ipynb', '**/Data/**', '**/local/**', '**/.superpowers/**', '**/.vercel/**'] },

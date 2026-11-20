@@ -1,5 +1,6 @@
 // CSS của app: tách từ bản cũ theo phần, nạp đúng thứ tự (order.ts ghi thứ tự gốc lúc tách); từ nay được chỉnh trực tiếp.
 import './tokens.css';
+import './fonts.css';
 import './base.css';
 import './nav-drawer.css';
 import './landing.css';

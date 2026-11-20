@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { copyStatic } from '../../scripts/copy-static.mjs';
@@ -40,6 +40,15 @@ describe('copyStatic', () => {
     copyStatic(root, dist);
     for (const f of ['tarot.db', 'card_en.json', 'sky.json', 'cardback.png', 'manifest.webmanifest', 'sitemap.xml', 'robots.txt', 'google09f883fd3a910deb.html', 'la-bai/index.html', 'la-bai/rider-waite/the-fool.html'])
       expect(existsSync(join(dist, f)), f).toBe(true);
+  });
+
+  it('la-bai/fonts.css = các @font-face của CSS chính (font tự host, url /assets đã băm)', () => {
+    mkdirSync(join(dist, 'assets'));
+    writeFileSync(join(dist, 'assets', 'index-Ab1_c.css'),
+      "body{color:red}@font-face{font-family:Cinzel;src:url(/assets/c-1.woff2)}.x{}@font-face{font-family:B;src:url(/assets/b-2.woff2)}");
+    copyStatic(root, dist);
+    expect(readFileSync(join(dist, 'la-bai', 'fonts.css'), 'utf8')).toBe(
+      '@font-face{font-family:Cinzel;src:url(/assets/c-1.woff2)}\n@font-face{font-family:B;src:url(/assets/b-2.woff2)}\n');
   });
 
   it('không bao giờ chép .env, *.ipynb, Data/, local/', () => {

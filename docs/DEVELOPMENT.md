@@ -115,7 +115,7 @@ Chạy lại **không** kèm `--enforce` sẽ đưa luật về chỉ ghi log.
 `vercel.json` đặt Content-Security-Policy cho mọi trang. Thêm script / font / iframe từ **host mới** thì phải thêm host đó vào CSP, nếu không trình duyệt sẽ chặn âm thầm. Đang cho phép:
 
 - script: **chỉ chính site** + đúng một script inline (đoạn đặt theme sớm trong `index.html`, tránh nháy màu) được cho phép bằng **hash sha256** — không có `'unsafe-inline'`. `tests/repo/csp.test.ts` kiểm tra mọi script inline đều có hash trong CSP: sửa đoạn script đó thì phải cập nhật hash `'sha256-…'` trong `vercel.json` (test báo hash mới). `'wasm-unsafe-eval'` là cho sql.js — giờ được **đóng gói cùng app** (npm `sql.js`, file `.wasm` phục vụ từ chính site), không còn tải từ CDN
-- style: chính site, inline, `fonts.googleapis.com` · font: `fonts.gstatic.com`
+- style: chính site, inline · font: **chỉ chính site** (font tự host qua `@fontsource` + bản cắt ký hiệu trong `src/assets/fonts/`, xem `src/styles/fonts.css`; không còn Google Fonts)
 - ảnh: mọi `https:`, `data:`, `blob:`
 - kết nối (fetch): chính site, mọi `https:` (AI gọi trực tiếp bằng key riêng), `http://localhost` / `127.0.0.1` (Ollama chạy ở máy)
 - không cho trang khác nhúng site vào iframe

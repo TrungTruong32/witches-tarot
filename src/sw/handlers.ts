@@ -1,6 +1,6 @@
 // Logic của service worker (install / activate / fetch), nhận caches/fetch/self qua tham số để test được.
 // Chỉ dùng kiểu có ở cả lib DOM lẫn WebWorker (Request, Response, CacheStorage) — sw.ts mới gắn vào sự kiện thật.
-import { FONT_HOSTS, route } from './routes';
+import { route } from './routes';
 
 export interface SwDeps {
   caches: CacheStorage;
@@ -12,7 +12,7 @@ export interface SwDeps {
 }
 
 export interface SwConfig {
-  /** 'wtarot-app-<hash>': vỏ app + /assets/* + mọi thứ lưu lúc chạy (trang /la-bai/…, font, og-image). */
+  /** 'wtarot-app-<hash>': vỏ app + /assets/* + mọi thứ lưu lúc chạy (trang /la-bai/…, og-image). */
   appCache: string;
   /** 'wtarot-data-<hash>': tarot.db, card_en.json, sky.json, icon, mặt lưng — chỉ đổi khi dữ liệu đổi. */
   dataCache: string;
@@ -133,13 +133,13 @@ export function createSw(deps: SwDeps, { appCache, dataCache, appAssets, dataAss
   }
 
   // Còn lại: cache-first, có thì trả ngay, không thì tải mạng rồi cache lại
-  // Response opaque (no-cors) chỉ được lưu khi là font Google — opaque không biết có lỗi hay không.
+  // Chỉ lưu response ok — opaque (no-cors) không biết có lỗi hay không nên không bao giờ lưu.
   async function cacheFirst(req: Request): Promise<Response> {
     const hit = await match(req);
     if (hit) return hit;
     try {
       const net = await deps.fetch(req);
-      if (net && (net.ok || (net.type === 'opaque' && FONT_HOSTS.has(new URL(req.url).hostname)))) void put(req, net.clone());
+      if (net && net.ok) void put(req, net.clone());
       return net;
     } catch {
       return Response.error();
