@@ -27,10 +27,15 @@ const RHYTHMS = [
 const STEPS_JUMP = [-2, -1, -1, 0, 1, 1, 2];
 const N = (n: number) => 440 * Math.pow(2, (n - 69) / 12); // số MIDI → Hz
 
+/** Chỉ cho test: quên engine đang chạy (không dừng nó). */
+export function resetAmbientForTests(): void {
+  current = null;
+}
+
 /** Bật nhạc nền. Trả null nếu chưa có AudioContext (chưa ensureAudio) hoặc mode 'off'. */
 export function startAmbient(mode: AmbientMode, vol: number): AmbientEngine | null {
   const ctx = getAudioCtx();
-  if (!ctx || mode === 'off') return null;
+  if (!ctx || (mode !== 'mystic' && mode !== 'candle')) return null; // off hoặc mode lạ trong storage: không phát gì
   current?.stop();
 
   const timers = new Set<ReturnType<typeof setTimeout>>(); // mọi hẹn giờ của engine này, kể cả hẹn dừng node

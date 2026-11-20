@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { act, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initialState, useApp } from '../app/store';
@@ -71,5 +72,21 @@ describe('AmbientMusic', () => {
     setPref('ambientVol', 0.8);
     expect(engines[0]?.setVolume).toHaveBeenLastCalledWith(0.8);
     expect(engines).toHaveLength(1);
+  });
+
+  it('StrictMode: mode bật lúc mở app + một cử chỉ → đúng một engine, không bật đôi', () => {
+    useApp.setState({ ...initialState() });
+    setPref('ambientMode', 'mystic');
+    render(
+      <StrictMode>
+        <AmbientMusic />
+      </StrictMode>,
+    );
+    expect(ambient.startAmbient).not.toHaveBeenCalled();
+    window.dispatchEvent(new Event('pointerdown'));
+    window.dispatchEvent(new Event('keydown'));
+    expect(ambient.startAmbient).toHaveBeenCalledTimes(1);
+    expect(engines).toHaveLength(1);
+    expect(engines[0]?.stop).not.toHaveBeenCalled();
   });
 });

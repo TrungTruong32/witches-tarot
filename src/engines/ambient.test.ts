@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureAudio, getAudioCtx, resetForTests } from './audio';
-import { startAmbient } from './ambient';
+import { resetAmbientForTests, startAmbient } from './ambient';
 
 // AudioContext giả: ghi lại mọi node + lời gọi start/stop/connect
 class FakeParam {
@@ -60,9 +60,8 @@ beforeEach(() => {
   resetForTests();
   (window as unknown as { AudioContext: unknown }).AudioContext = FakeCtx;
   ensureAudio();
-  startAmbient('candle', 0)?.stop(); // dừng engine còn sót của test trước, rồi xoá hẹn giờ
-  vi.clearAllTimers();
-  all = [];
+  resetAmbientForTests();
+  vi.clearAllTimers(); // test trước có thể để lại hẹn giờ
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -75,6 +74,8 @@ describe('startAmbient', () => {
     expect(startAmbient('mystic', 0.5)).toBeNull();
     ensureAudio();
     expect(startAmbient('off', 0.5)).toBeNull();
+    expect(startAmbient('bogus' as never, 0.5)).toBeNull(); // mode lạ: không phát gì
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('đồ thị: master → nén → bù ×2 → destination, fade-in 1.5s', () => {
