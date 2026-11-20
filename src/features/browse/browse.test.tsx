@@ -118,6 +118,23 @@ describe('Browse', () => {
     expect(listNames()).toEqual(legacyList('Rider-Waite', 'all', ''));
   });
 
+  it('key sections stay open; long/secondary sections sit in closed <details> and close again on another card', async () => {
+    renderBrowse();
+    const d = () => document.querySelector('#cardDetails')!;
+    const openTitles = () => [...d().querySelectorAll(':scope > div.section > h3')].map(h => h.textContent);
+    expect(openTitles()).toEqual(['Từ khóa', 'Ý nghĩa xuôi', 'Ý nghĩa ngược']);
+    const more = () => [...d().querySelectorAll<HTMLDetailsElement>(':scope > details.section-more')];
+    expect(more().length).toBeGreaterThan(0);
+    expect(more().every(x => !x.open)).toBe(true);
+    // Không mất nội dung: chữ của phần gập vẫn nằm trong DOM
+    const fool = deckCards[0]!;
+    expect(more().map(x => x.querySelector('summary h3')!.textContent)).toContain('Mô tả hình ảnh');
+    expect(d().textContent).toContain(fool.mo_ta_hinh_anh!);
+    more()[0]!.open = true;
+    await userEvent.click(document.querySelectorAll<HTMLElement>('#cardsList .card-item')[1]!);
+    expect(more().every(x => !x.open)).toBe(true);
+  });
+
   it('card details link to the SEO page and the source', () => {
     renderBrowse();
     const links = [...document.querySelectorAll('#cardDetails a')].map(a => a.getAttribute('href'));

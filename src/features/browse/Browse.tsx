@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useApp } from '../../app/store';
 import { DeckSelect } from '../../components/DeckSelect';
-import { media } from '../../lib/media';
+import { media, prefersReducedMotion } from '../../lib/media';
 import { createCardSearch } from '../../core/search';
 import { SEO_DECK_SLUG } from '../../core/suits';
 import type { Card } from '../../core/types';
@@ -49,7 +49,10 @@ export function Browse() {
 
   const scrollOnPick = useRef(false);
   useEffect(() => {
-    if (scrollOnPick.current && media('(max-width: 980px)').matches) detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Điện thoại / máy tính bảng (chi tiết nằm dưới danh sách): bấm lá → cuộn tới chi tiết; giảm chuyển động thì nhảy thẳng
+    if (scrollOnPick.current && media('(max-width: 980px)').matches) {
+      detailsRef.current?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    }
     scrollOnPick.current = false;
   }, [picked]);
 

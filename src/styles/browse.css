@@ -38,3 +38,21 @@
       .st-name { font-size: .9rem; }
     }
     @media (prefers-reduced-motion: reduce) { .st-bob, .st-shadow { animation: none; } .st-card, .st-layer { transition: none; } }
+    /* ===== Chi tiết lá (Tra cứu): phần phụ / dài gập trong <details class="section section-more">, cùng khung với .section ===== */
+    #cardDetails { scroll-margin-top: 12px; }
+    .section-more > summary { display: flex; align-items: center; gap: 10px; cursor: pointer; list-style: none; border-radius: 10px; }
+    .section-more > summary::-webkit-details-marker { display: none; }
+    .section-more > summary h3 { margin: 0; flex: 1; }
+    /* mũi tên ⌄ vẽ bằng viền, xoay khi mở */
+    .section-more > summary::after { content: ''; flex: none; width: 8px; height: 8px; margin: 0 4px 4px 0; border: solid var(--accent2); border-width: 0 2px 2px 0;
+      transform: rotate(45deg); transition: transform .2s ease; }
+    .section-more[open] > summary::after { transform: rotate(-135deg); margin-bottom: -4px; }
+    .section-more > summary:focus-visible { outline: 2px solid var(--accent2); outline-offset: 4px; }
+    .section-more[open] > summary { margin-bottom: 10px; }
+    .section-more:not([open]) { padding-top: 12px; padding-bottom: 12px; }
+    .section-more:not([open]):hover { border-color: var(--border2); }
+    @media (prefers-reduced-motion: reduce) { .section-more > summary::after { transition: none; } }
+    @media (max-width: 760px) {
+      /* điện thoại: ảnh lá không chiếm hết màn hình → tên lá + từ khóa lọt vào khung nhìn đầu tiên sau khi cuộn */
+      #cardDetails .card-image { max-height: 58vh; width: auto; }
+    }

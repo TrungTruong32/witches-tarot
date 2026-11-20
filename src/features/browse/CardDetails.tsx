@@ -1,5 +1,5 @@
 // Chi tiết một lá ở trang Tra cứu (selectCard của bản cũ). Phần chỉ có tiếng Việt thì ẩn khi giao diện EN.
-import { forwardRef } from 'react';
+import { Fragment, forwardRef } from 'react';
 import { useApp } from '../../app/store';
 import { CorrChips } from '../../components/CorrChips';
 import { cardText } from '../../core/cards';
@@ -14,6 +14,17 @@ function Section({ title, text }: { title: string; text: string | undefined | nu
       <h3>{title}</h3>
       <p>{text}</p>
     </div>
+  );
+}
+
+/** Phần dài / phụ: gập sẵn (<details> đóng) ở mọi kích thước màn hình, bấm tiêu đề để mở. Chữ và tiêu đề giữ nguyên. */
+function SectionMore({ title, text }: { title: string; text: string | undefined | null }) {
+  if (!text) return null;
+  return (
+    <details className="section section-more">
+      <summary><h3>{title}</h3></summary>
+      <p>{text}</p>
+    </details>
   );
 }
 
@@ -60,13 +71,20 @@ export const CardDetails = forwardRef<HTMLDivElement, { card: Card | null }>(fun
         </div>
         <CorrChips card={card} />
       </div>
-      {vi && <Section title="Chiêm tinh học" text={card.chiem_tinh_hoc} />}
-      {vi && <Section title="Thần thánh" text={card.than_thanh} />}
-      {vi && <Section title="Mô tả hình ảnh" text={card.mo_ta_hinh_anh} />}
+      {/* Phần chính luôn mở: từ khóa, nghĩa xuôi, nghĩa ngược */}
       <Section title={t('lbl.keywords')} text={ct.tu_khoa} />
       <Section title={t('lbl.upright')} text={ct.y_nghia_xuoi} />
       <Section title={t('lbl.reversed')} text={ct.nghia_nguoc} />
-      {vi && <Section title="Nội dung đầy đủ" text={card.content} />}
+      {/* Phần phụ / dài (chỉ tiếng Việt): gập lại. Bọc theo key = id lá → chọn lá khác thì mọi khối đóng lại từ đầu
+          (không thì React giữ nguyên nút <details> và khối đã mở ở lá trước vẫn mở) */}
+      {vi && (
+        <Fragment key={card.id}>
+          <SectionMore title="Chiêm tinh học" text={card.chiem_tinh_hoc} />
+          <SectionMore title="Thần thánh" text={card.than_thanh} />
+          <SectionMore title="Mô tả hình ảnh" text={card.mo_ta_hinh_anh} />
+          <SectionMore title="Nội dung đầy đủ" text={card.content} />
+        </Fragment>
+      )}
     </div>
   );
 });
