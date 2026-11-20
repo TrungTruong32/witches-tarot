@@ -12,7 +12,7 @@ import { MAJOR_NAMES } from '../../core/cards';
 import { computeSpreadFacts, factLines } from '../../core/facts';
 import { RitualOverlay } from '../../components/spread/RitualOverlay';
 import { openCardsDb, type CardsDb } from '../../services/cardsDb';
-import { translate } from '../../i18n/useT';
+import { stripGlyph, translate } from '../../i18n/useT';
 import { Reading } from './Reading';
 import { initialReading, useReading } from './readingStore';
 
@@ -65,12 +65,14 @@ describe('Steps markup matches legacy', () => {
     expect(idCls(ours)).toEqual(idCls(legacySteps));
     const texts = (root: Element, sel: string) =>
       [...root.querySelectorAll(sel)].filter(e => !skip(e) && !['spreadDrawBtn', 'spreadPickBtn'].includes(e.id)).map(e => e.textContent!.replace(/\s+/g, ' ').trim());
-    for (const sel of ['label', 'h3', '.step-desc', '.step-no', '.manual-add summary', '.qchip', '.picker-nav', '#spreadStopShuffle, #interpretBtn, #clearSpreadBtn', '.step-sub'])
+    for (const sel of ['label', 'h3', '.step-desc', '.step-no', '.manual-add summary', '.qchip', '.picker-nav', '#spreadStopShuffle, #clearSpreadBtn', '.step-sub'])
       expect(texts(ours, sel), sel).toEqual(texts(legacySteps, sel));
     const attrs = (root: Element) => [...root.querySelectorAll('input, textarea, select')].map(i =>
       ['id', 'type', 'min', 'max', 'rows', 'placeholder', 'hidden', 'tabindex', 'aria-hidden', 'aria-label', 'title', 'inputmode'].map(a => i.getAttribute(a)).join('|'));
     expect(attrs(ours)).toEqual(attrs(legacySteps));
     expect([...ours.querySelectorAll('.qchip')].map(b => b.getAttribute('data-q'))).toEqual([...legacySteps.querySelectorAll('.qchip')].map(b => b.getAttribute('data-q')));
+    // #interpretBtn có icon (initIcons của bản cũ) → nhãn bỏ ký hiệu đầu như setLabel
+    expect($('interpretBtn').textContent).toBe(stripGlyph(legacySteps.querySelector('#interpretBtn')!.textContent!));
     expect($('spreadDrawBtn').textContent).toBe(translate('vi', 'draw.auto'));
     expect($('spreadPickBtn').textContent).toBe(translate('vi', 'draw.manual'));
     expect($('readingDeckInfo').hidden).toBe(true);

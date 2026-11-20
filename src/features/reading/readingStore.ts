@@ -2,7 +2,9 @@
 // rời màn rồi quay lại vẫn còn (bản cũ chỉ ẩn view). Màn "Bốc bài" (Task 5) đọc/ghi drawSpreadKey + drawResult ở đây.
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { defsFor } from '../../core/spreads';
+import { MAJOR_NAMES } from '../../core/cards';
 import { toSpreadCard } from '../../core/draw';
+import type { CardsDb } from '../../services/cardsDb';
 import type { Card, Lang, Orientation, Reading as ReadingRecord, SpreadCard } from '../../core/types';
 import type { ChatMessage } from '../../services/ai/providers';
 
@@ -63,6 +65,15 @@ export function initialReading(): Data {
     drawSpreadKey: 'free',
     drawResult: [],
   };
+}
+
+/**
+ * Tên Ẩn Chính số n theo bộ của trải bài (cho dữ kiện "lá tinh hoa"): bộ = bộ của lá đầu tiên có bộ,
+ * không có trong DB thì dùng tên chuẩn MAJOR_NAMES.
+ */
+export function majorNameLookup(db: CardsDb | null, cards: SpreadCard[]): (n: number) => string | null {
+  const deck = cards.find(c => c.deck)?.deck ?? null;
+  return n => (db && deck ? db.majorNameIn(deck, n) : null) ?? MAJOR_NAMES[n] ?? null;
 }
 
 /** Tên các vị trí của kiểu trải đang chọn theo ngôn ngữ (spreadPositions của bản cũ); null = tự do. */

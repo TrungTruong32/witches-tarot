@@ -5,10 +5,10 @@ import { flushSync } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../app/store';
 import { DeckSelect } from '../../components/DeckSelect';
+import { IconLabel } from '../../components/Icon';
 import { DrawStage, type DrawStageHandle } from '../../components/spread/DrawStage';
 import { SpreadBoard, type SpreadBoardHandle } from '../../components/spread/SpreadBoard';
 import { SpreadPicker } from '../../components/spread/SpreadPicker';
-import { MAJOR_NAMES } from '../../core/cards';
 import { readDrawCount, toSpreadCard } from '../../core/draw';
 import { computeSpreadFacts, factLines } from '../../core/facts';
 import { createCardSearch } from '../../core/search';
@@ -17,7 +17,8 @@ import type { Card, SpreadCard } from '../../core/types';
 import { useT } from '../../i18n/useT';
 import { prefersReducedMotion } from '../../lib/media';
 import type { ReadingEntryState } from '../landing/Landing';
-import { positionsFor, useReading } from './readingStore';
+import { runInterpret, useInterpret } from './interpret';
+import { majorNameLookup, positionsFor, useReading } from './readingStore';
 import { SpreadList } from './SpreadList';
 
 const CHIPS = [
@@ -175,6 +176,7 @@ export function Steps() {
   const setQuestion = useReading(s => s.setQuestion);
   const setSpreadKey = useReading(s => s.setSpreadKey);
   const clear = useReading(s => s.clear);
+  const interpreting = useInterpret(s => s.running);
   const positions = positionsFor({ spreadKey }, lang);
 
   // Ô số lá: kiểu trải cố định khoá theo số vị trí (applySpreadType); về Tự do vẫn giữ số vừa khoá như bản cũ.
@@ -270,9 +272,7 @@ export function Steps() {
 
   const facts = useMemo(() => {
     if (cards.length < 2) return [];
-    const factDeck = cards.find(c => c.deck)?.deck ?? null;
-    const majorName = (n: number) => (db && factDeck ? db.majorNameIn(factDeck, n) : null) ?? MAJOR_NAMES[n] ?? null;
-    return factLines(cards, computeSpreadFacts(cards), lang, majorName);
+    return factLines(cards, computeSpreadFacts(cards), lang, majorNameLookup(db, cards));
   }, [cards, lang, db]);
 
   const pending = reveal === 'deal' && cards.length > 0 && !prefersReducedMotion();
@@ -354,7 +354,9 @@ export function Steps() {
           <div className="facts-body">{facts.map((l, i) => <div key={i}>• {l}</div>)}</div>
         </details>
         <div className="reading-actions">
-          <button className="btn-primary" id="interpretBtn" disabled={!has}>{t('reading.interpret')}</button>
+          <button className="btn-primary" id="interpretBtn" disabled={!has || interpreting} onClick={() => void runInterpret()}>
+            <IconLabel icon="ball" text={t('reading.interpret')} />
+          </button>
           <button id="clearSpreadBtn" className="btn-ghost" disabled={!has} onClick={clear}>{t('reading.clear')}</button>
         </div>
         <CloudNote />
