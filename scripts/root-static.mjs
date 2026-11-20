@@ -14,10 +14,18 @@ const MIME = {
 /** Bản cũ đóng băng (tham chiếu parity) — witches_tarot.html ở gốc đã bỏ khi chuyển sang bản React. */
 export const LEGACY_HTML = 'tests/legacy/witches_tarot.legacy.html';
 
-/** Máy chủ tĩnh cho bản cũ: chỉ "/" (bản sao đóng băng) + danh sách trắng, chỉ lắng nghe trên 127.0.0.1. */
-export function serveLegacy(root, port) {
+/** Máy chủ tĩnh cho bản cũ: chỉ "/" (bản sao đóng băng) + danh sách trắng, chỉ lắng nghe trên 127.0.0.1.
+ *  `extra`: đường dẫn → { body, type } phục vụ thêm (vd. '/sw.js' của bản cũ lấy từ git cho upgrade-check). */
+export function serveLegacy(root, port, extra = {}) {
   const server = createServer((req, res) => {
-    const p = decodeURIComponent((req.url || '/').split('?')[0]);
+    let p;
+    try { p = decodeURIComponent((req.url || '/').split('?')[0]); }
+    catch { res.statusCode = 400; return res.end(); }
+    const x = Object.hasOwn(extra, p) ? extra[p] : null;
+    if (x) {
+      res.setHeader('Content-Type', x.type);
+      return res.end(x.body);
+    }
     const f = p === '/' ? join(root, LEGACY_HTML) : join(root, p);
     if ((p !== '/' && !ROOT_STATIC.test(p)) || !existsSync(f) || statSync(f).isDirectory()) {
       res.statusCode = 404;
