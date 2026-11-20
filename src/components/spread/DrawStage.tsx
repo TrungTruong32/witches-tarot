@@ -18,6 +18,8 @@ export type DrawCtx = 'draw' | 'reading';
 export interface DrawStageHandle {
   /** Ẩn bánh xe (sau khi bốc xong, trước khi cuộn tới bàn trải). */
   hideFan(): void;
+  /** Huỷ lượt đang dở (xào / bánh xe / nghi thức do màn này mở), ẩn bánh xe + dòng trạng thái. onPicked sẽ không được gọi. */
+  cancel(): void;
 }
 
 export interface DrawStageProps {
@@ -184,28 +186,38 @@ export const DrawStage = forwardRef<DrawStageHandle, DrawStageProps>(function Dr
     st.requestRitual(req);
   };
 
+  /** Huỷ lượt của màn này: dừng xào / bánh xe, nhả chỗ, đóng nghi thức nếu do màn này mở. */
+  const abandon = useCallback(() => {
+    const run = runRef.current;
+    runRef.current = null;
+    if (run) {
+      cancelRun(run);
+      releaseDraw(run.token);
+    }
+    const st = useApp.getState();
+    if (st.ritual && st.ritual === ritualReqRef.current) st.closeRitual();
+    ritualReqRef.current = null;
+  }, [cancelRun]);
+
   useImperativeHandle(ref, () => ({
     hideFan() {
       if (fanRef.current) fanRef.current.style.display = 'none';
     },
-  }), []);
+    cancel() {
+      abandon();
+      if (fanRef.current) fanRef.current.style.display = 'none';
+      if (statusRef.current) statusRef.current.style.display = 'none';
+    },
+  }), [abandon]);
 
-  // Gỡ (vd. rời màn giữa chừng): huỷ lượt, nhả chỗ, đóng nghi thức nếu do màn này mở
+  // Gỡ (vd. rời màn giữa chừng): huỷ lượt như cancel()
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      const run = runRef.current;
-      runRef.current = null;
-      if (run) {
-        cancelRun(run);
-        releaseDraw(run.token);
-      }
-      const st = useApp.getState();
-      if (st.ritual && st.ritual === ritualReqRef.current) st.closeRitual();
-      ritualReqRef.current = null;
+      abandon();
     };
-  }, [cancelRun]);
+  }, [abandon]);
 
   const titles = ctx === 'reading'
     ? { auto: 'Xào bài và bốc ngẫu nhiên (thay trải bài hiện tại)', pick: 'Tự chọn từng lá trên bánh xe' }

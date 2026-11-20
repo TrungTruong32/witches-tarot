@@ -70,7 +70,8 @@ export function Draw() {
   const positions = defsFor(spreadKey, lang);
   const navigate = useNavigate();
 
-  const [countRaw, setCountRaw] = useState('3');
+  const countRaw = useDraw(s => s.count);
+  const setCountRaw = useDraw(s => s.setCount);
   // Quay lại màn khi đã có kết quả (kể cả rời giữa lúc chia) → hiện sẵn bàn + ý nghĩa
   const [phase, setPhase] = useState<Phase>(() => (useDraw.getState().result.length ? 'done' : 'idle'));
 
@@ -88,9 +89,13 @@ export function Draw() {
       '<span class="m-sub">' + m.h + '</span></span>';
   }, []);
 
-  /** Đổi kiểu trải: kết quả cũ gắn với vị trí của kiểu trước → bỏ, bàn hiện ô trống của kiểu mới. */
+  /**
+   * Đổi kiểu trải: kết quả cũ gắn với vị trí của kiểu trước → bỏ, bàn hiện ô trống của kiểu mới.
+   * Lượt bốc đang dở (xào / bánh xe) bị huỷ: số lá của nó theo kiểu cũ.
+   */
   const onSpread = (k: string) => {
     if (k === spreadKey) return;
+    stageRef.current?.cancel();
     timers.clear();
     const st = useDraw.getState();
     st.setSpreadKey(k);

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { deckCards } from '../../../tests/fixtures/deck';
 import { initialState, useApp } from '../../app/store';
 import type { CardsDb } from '../../services/cardsDb';
-import { DrawStage } from './DrawStage';
+import { DrawStage, type DrawStageHandle } from './DrawStage';
 import { claimDraw, isLive, releaseDraw } from './drawSession';
 import { RitualOverlay } from './RitualOverlay';
 
@@ -151,7 +151,7 @@ describe('DrawStage pick flow', () => {
   it('hideFan() hides the fan', () => {
     ritualOff();
     stubReduce();
-    const ref = { current: null as null | { hideFan(): void } };
+    const ref = { current: null as DrawStageHandle | null };
     render(<DrawStage ref={ref} ctx="draw" count={1} question="" onStart={() => {}} onPicked={() => {}} doneMsg={doneMsg} />);
     fireEvent.click($('pickBtn'));
     expect($('drawFan').style.display).toBe('block');

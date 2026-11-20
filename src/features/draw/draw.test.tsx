@@ -117,6 +117,41 @@ describe('Drawing', () => {
     expect($<HTMLButtonElement>('drawToReading').disabled).toBe(false);
   });
 
+  it('the free-spread count is remembered when leaving the screen and coming back', () => {
+    renderDraw();
+    fireEvent.change($('drawCount'), { target: { value: '6' } });
+    fireEvent.click(screen.getByTestId('toBrowse'));
+    fireEvent.click(screen.getByTestId('toDraw'));
+    expect($<HTMLInputElement>('drawCount').value).toBe('6');
+  });
+
+  it('changing the spread while shuffling cancels the draw (Stop hidden, buttons back, nothing drawn)', () => {
+    renderDraw();
+    fireEvent.click($('drawBtn'));
+    expect($('stopShuffle').style.display).toBe('inline-block');
+    fireEvent.click(tile('ppf'));
+    expect($('stopShuffle').style.display).toBe('none');
+    expect($<HTMLButtonElement>('drawBtn').disabled).toBe(false);
+    expect($('drawOrbit').classList.contains('on')).toBe(false);
+    act(() => vi.advanceTimersByTime(20000));
+    expect(useDraw.getState().result).toHaveLength(0);
+  });
+
+  it('changing the spread while the wheel is drawing cancels it (fan + status hidden, onPicked never fires)', () => {
+    renderDraw();
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    fireEvent.click($('drawBtn'));
+    fireEvent.click($('stopShuffle'));
+    act(() => vi.advanceTimersByTime(300));
+    expect($('drawFan').style.display).not.toBe('none');
+    fireEvent.click(tile('ppf'));
+    expect($('drawFan').style.display).toBe('none');
+    expect($('pickStatus').style.display).toBe('none');
+    act(() => vi.advanceTimersByTime(30000));
+    expect(useDraw.getState().result).toHaveLength(0);
+    expect(drawCards()).toHaveLength(0);
+  });
+
   it('"Tự do" with #drawCount = 5 draws 5, named "1. <name>"', async () => {
     stubReduce();
     renderDraw();

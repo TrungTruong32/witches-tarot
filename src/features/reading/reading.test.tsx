@@ -129,6 +129,22 @@ describe('Spread type', () => {
     expect(cnt.disabled).toBe(false);
     expect(cnt.value).toBe('10');
   });
+
+  it('the free-spread count is remembered when leaving the screen and coming back', () => {
+    const first = renderReading();
+    fireEvent.change($('spreadDrawCount'), { target: { value: '7' } });
+    first.unmount();
+    renderReading();
+    expect($<HTMLInputElement>('spreadDrawCount').value).toBe('7');
+  });
+
+  it('a spread set from outside (shared link / History) locks the count too', () => {
+    useReading.getState().setSpreadKey('celtic');
+    renderReading();
+    expect($<HTMLInputElement>('spreadDrawCount').value).toBe('10');
+    fireEvent.click(tile('free'));
+    expect($<HTMLInputElement>('spreadDrawCount').value).toBe('10');
+  });
 });
 
 describe('Manual add', () => {

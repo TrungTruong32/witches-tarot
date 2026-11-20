@@ -179,23 +179,14 @@ export function Steps() {
   const reveal = useReading(s => s.reveal);
   const setQuestion = useReading(s => s.setQuestion);
   const setSpreadKey = useReading(s => s.setSpreadKey);
+  const countRaw = useReading(s => s.drawCount);
+  const setCountRaw = useReading(s => s.setDrawCount);
   const clear = useReading(s => s.clear);
   const interpreting = useInterpret(s => s.running);
   const positions = defsFor(spreadKey, lang);
 
-  // Ô số lá: kiểu trải cố định khoá theo số vị trí (applySpreadType); về Tự do vẫn giữ số vừa khoá như bản cũ.
-  const [countRaw, setCountRaw] = useState(() => (positions ? String(positions.length) : '3'));
-  // Kiểu trải đổi từ ngoài (loadReading: link chia sẻ / Lịch sử) cũng khoá số lá như applySpreadType
-  const [countKey, setCountKey] = useState(spreadKey);
-  if (countKey !== spreadKey) {
-    setCountKey(spreadKey);
-    if (positions) setCountRaw(String(positions.length));
-  }
-  const onSpread = (k: string) => {
-    const pos = defsFor(k, lang);
-    if (pos) setCountRaw(String(pos.length));
-    setSpreadKey(k);
-  };
+  // Ô số lá: kiểu trải cố định khoá theo số vị trí — store (setSpreadKey) lo, kể cả khi kiểu trải đổi từ ngoài
+  const onSpread = setSpreadKey;
 
   const questionRef = useRef<HTMLTextAreaElement>(null);
   const stageRef = useRef<DrawStageHandle>(null);

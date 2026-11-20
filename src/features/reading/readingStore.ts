@@ -22,8 +22,15 @@ export interface ReadingState {
   followups: { q: string; a: string }[];
   current: ReadingRecord | null;
   aiBg: AiBg;
+  /**
+   * Ô "Số lá" (chuỗi như ô nhập). Kiểu trải cố định khoá theo số vị trí (applySpreadType của bản cũ);
+   * về Tự do vẫn giữ số vừa khoá. Nằm trong store để rời màn rồi quay lại không bị đặt lại về 3.
+   */
+  drawCount: string;
   setQuestion(q: string): void;
+  /** Đổi kiểu trải (kể cả từ ngoài: link chia sẻ, Lịch sử, "Đưa sang Trải bài AI"); kiểu cố định khoá drawCount. */
   setSpreadKey(k: string): void;
+  setDrawCount(v: string): void;
   setCards(c: SpreadCard[], reveal?: Reveal): void;
   /** Thêm một lá từ DB (Xuôi). false = kiểu trải cố định đã đủ lá. */
   addCard(c: Card): boolean;
@@ -41,7 +48,7 @@ export interface ReadingState {
 }
 
 type Data = Pick<ReadingState,
-  'question' | 'spreadKey' | 'cards' | 'reveal' | 'answer' | 'provider' | 'messages' | 'followups' | 'current' | 'aiBg'>;
+  'question' | 'spreadKey' | 'cards' | 'reveal' | 'answer' | 'provider' | 'messages' | 'followups' | 'current' | 'aiBg' | 'drawCount'>;
 
 /** Trạng thái ban đầu (dùng để reset trong test). */
 export function initialReading(): Data {
@@ -56,6 +63,7 @@ export function initialReading(): Data {
     followups: [],
     current: null,
     aiBg: 'off',
+    drawCount: '3',
   };
 }
 
@@ -63,7 +71,11 @@ export function initialReading(): Data {
 export const useReading: UseBoundStore<StoreApi<ReadingState>> = create<ReadingState>()((set, get) => ({
   ...initialReading(),
   setQuestion: q => set({ question: q }),
-  setSpreadKey: k => set({ spreadKey: k, reveal: 'none' }),
+  setSpreadKey: k => {
+    const pos = defsFor(k, 'vi');
+    set(pos ? { spreadKey: k, reveal: 'none', drawCount: String(pos.length) } : { spreadKey: k, reveal: 'none' });
+  },
+  setDrawCount: v => set({ drawCount: v }),
   setCards: (c, reveal = 'none') => set({ cards: c, reveal }),
   addCard: card => {
     const { cards, spreadKey } = get();
