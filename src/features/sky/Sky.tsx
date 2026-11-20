@@ -2,10 +2,10 @@
 // Vẽ + cử chỉ ở engines/skyMap.ts; ở đây là nút điều khiển, vị trí/GPS, lớp hiển thị, toàn màn hình và #skyInfo.
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useApp } from '../../app/store';
-import { readColors } from '../../components/Background';
 import { DEFAULT_SKY_LAYERS, SKY_CITIES, startSkyMap, type SkyLayers, type SkyMap } from '../../engines/skyMap';
 import { pickLang, useT } from '../../i18n/useT';
 import { prefersReducedMotion } from '../../lib/media';
+import { readColors } from '../../lib/themeColors';
 import { getJson, getStr, KEYS, setStr } from '../../services/storage';
 
 const LOCS = ['hcm', 'hanoi', 'danang', 'cantho', 'gps'];
@@ -19,6 +19,11 @@ const GPS_DENIED = { vi: 'Bị từ chối định vị — hãy chọn một th
 const GPS_NONE = { vi: 'Thiết bị không hỗ trợ định vị.', en: 'Geolocation not supported.' };
 const FS_NONE = { vi: 'Thiết bị không hỗ trợ toàn màn hình.', en: 'Fullscreen not supported on this device.' };
 const GPS_NAME = { vi: 'vị trí của bạn', en: 'your location' };
+
+/** Toạ độ GPS lần gần nhất trong phiên: rời màn hình rồi quay lại (vẫn chọn 'gps') thì giữ vị trí như bản cũ (trang không tải lại). */
+let lastGps: { lat: number; lon: number } | null = null;
+/** Chỉ cho test: quên toạ độ GPS đã nhớ. */
+export function resetSkyGpsForTests(): void { lastGps = null; }
 
 /** Nơi đã lưu (chỉ nhận giá trị có trong danh sách), mặc định TP.HCM. */
 function savedLoc(): string {
@@ -44,20 +49,31 @@ export function Sky() {
   const stageRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<SkyMap | null>(null);
   const layersRef = useRef(layers);
+  const locRef = useRef(loc);
+  /** Số lượt xin GPS: callback trễ (đã đổi nơi / đã rời màn hình) bị bỏ qua. */
+  const gpsReq = useRef(0);
+  /** Đang hiện chữ trạng thái riêng (GPS / toàn màn hình) → bỏ qua chữ engine báo lại khi đổi ngôn ngữ. */
+  const ownStatus = useRef(false);
+  const showStatus = (p: { vi: string; en: string }) => { ownStatus.current = true; setInfo(p); };
 
   // Vào màn hình: chạy engine (skyStart); rời màn hình: dừng rAF + gỡ mọi listener (skyStop)
   useEffect(() => {
     const cv = canvasRef.current;
     if (!cv) return;
-    // bản cũ: giá trị 'gps' đã lưu không tự xin vị trí lại → vẫn vẽ TP.HCM
-    const c = SKY_CITIES[savedLoc()] ?? HCM;
+    // 'gps' đã lưu: dùng toạ độ đã nhớ trong phiên; chưa có thì như bản cũ — không tự xin vị trí, vẽ TP.HCM
+    const lang0 = useApp.getState().lang;
+    const c: [number, number, string] = locRef.current === 'gps' && lastGps
+      ? [lastGps.lat, lastGps.lon, pickLang(lang0, GPS_NAME)]
+      : SKY_CITIES[locRef.current] ?? HCM;
     const engine = startSkyMap(
       cv,
-      { lat: c[0], lon: c[1], name: c[2], layers: layersRef.current, lang: useApp.getState().lang, reduce: prefersReducedMotion(), colors: readColors() },
-      { onInfo: setInfo },
+      { lat: c[0], lon: c[1], name: c[2], layers: layersRef.current, lang: lang0, reduce: prefersReducedMotion(), colors: readColors() },
+      { onInfo: text => { if (!ownStatus.current) setInfo(text); } },
     );
     engineRef.current = engine;
+    const req = gpsReq;
     return () => {
+      req.current++;   // huỷ mọi callback GPS đang chờ
       engine.stop();
       engineRef.current = null;
     };
@@ -70,19 +86,28 @@ export function Sky() {
   function onLoc(e: ChangeEvent<HTMLSelectElement>) {
     const v = e.target.value;
     const engine = engineRef.current;
+    const my = ++gpsReq.current;
     setLoc(v);
+    locRef.current = v;
     engine?.clearSelection();
     setStr(KEYS.skyLoc, v);
     if (v === 'gps') {
-      setInfo(GPS_ASK);
+      showStatus(GPS_ASK);
+      const live = () => my === gpsReq.current && locRef.current === 'gps' && !!engineRef.current;
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          pos => engineRef.current?.setLocation(pos.coords.latitude, pos.coords.longitude, pickLang(useApp.getState().lang, GPS_NAME)),
-          () => setInfo(GPS_DENIED),
+          pos => {
+            if (!live()) return;
+            lastGps = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+            ownStatus.current = false;
+            engineRef.current!.setLocation(lastGps.lat, lastGps.lon, pickLang(useApp.getState().lang, GPS_NAME));
+          },
+          () => { if (live()) showStatus(GPS_DENIED); },
         );
-      } else setInfo(GPS_NONE);
+      } else showStatus(GPS_NONE);
     } else {
       const c = SKY_CITIES[v];
+      ownStatus.current = false;
       if (c) engine?.setLocation(c[0], c[1], c[2]);
     }
   }
@@ -105,7 +130,7 @@ export function Sky() {
       void Promise.resolve(exit?.call(d)).catch(() => {});
     } else if (st.requestFullscreen) void Promise.resolve(st.requestFullscreen()).catch(() => {});
     else if (st.webkitRequestFullscreen) st.webkitRequestFullscreen();
-    else setInfo(FS_NONE);
+    else showStatus(FS_NONE);
   }
 
   const tg = (on: boolean) => 'sky-tg' + (on ? ' on' : '');

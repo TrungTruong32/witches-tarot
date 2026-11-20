@@ -157,6 +157,54 @@ describe('startSkyMap', () => {
     e.stop();
   });
 
+  it('chụm 2 ngón → 1 ngón: không nhảy góc xoay, nhấc hết tay thì map rỗng và không chọn sao (phán quyết)', async () => {
+    const { julianDay, localSiderealDeg } = await import('../core/astro');
+    const lst = localSiderealDeg(julianDay(new Date()), OPTS.lon);
+    loadSky.mockResolvedValue({ stars: [[lst, OPTS.lat, 1]], lines: [], names: [], consts: [] });
+    const cv = document.createElement('canvas');
+    const e = startSkyMap(cv, OPTS, { onInfo: () => {} });
+    await vi.waitFor(() => expect(loadSky).toHaveBeenCalled());
+    await Promise.resolve();
+    const ev = (type: string, pointerId: number, clientX: number, clientY = 212) => cv.dispatchEvent(Object.assign(new Event(type), { pointerId, clientX, clientY }));
+    const boxed = () => fc.calls.some(c => c.fn === 'fillText' && c.args[0] === 'Cấp sáng 1.0');
+    ev('pointerdown', 1, 162);
+    ev('pointerdown', 2, 163);   // ngón thứ 2 gần như không đi đâu
+    expect(cv.classList.contains('grabbing')).toBe(true);
+    ev('pointerup', 2, 163);
+    frame();
+    expect(lastRotate()).toBe(0);   // còn 1 ngón: không nhảy
+    ev('pointermove', 1, 212);      // kéo tiếp 50px từ chỗ ngón 1 đang đứng → +0.3 rad
+    frame();
+    expect(lastRotate()).toBeCloseTo(0.3, 9);
+    ev('pointermove', 1, 162);
+    ev('pointerup', 1, 162);
+    expect(cv.classList.contains('grabbing')).toBe(false);   // map ngón rỗng
+    frame();
+    expect(boxed()).toBe(false);
+    // lượt chạm mới (1 ngón) lại chọn được sao
+    e.reset();
+    ev('pointerdown', 3, 162);
+    ev('pointerup', 3, 162);
+    frame();
+    expect(boxed()).toBe(true);
+    e.stop();
+  });
+
+  it('chụm rồi nhấc cả hai ngón gần như không di chuyển → không chọn sao', async () => {
+    const { julianDay, localSiderealDeg } = await import('../core/astro');
+    const lst = localSiderealDeg(julianDay(new Date()), OPTS.lon);
+    loadSky.mockResolvedValue({ stars: [[lst, OPTS.lat, 1]], lines: [], names: [], consts: [] });
+    const cv = document.createElement('canvas');
+    const e = startSkyMap(cv, OPTS, { onInfo: () => {} });
+    await vi.waitFor(() => expect(loadSky).toHaveBeenCalled());
+    await Promise.resolve();
+    const ev = (type: string, pointerId: number, clientX: number) => cv.dispatchEvent(Object.assign(new Event(type), { pointerId, clientX, clientY: 212 }));
+    ev('pointerdown', 1, 162); ev('pointerdown', 2, 170); ev('pointerup', 1, 162); ev('pointerup', 2, 170);
+    frame();
+    expect(fc.calls.some(c => c.fn === 'fillText' && c.args[0] === 'Cấp sáng 1.0')).toBe(false);
+    e.stop();
+  });
+
   it('stop() gỡ mọi listener (window resize, fullscreenchange, canvas) và huỷ rAF', () => {
     loadSky.mockReturnValue(new Promise(() => {}));
     const cv = document.createElement('canvas');

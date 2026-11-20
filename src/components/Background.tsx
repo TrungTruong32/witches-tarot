@@ -1,16 +1,11 @@
 // Nền động toàn màn hình: #bgAura + canvas#bgStars (bản cũ L834–835), chạy engine starfield, gắn window.tarotBurst.
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useApp } from '../app/store';
-import { startStarfield, type Starfield, type StarfieldOpts } from '../engines/starfield';
+import { startStarfield, type Starfield } from '../engines/starfield';
 import { prefersReducedMotion } from '../lib/media';
+import { readColors } from '../lib/themeColors';
 
 type BurstWin = { tarotBurst?: (x: number, y: number, n: number) => void };
-
-/** Màu sao/hạt theo theme hiện tại (CSS --star/--spark); trống thì dùng màu mặc định của bản cũ. */
-export function readColors(): StarfieldOpts['colors'] {
-  const cs = getComputedStyle(document.documentElement);
-  return { star: cs.getPropertyValue('--star').trim() || '#e9e3ff', spark: cs.getPropertyValue('--spark').trim() || '#ffe1a8' };
-}
 
 export function Background() {
   const fx = useApp(s => s.prefs.fx);

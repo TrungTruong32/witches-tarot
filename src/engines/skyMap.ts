@@ -227,11 +227,13 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
   // Kéo để xoay + chụm 2 ngón để phóng + chạm để chọn sao
   const ptrs = new Map<number, { x: number; y: number }>();
   let pinch = 0, startRot = 0, lastX = 0, downX = 0, downY = 0, moved = 0;
+  // phán quyết (sửa lỗi bản cũ): đã chụm 2 ngón trong lượt chạm này → nhấc tay không tính là chạm chọn sao
+  let pinched = false;
   const onDown = (e: PointerEvent) => {
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); try { cv.setPointerCapture(e.pointerId); } catch { /* bỏ qua */ }
     cv.classList.add('grabbing');
-    if (ptrs.size === 1) { lastX = e.clientX; startRot = rot; downX = e.clientX; downY = e.clientY; moved = 0; }
-    else if (ptrs.size === 2) { const a = [...ptrs.values()]; pinch = Math.hypot(a[0]!.x - a[1]!.x, a[0]!.y - a[1]!.y); }
+    if (ptrs.size === 1) { lastX = e.clientX; startRot = rot; downX = e.clientX; downY = e.clientY; moved = 0; pinched = false; }
+    else if (ptrs.size === 2) { pinched = true; const a = [...ptrs.values()]; pinch = Math.hypot(a[0]!.x - a[1]!.x, a[0]!.y - a[1]!.y); }
   };
   const onMove = (e: PointerEvent) => {
     if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -246,7 +248,7 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
     const wasOne = ptrs.size === 1; ptrs.delete(e.pointerId);
     if (ptrs.size < 2) pinch = 0;
     if (ptrs.size === 1) { const p = [...ptrs.values()][0]!; lastX = p.x; startRot = rot; }
-    if (!ptrs.size) { cv.classList.remove('grabbing'); if (wasOne && moved < 6) pick(downX, downY); }
+    if (!ptrs.size) { cv.classList.remove('grabbing'); if (wasOne && moved < 6 && !pinched) pick(downX, downY); }
   };
   const onWheel = (e: WheelEvent) => { e.preventDefault(); zoom = clampZoom(zoom * (e.deltaY < 0 ? 1.1 : 0.9)); sel = null; computedAt = 0; };
   const onResize = () => resize();
