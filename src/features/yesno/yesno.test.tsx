@@ -6,7 +6,8 @@ import { initialState, useApp } from '../../app/store';
 import { cardText } from '../../core/cards';
 import { firstSentence } from '../../core/yesno';
 import { openCardsDb, type CardsDb } from '../../services/cardsDb';
-import { __setYesNoDeps, YesNo } from './YesNo';
+import { YesNo } from './YesNo';
+import { resetYesNoDeps, yesNoDeps } from './yesnoDeps';
 
 let db: CardsDb;
 beforeAll(async () => { db = openCardsDb(await makeDb(deckCards), await sqlJs()); });
@@ -20,7 +21,7 @@ beforeEach(() => {
   localStorage.clear();
   useApp.setState({ ...initialState(), db, decks: db.decks(), deck: W, dbStatus: 'ready', aiSettings: noAi });
 });
-afterEach(() => __setYesNoDeps({}));
+afterEach(() => { resetYesNoDeps(); delete (window as unknown as { tarotBurst?: unknown }).tarotBurst; });
 
 const draw = async () => { await act(async () => { fireEvent.click(document.getElementById('yesnoBtn')!); }); };
 
@@ -28,7 +29,7 @@ describe('YesNo', () => {
   const fool = () => db.query({ deck: W })[0]!;
 
   it('without AI: local verdict and first sentence of the upright meaning', async () => {
-    __setYesNoDeps({ rng: fix(false) });
+    Object.assign(yesNoDeps, { rng: fix(false) });
     render(<YesNo />);
     await draw();
     expect(document.getElementById('yesnoResult')!.className).toBe('yesno-result show');
@@ -40,7 +41,7 @@ describe('YesNo', () => {
   });
 
   it('reversed card: KHÔNG, rev image, lightbox on click', async () => {
-    __setYesNoDeps({ rng: fix(true) });
+    Object.assign(yesNoDeps, { rng: fix(true) });
     render(<YesNo />);
     await draw();
     expect(document.getElementById('ynVerdict')!.textContent).toBe('KHÔNG');
@@ -58,7 +59,7 @@ describe('YesNo', () => {
       cb.onToken('PHÁN QUYẾT: Không\nVì **đúng**.');
       return { provider: 'free' as const };
     });
-    __setYesNoDeps({ rng: fix(false), chat: chat as never });
+    Object.assign(yesNoDeps, { rng: fix(false), chat: chat as never });
     render(<YesNo />);
     fireEvent.change(document.getElementById('yesnoQ')!, { target: { value: 'có nên?' } });
     await draw();
@@ -73,7 +74,7 @@ describe('YesNo', () => {
 
   it('AI error falls back to the local verdict with the error text', async () => {
     useApp.setState({ aiSettings: { ...noAi, freeAi: true } });
-    __setYesNoDeps({ rng: fix(false), chat: (async () => { throw new Error('boom'); }) as never });
+    Object.assign(yesNoDeps, { rng: fix(false), chat: (async () => { throw new Error('boom'); }) as never });
     render(<YesNo />);
     await draw();
     expect(document.getElementById('ynVerdict')!.textContent).toBe('CÓ');
@@ -82,7 +83,7 @@ describe('YesNo', () => {
   });
 
   it('chips fill the question in the current language and focus; Enter draws', async () => {
-    __setYesNoDeps({ rng: fix(false) });
+    Object.assign(yesNoDeps, { rng: fix(false) });
     render(<YesNo />);
     const chip = document.querySelector('#ynChips .qchip') as HTMLElement;
     fireEvent.click(chip);
@@ -94,5 +95,72 @@ describe('YesNo', () => {
     expect(input.value).toBe(chip.dataset.qen);
     await act(async () => { fireEvent.keyDown(input, { key: 'Enter' }); });
     expect(document.getElementById('ynVerdict')).not.toBeNull();
+  });
+
+  const aiOn = () => useApp.setState({ aiSettings: { ...noAi, freeAi: true } });
+  /** Chat giả có thể hoãn: mỗi lần gọi đẩy một resolver vào hàng đợi. */
+  const deferredChat = () => {
+    const calls: { done(text: string): void }[] = [];
+    const chat = (async (_m: unknown, cb: { onToken(t: string): void }) => {
+      await new Promise<void>(r => calls.push({ done: text => { cb.onToken(text); r(); } }));
+      return { provider: 'free' as const };
+    }) as never;
+    return { calls, chat };
+  };
+
+  it('bursts on every draw, even when the same card and orientation repeat', async () => {
+    const burst = vi.fn();
+    (window as unknown as { tarotBurst: unknown }).tarotBurst = burst;
+    Object.assign(yesNoDeps, { rng: fix(false) });
+    render(<YesNo />);
+    await draw();
+    await draw();
+    expect(burst).toHaveBeenCalledTimes(2);
+  });
+
+  it('a late answer of an older draw does not overwrite the newer result', async () => {
+    aiOn();
+    const { calls, chat } = deferredChat();
+    Object.assign(yesNoDeps, { rng: fix(false), chat });
+    render(<YesNo />);
+    await draw();
+    await draw();
+    expect(calls).toHaveLength(2);
+    await act(async () => { calls[1]!.done('PHÁN QUYẾT: Có\nmới'); });
+    expect(document.getElementById('ynVerdict')!.textContent).toBe('CÓ');
+    await act(async () => { calls[0]!.done('PHÁN QUYẾT: Không\ncũ'); });
+    expect(document.getElementById('ynVerdict')!.textContent).toBe('CÓ');
+    expect(document.getElementById('ynWhy')!.textContent).toBe('mới');
+  });
+
+  it('unmounting while the AI is pending aborts quietly (no error, no state update)', async () => {
+    aiOn();
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let signal: AbortSignal | undefined;
+    let fail!: (e: unknown) => void;
+    const chat = (async (_m: unknown, _cb: unknown, ctx: { signal?: AbortSignal }) => {
+      signal = ctx.signal;
+      await new Promise((_r, rej) => { fail = rej; });
+    }) as never;
+    Object.assign(yesNoDeps, { rng: fix(false), chat });
+    const { unmount } = render(<YesNo />);
+    await draw();
+    unmount();
+    expect(signal!.aborted).toBe(true);
+    await act(async () => { fail(new DOMException('aborted', 'AbortError')); });
+    expect(err).not.toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  it('escapes markup in the AI body', async () => {
+    aiOn();
+    const { calls, chat } = deferredChat();
+    Object.assign(yesNoDeps, { rng: fix(false), chat });
+    render(<YesNo />);
+    await draw();
+    await act(async () => { calls[0]!.done('PHÁN QUYẾT: Có\n<img src=x onerror=alert(1)> <script>alert(2)</script>'); });
+    const why = document.getElementById('ynWhy')!;
+    expect(why.querySelector('img, script')).toBeNull();
+    expect(why.textContent).toContain('<img src=x');
   });
 });

@@ -8,7 +8,8 @@ import { firstSentence, localVerdict, parseVerdict, ynClass, yesNoMessages, type
 import { ensureAudio, sfx } from '../../engines/audio';
 import { burstAt, haptic } from '../../engines/burst';
 import { useT } from '../../i18n/useT';
-import { chatComplete, providerChain, providerReady } from '../../services/ai/chat';
+import { providerChain, providerReady } from '../../services/ai/chat';
+import { yesNoDeps } from './yesnoDeps';
 
 const CHIPS = [
   { k: 'ynchip.opp', q: 'Tôi có nên nhận cơ hội / lời đề nghị này không?', qen: 'Should I take this opportunity / offer?' },
@@ -18,16 +19,11 @@ const CHIPS = [
   { k: 'ynchip.them', q: 'Người ấy có đang nghĩ về tôi không?', qen: 'Are they thinking about me?' },
 ] as const;
 
-// Tiêm được để test cố định lá bài / thay AI giả.
-let rng: () => number = Math.random;
-let chat: typeof chatComplete = chatComplete;
-export function __setYesNoDeps(d: { rng?: () => number; chat?: typeof chatComplete }): void {
-  rng = d.rng ?? Math.random;
-  chat = d.chat ?? chatComplete;
-}
 
 type Why = { kind: 'loading' } | { kind: 'text'; text: string } | { kind: 'html'; html: string };
 interface Result {
+  /** Số thứ tự lượt rút: mỗi lượt bung hạt đúng một lần. */
+  n: number;
   card: Card;
   rev: boolean;
   lang: Lang;
@@ -52,14 +48,14 @@ export function YesNo() {
   // bung hạt sau khi ảnh lá bài đã vẽ (mỗi lần rút một lá mới)
   useEffect(() => {
     if (res) burstAt(imgRef.current, 16);
-  }, [res?.card, res?.rev]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [res?.n]);
 
   async function draw() {
     if (!db) return;
     const rows = db.query({ deck });
     if (!rows.length) return;
-    const c = rows[Math.floor(rng() * rows.length)] as Card;
-    const rev = rng() < 0.5;
+    const c = rows[Math.floor(yesNoDeps.rng() * rows.length)] as Card;
+    const rev = yesNoDeps.rng() < 0.5;
     const app = useApp.getState();
     const en = lang === 'en';
     const ct = cardText(c, lang, app.cardEn);
@@ -68,25 +64,25 @@ export function YesNo() {
     haptic(12); ensureAudio(); sfx.tick();
 
     abortRef.current?.abort();
-    const my = ++drawId.current;
+    const my = ++drawId.current; // cũng là số thứ tự lượt rút
     const settings = app.aiSettings;
     const useAI = providerChain(settings).some(p => providerReady(p, settings));
     if (!useAI) {
-      setRes({ card: c, rev, lang, verdict: local.verdict, cls: local.cls, why: { kind: 'text', text: firstSentence(meaning) } });
+      setRes({ n: my, card: c, rev, lang, verdict: local.verdict, cls: local.cls, why: { kind: 'text', text: firstSentence(meaning) } });
       return;
     }
-    setRes({ card: c, rev, lang, verdict: '…', cls: 'maybe', why: { kind: 'loading' } });
+    setRes({ n: my, card: c, rev, lang, verdict: '…', cls: 'maybe', why: { kind: 'loading' } });
     const ac = new AbortController();
     abortRef.current = ac;
     let raw = '';
     try {
-      await chat(yesNoMessages(q.trim(), c, rev, lang, app.cardEn), { onToken: tk => { raw += tk; } },
+      await yesNoDeps.chat(yesNoMessages(q.trim(), c, rev, lang, app.cardEn), { onToken: tk => { raw += tk; } },
         { settings, lang, deck: c.deck || app.deck || '', signal: ac.signal });
     } catch (e) {
       if (my !== drawId.current || ac.signal.aborted) return;
       const msg = e instanceof Error ? e.message : String(e);
       setRes({
-        card: c, rev, lang, verdict: local.verdict, cls: local.cls,
+        n: my, card: c, rev, lang, verdict: local.verdict, cls: local.cls,
         why: { kind: 'text', text: (en ? '⚠️ AI error (' : '⚠️ AI lỗi (') + msg + (en ? '). Using orientation-based verdict: ' : '). Tạm dùng phán quyết theo chiều lá: ') + firstSentence(meaning) },
       });
       return;
@@ -95,7 +91,7 @@ export function YesNo() {
     const p = parseVerdict(raw);
     const verdict = p.verdict || local.verdict;
     setRes({
-      card: c, rev, lang, verdict, cls: ynClass(verdict),
+      n: my, card: c, rev, lang, verdict, cls: ynClass(verdict),
       why: p.body ? { kind: 'html', html: renderMarkdown(p.body) } : { kind: 'text', text: firstSentence(meaning) },
     });
   }
