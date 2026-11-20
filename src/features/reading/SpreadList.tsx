@@ -57,7 +57,10 @@ export const SpreadList = forwardRef<HTMLDivElement, SpreadListProps>(function S
   return (
     <div id="spreadList" className={pending ? 'pending' : undefined} ref={ref}>
       {!cards.length ? (
-        <div className="empty-spread">{pick({ vi: 'Chưa có lá nào — bấm “Xào & bốc” ở bước 3 để rút bài.', en: 'No cards yet — tap “Shuffle & draw” in step 3.' })}</div>
+        <div className="empty-spread">{pick({
+          vi: 'Chưa có lá nào — bấm “Máy bốc ngẫu nhiên” hoặc “Tự tay chọn lá” ở bước 3 để rút bài.',
+          en: 'No cards yet — tap “Draw for me” or “Pick my own cards” in step 3.',
+        })}</div>
       ) : (
         cards.map((c, i) => {
           const uid = c.uid ?? -1;

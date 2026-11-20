@@ -4,6 +4,7 @@ import { cardText } from '../../core/cards';
 import { renderMarkdown } from '../../core/markdown';
 import type { Card, CardEnMap, Lang } from '../../core/types';
 import { firstSentence, localVerdict, parseVerdict, ynClass, yesNoMessages, type YnClass } from '../../core/yesno';
+import { pickLang } from '../../i18n/useT';
 import { chatComplete } from '../../services/ai/chat';
 import { isAbortError, type ProviderCtx } from '../../services/ai/providers';
 
@@ -54,8 +55,9 @@ export async function aiAnswer(
   } catch (e) {
     if (isAbortError(e) || ctx.signal?.aborted) return null;
     const msg = e instanceof Error ? e.message : String(e);
-    const en = lang === 'en';
-    const text = (en ? '⚠️ AI error (' : '⚠️ AI lỗi (') + msg + (en ? '). Using orientation-based verdict: ' : '). Tạm dùng phán quyết theo chiều lá: ') + firstSentence(meaningOf(card, rev, lang, cardEn));
+    const text = pickLang(lang, { vi: '⚠️ AI lỗi (', en: '⚠️ AI error (' }) + msg
+      + pickLang(lang, { vi: '). Tạm dùng phán quyết theo chiều lá: ', en: '). Using orientation-based verdict: ' })
+      + firstSentence(meaningOf(card, rev, lang, cardEn));
     return { ...local, why: { kind: 'text', text } };
   }
   const p = parseVerdict(raw);

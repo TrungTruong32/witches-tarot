@@ -61,7 +61,7 @@ interface Run {
 
 export const DrawStage = forwardRef<DrawStageHandle, DrawStageProps>(function DrawStage(props, ref) {
   const { ctx, leading, trailing } = props;
-  const { t } = useT();
+  const { t, pick } = useT();
   const ids = IDS[ctx];
   const dbReady = useApp(s => s.dbStatus === 'ready' && s.db !== null);
   const [shuffling, setShuffling] = useState(false);
@@ -219,8 +219,12 @@ export const DrawStage = forwardRef<DrawStageHandle, DrawStageProps>(function Dr
     };
   }, [abandon]);
 
+  // title của bản cũ chỉ có ở màn Trải bài; §5.8 đổi tên nút → title theo tên mới
   const titles = ctx === 'reading'
-    ? { auto: 'Xào bài và bốc ngẫu nhiên (thay trải bài hiện tại)', pick: 'Tự chọn từng lá trên bánh xe' }
+    ? {
+        auto: pick({ vi: 'Máy bốc ngẫu nhiên (thay trải bài hiện tại)', en: 'Draw for me (replaces the current spread)' }),
+        pick: pick({ vi: 'Tự tay chọn từng lá trên bánh xe', en: 'Pick my own cards on the wheel' }),
+      }
     : { auto: undefined, pick: undefined };
 
   return (

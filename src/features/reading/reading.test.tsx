@@ -81,7 +81,10 @@ describe('Steps markup matches legacy', () => {
     expect($('readingDeckInfo').hidden).toBe(true);
     expect($('readingDeckInfo').textContent).toContain('Đang trải bằng bộ: “Witches Tarot”.');
     expect($('spreadBoard').hidden).toBe(true);
-    expect(document.querySelector('#spreadList .empty-spread')!.textContent).toBe('Chưa có lá nào — bấm “Xào & bốc” ở bước 3 để rút bài.');
+    // §5.8: câu gợi ý gọi đúng tên mới của hai nút bốc (bản cũ: “Xào & bốc”)
+    expect(document.querySelector('#spreadList .empty-spread')!.textContent).toBe('Chưa có lá nào — bấm “Máy bốc ngẫu nhiên” hoặc “Tự tay chọn lá” ở bước 3 để rút bài.');
+    expect($('spreadDrawBtn').title).toBe('Máy bốc ngẫu nhiên (thay trải bài hiện tại)');
+    expect($('spreadPickBtn').title).toBe('Tự tay chọn từng lá trên bánh xe');
     expect($<HTMLButtonElement>('interpretBtn').disabled).toBe(true);
     expect($<HTMLButtonElement>('clearSpreadBtn').disabled).toBe(true);
     expect($('spreadFacts').style.display).toBe('none');
@@ -90,6 +93,14 @@ describe('Steps markup matches legacy', () => {
     const panel = $('resultPanel');
     expect(panel.className).toBe('panel result-panel is-empty');
     expect(panel.previousElementSibling).toBe(ours);
+  });
+
+  it('§5.8: in EN the empty-spread hint and the step-3 button titles use the new button names', () => {
+    useApp.setState({ lang: 'en' });
+    renderReading();
+    expect(document.querySelector('#spreadList .empty-spread')!.textContent).toBe('No cards yet — tap “Draw for me” or “Pick my own cards” in step 3.');
+    expect($('spreadDrawBtn').title).toBe('Draw for me (replaces the current spread)');
+    expect($('spreadPickBtn').title).toBe('Pick my own cards on the wheel');
   });
 
   it('chips fill the question in the current language', () => {
