@@ -8,14 +8,14 @@ Chạy trên Vercel (project `tarot`, scope `trung-truong`); trải bài và lư
 | Đường dẫn | Là gì |
 |---|---|
 | `src/`, `index.html`, `vite.config.ts` | App React + TypeScript (Vite) — cấu trúc xem [README](../README.md), mục "Kỹ thuật" |
-| `tests/legacy/witches_tarot.legacy.html` | Bản cũ (một file HTML) **đóng băng** — chỉ làm tham chiếu cho test so khớp và `parity-screens`; không sửa |
+| `tests/legacy/witches_tarot.legacy.html` | Bản cũ (một file HTML) **đóng băng** — chỉ làm tham chiếu cho test so khớp, `parity-screens` và `upgrade-check` (chạy như app thật cùng `sw.js` cũ để thử nâng cấp); không sửa |
 | `tarot.db` | Dữ liệu bộ bài (SQLite), build từ `Data/` bằng `Data/build_db.py` |
-| `src/sw/` | Service worker — sinh lúc build (`scripts/build-sw.mjs`); tên cache là hash nội dung nên tự đổi khi `tarot.db`, icon, mặt lưng bài đổi (không còn phải tăng `CACHE` bằng tay) |
+| `src/sw/` | Service worker — sinh lúc build (`scripts/build-sw.mjs` → `dist/sw.js`) với **hai cache tách riêng**: `wtarot-app-<hash>` (vỏ app, `/assets/*`, trang tải lúc chạy) và `wtarot-data-<hash>` (`tarot.db`, `card_en.json`, `sky.json`, icon, mặt lưng). Tên là hash nội dung nên tự đổi khi code hoặc dữ liệu đổi (không còn tăng `CACHE` bằng tay); đổi code không tải lại `tarot.db`. Lúc activate xoá mọi cache khác, kể cả `wtarot-v9` của bản cũ |
 | `la-bai/` | Trang tĩnh cho SEO, build bằng `scripts/build_seo_pages.py` (chạy lại khi `tarot.db` đổi) |
 | `api/` | API chạy trên Vercel: `ai.js` (AI miễn phí), `readings.js` (lưu trải bài), `llm.js` / `img.js` (proxy), `_guard.js` (hàng rào dùng chung) |
 | `supabase/migrations/` | Cấu trúc database (chạy lại an toàn) |
-| `scripts/` | Script chạy trên máy: cài Supabase, đẩy biến môi trường, deploy, Firewall |
-| `vercel.json` | Rewrite `/` → app, header bảo mật (CSP…) |
+| `scripts/` | Script chạy trên máy: build (copy-static, build-sw), kiểm tra trên Chrome thật (smoke, CSP, offline, nâng cấp từ bản cũ), deploy prebuilt, cài Supabase, đẩy biến môi trường, Firewall |
+| `vercel.json` | Route app (rewrite → `index.html`, `/x/` → 308 `/x`), cache `/assets` immutable, header bảo mật (CSP…) |
 | `local/` | Trang xem lịch sử trải bài ở máy (không commit, xem `local/README.md`) |
 
 **Dữ liệu bài không nằm trong git** (`tarot.db`, `card_en.json`, `la-bai/`, `Data/*.json|xlsx|db` — xem `.gitignore`): repo công khai chỉ có code. Deploy vẫn kèm dữ liệu vì build chạy ở máy (`vercel build` → `npm run build` chép dữ liệu vào `dist/`) rồi `vercel deploy --prebuilt` chỉ tải `.vercel/output` lên. Bản duy nhất nằm ở máy này → **sao lưu** thư mục dự án.
@@ -30,7 +30,27 @@ node scripts/deploy-preview.mjs     # nhánh bất kỳ: check → vercel build 
 node scripts/deploy-prod.mjs        # chỉ từ main: check → vercel build --prod → deploy --prebuilt --prod → kiểm tra trang + API
 ```
 
-Script dùng `VERCEL_TOKEN` trong `.env` (không in ra). Kiểm tra sau deploy: `app-version` trên `/` phải khớp bản build ở máy (từ chối bản `'dev'`), `/trai-bai` 200 + có app, `/trai-bai/` → 308, `/la-bai/`, `/sitemap.xml`, `/robots.txt`, `/sw.js` 200, `/api/readings` + `/api/ai` body rỗng → 400 (không ghi gì). Preview bị Deployment Protection (401/403) thì báo "protected" và bỏ qua smoke.
+Deploy là **prebuilt từ máy** (không nối Git với Vercel): `vercel build` chạy `npm run build` ở máy (có dữ liệu bài), rồi `vercel deploy --prebuilt` chỉ tải `.vercel/output/` lên. Phiên bản Vercel CLI được ghim trong `scripts/deploy-lib.mjs` (`VERCEL_CLI`), nâng thì sửa ở đó.
+
+Script dùng `VERCEL_TOKEN` trong `.env`: kiểm tra định dạng (`[A-Za-z0-9_-]+`), truyền cho Vercel CLI qua **biến môi trường** của tiến trình con (không đặt trên dòng lệnh), output luôn được che token. Phiên bản đọc **chỉ** từ `.vercel/output/static/index.html` (thiếu file → dừng, không dùng `dist/` thay).
+
+Kiểm tra sau deploy: `app-version` trên `/` phải khớp bản build ở máy (từ chối bản `'dev'`), `/trai-bai` 200 + có app, `/trai-bai/` → 308, `/la-bai/`, `/sitemap.xml`, `/robots.txt`, `/sw.js` 200, `/api/readings` + `/api/ai` body rỗng → 400 (không ghi gì). Riêng Preview:
+
+- bị Deployment Protection (401/403) → in dòng `UNVERIFIED — Deployment Protection is on`, **không** chạy smoke, thoát mã **2** (không phải 0);
+- `/api/readings` hoặc `/api/ai` trả 503 → chỉ cảnh báo "API env vars not set for Preview" (biến môi trường đang chỉ đặt cho Production), smoke vẫn chạy. Trên Production 503 vẫn là lỗi;
+- smoke-flows chạy trên URL preview (`/api` luôn giả lập); lỗi 404 của `/_vercel/*` là nhiễu đã biết nên không tính, mọi lỗi console khác vẫn tính.
+
+### Kiểm tra trên Chrome thật (chạy `npm run build` trước)
+
+```bash
+node scripts/smoke-flows.mjs [BASE]   # các luồng chính (dev server, hoặc BASE có sẵn); /api luôn giả lập
+node scripts/csp-check.mjs            # dist/ với đúng header vercel.json: không vi phạm CSP nào
+node scripts/offline-check.mjs        # SW: xoá cache cũ, build chỉ đổi meta không tải lại, đổi code giữ cache dữ liệu, offline vẫn mở
+node scripts/upgrade-check.mjs        # nâng cấp thật từ bản cũ (wtarot-v9) lên bản React trên CÙNG origin + link chia sẻ cũ
+node scripts/parity-screens.mjs [màn] # so ảnh bản cũ ↔ bản React
+```
+
+`upgrade-check` chỉ dùng `127.0.0.1`: cổng P phục vụ bản cũ đóng băng + `sw.js` cũ (lấy từ git `d5af282`), tạo dữ liệu bằng chính code cũ, rồi tắt và phục vụ `dist/` trên cùng cổng P (cùng origin) để kiểm tra dữ liệu được giữ.
 
 ## Đổi key AI, model, hạn mức
 
@@ -94,11 +114,14 @@ Chạy lại **không** kèm `--enforce` sẽ đưa luật về chỉ ghi log.
 
 `vercel.json` đặt Content-Security-Policy cho mọi trang. Thêm script / font / iframe từ **host mới** thì phải thêm host đó vào CSP, nếu không trình duyệt sẽ chặn âm thầm. Đang cho phép:
 
-- script: chính site, inline, `cdnjs.cloudflare.com` (sql.js, cần `'wasm-unsafe-eval'`)
+- script: **chỉ chính site** + đúng một script inline (đoạn đặt theme sớm trong `index.html`, tránh nháy màu) được cho phép bằng **hash sha256** — không có `'unsafe-inline'`. `tests/repo/csp.test.ts` kiểm tra mọi script inline đều có hash trong CSP: sửa đoạn script đó thì phải cập nhật hash `'sha256-…'` trong `vercel.json` (test báo hash mới). `'wasm-unsafe-eval'` là cho sql.js — giờ được **đóng gói cùng app** (npm `sql.js`, file `.wasm` phục vụ từ chính site), không còn tải từ CDN
 - style: chính site, inline, `fonts.googleapis.com` · font: `fonts.gstatic.com`
 - ảnh: mọi `https:`, `data:`, `blob:`
 - kết nối (fetch): chính site, mọi `https:` (AI gọi trực tiếp bằng key riêng), `http://localhost` / `127.0.0.1` (Ollama chạy ở máy)
 - không cho trang khác nhúng site vào iframe
+- `Permissions-Policy`: tắt camera, micro, thanh toán, USB; `geolocation=(self)` — chỉ chính site được hỏi vị trí (bản đồ bầu trời dùng GPS)
+
+Kiểm tra trên trình duyệt: `node scripts/csp-check.mjs` (sau `npm run build`).
 
 ## Xem lịch sử trải bài
 
