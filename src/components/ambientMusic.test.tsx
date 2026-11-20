@@ -7,15 +7,20 @@ import * as audio from '../engines/audio';
 import { AmbientMusic } from './AmbientMusic';
 
 const setPref = (k: 'ambientMode' | 'ambientVol', v: string | number) => act(() => useApp.getState().setPref(k, v as never));
-const engines: { setVolume: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn> }[] = [];
+const engines: { setVolume: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn>; live: boolean }[] = [];
+/** Số engine đang chạy lớn nhất từng thấy ngay lúc một engine mới được bật. */
+let maxLive = 0;
+const liveCount = () => engines.filter(e => e.live).length;
 
 beforeEach(() => {
   localStorage.clear();
   engines.length = 0;
+  maxLive = 0;
   vi.spyOn(audio, 'ensureAudio').mockReturnValue({} as AudioContext);
   vi.spyOn(ambient, 'startAmbient').mockImplementation(() => {
-    const e = { setVolume: vi.fn(), stop: vi.fn() };
+    const e = { setVolume: vi.fn(), stop: vi.fn(() => void (e.live = false)), live: true };
     engines.push(e);
+    maxLive = Math.max(maxLive, liveCount());
     return e;
   });
 });
@@ -88,5 +93,20 @@ describe('AmbientMusic', () => {
     expect(ambient.startAmbient).toHaveBeenCalledTimes(1);
     expect(engines).toHaveLength(1);
     expect(engines[0]?.stop).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('không bao giờ hai engine cùng chạy: cử chỉ + đổi mode liên tiếp (StrictMode: %s)', strict => {
+    useApp.setState({ ...initialState() });
+    setPref('ambientMode', 'mystic');
+    const { unmount } = render(strict ? <StrictMode><AmbientMusic /></StrictMode> : <AmbientMusic />);
+    window.dispatchEvent(new Event('pointerdown'));
+    for (const m of ['candle', 'mystic', 'off', 'candle', 'candle', 'mystic']) setPref('ambientMode', m);
+    window.dispatchEvent(new Event('keydown'));   // listener cử chỉ đã gỡ: không bật thêm
+    expect(engines.length).toBe(5);   // mystic, candle, mystic, candle, mystic ('candle' lặp lại không đổi gì)
+    expect(maxLive).toBe(1);          // mỗi lần bật, engine cũ đã dừng
+    expect(liveCount()).toBe(1);
+    unmount();
+    expect(liveCount()).toBe(0);
+    expect(engines.every(e => e.stop.mock.calls.length >= 1)).toBe(true);
   });
 });

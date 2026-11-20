@@ -1,5 +1,7 @@
 // Nhạc nền ambient (tổng hợp trực tiếp, không cần file) — chép từ bản cũ L2252–2378.
 // 'mystic' = kalimba tự sinh theo vòng hợp âm; 'candle' = nền trầm + lách tách ngọn nến. Dùng AudioContext chung của audio.ts.
+// Không có trạng thái cấp module: mỗi startAmbient() là một engine độc lập; bên gọi (components/AmbientMusic) giữ engine
+// đang chạy và luôn stop() nó trước khi bật cái mới — không bao giờ hai scheduler.
 import type { AmbientMode } from '../core/types';
 import { getAudioCtx, getNoiseBuf, makeReverb } from './audio';
 
@@ -7,8 +9,6 @@ export interface AmbientEngine {
   setVolume(v: number): void;
   stop(): void;
 }
-
-let current: AmbientEngine | null = null; // engine đang chạy: start mới luôn dừng engine cũ (không bao giờ hai scheduler)
 
 // Vòng hợp âm (mỗi hợp âm 2 ô nhịp): Dm7 – Bbmaj7 – Gm7 – C(add9). Nốt rải lấy trong hợp âm + ngũ cung Rê thứ
 const PROG = [
@@ -27,16 +27,10 @@ const RHYTHMS = [
 const STEPS_JUMP = [-2, -1, -1, 0, 1, 1, 2];
 const N = (n: number) => 440 * Math.pow(2, (n - 69) / 12); // số MIDI → Hz
 
-/** Chỉ cho test: quên engine đang chạy (không dừng nó). */
-export function resetAmbientForTests(): void {
-  current = null;
-}
-
 /** Bật nhạc nền. Trả null nếu chưa có AudioContext (chưa ensureAudio) hoặc mode 'off'. */
 export function startAmbient(mode: AmbientMode, vol: number): AmbientEngine | null {
   const ctx = getAudioCtx();
   if (!ctx || (mode !== 'mystic' && mode !== 'candle')) return null; // off (hoặc mode lạ — store đã lọc, đây chỉ phòng thủ): không phát gì
-  current?.stop();
 
   const timers = new Set<ReturnType<typeof setTimeout>>(); // mọi hẹn giờ của engine này, kể cả hẹn dừng node
   const oscs = new Set<AudioScheduledSourceNode>(); // nguồn đã hẹn giờ, chưa kết thúc
@@ -197,7 +191,7 @@ export function startAmbient(mode: AmbientMode, vol: number): AmbientEngine | nu
     crackle();
   }
 
-  const engine: AmbientEngine = {
+  return {
     setVolume(v) {
       if (stopped) return;
       master.gain.setTargetAtTime(v, ctx.currentTime, 0.3);
@@ -205,7 +199,6 @@ export function startAmbient(mode: AmbientMode, vol: number): AmbientEngine | nu
     stop() {
       if (stopped) return;
       stopped = true;
-      if (current === engine) current = null;
       timers.forEach(clearTimeout); // dừng scheduler / lách tách rồi mới hẹn giờ dừng node
       timers.clear();
       try {
@@ -230,6 +223,4 @@ export function startAmbient(mode: AmbientMode, vol: number): AmbientEngine | nu
       }, 1200);
     },
   };
-  current = engine;
-  return engine;
 }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureAudio, getAudioCtx, getNoiseBuf, resetForTests } from './audio';
-import { resetAmbientForTests, startAmbient } from './ambient';
+import { startAmbient as start, type AmbientEngine } from './ambient';
 
 // AudioContext giả: ghi lại mọi node + lời gọi start/stop/connect
 class FakeParam {
@@ -52,6 +52,13 @@ class FakeCtx {
   createBuffer(ch: number, len: number) { return { getChannelData: () => new Float32Array(len), ch }; }
 }
 const sources = () => all.filter(n => n.kind === 'osc' || n.kind === 'src');
+/** Mọi engine test đã bật — afterEach dừng hết để không còn hẹn giờ sang test sau. */
+const started: AmbientEngine[] = [];
+const startAmbient = (...a: Parameters<typeof start>) => {
+  const e = start(...a);
+  if (e) started.push(e);
+  return e;
+};
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -60,11 +67,11 @@ beforeEach(() => {
   resetForTests();
   (window as unknown as { AudioContext: unknown }).AudioContext = FakeCtx;
   ensureAudio();
-  resetAmbientForTests();
-  vi.clearAllTimers(); // test trước có thể để lại hẹn giờ
 });
 afterEach(() => {
+  started.splice(0).forEach(e => e.stop());
   vi.useRealTimers();
+  vi.restoreAllMocks();
   delete (window as unknown as { AudioContext?: unknown }).AudioContext;
 });
 
@@ -92,6 +99,7 @@ describe('startAmbient', () => {
   });
 
   it('mystic: xếp nốt trước ~1.2s, lọc lowpass 2600, rồi tiếp mỗi 250ms; stop dừng mọi oscillator sau 1200ms và hết timer', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.1);   // luôn gảy (< 0.85) → lượt xếp lịch sau chắc chắn có nốt mới
     const eng = startAmbient('mystic', 0.5)!;
     const tone = all.find(n => n.kind === 'biquad') as FakeNode;
     expect([tone.type, tone.frequency.value]).toEqual(['lowpass', 2600]);
@@ -140,10 +148,11 @@ describe('startAmbient', () => {
     expect(master.gain.calls.at(-1)).toEqual(['target', 0.0001, 2, 0.4]);
   });
 
-  it('off→mystic→candle→off liên tiếp: không còn scheduler, mọi nguồn đã dừng', () => {
+  it('off→mystic→candle→off liên tiếp (bên gọi dừng engine cũ trước khi bật mới): không còn scheduler, mọi nguồn đã dừng', () => {
     const a = startAmbient('mystic', 0.5)!;
-    const b = startAmbient('candle', 0.5)!; // tự dừng a
-    expect(vi.getTimerCount()).toBe(2); // crackle + hẹn dừng node của a
+    a.stop();
+    const b = startAmbient('candle', 0.5)!;
+    expect(vi.getTimerCount()).toBe(2); // crackle của b + hẹn dừng node của a
     b.stop();
     a.stop(); // idempotent
     vi.advanceTimersByTime(5000);
@@ -155,10 +164,15 @@ describe('startAmbient', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('hai lần start liên tiếp không để hai scheduler chạy', () => {
-    startAmbient('mystic', 0.5);
-    startAmbient('mystic', 0.5);
-    // 1 scheduler của engine mới + 1 hẹn giờ dừng node của engine cũ
-    expect(vi.getTimerCount()).toBe(2);
+  it('mỗi engine độc lập: không có singleton, stop() của engine này không đụng engine kia', () => {
+    const a = startAmbient('mystic', 0.5)!;
+    const b = startAmbient('candle', 0.5)!;
+    expect(vi.getTimerCount()).toBe(2); // hai scheduler — giữ "chỉ một" là việc của bên gọi (AmbientMusic)
+    a.stop();
+    vi.advanceTimersByTime(1200);
+    expect(vi.getTimerCount()).toBe(1); // còn lách tách của b
+    b.stop();
+    vi.advanceTimersByTime(1200);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
