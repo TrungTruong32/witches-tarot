@@ -4,6 +4,10 @@
 //                    (thẻ đó có giờ build → nếu tính vào thì bản build nào cũng đổi tên dù không đổi gì).
 //   wtarot-data-<h2>: dữ liệu bài, icon, mặt lưng. h2 = hash (đường dẫn + nội dung) từng file → đổi code không bắt
 //                    máy người dùng tải lại tarot.db; đổi tarot.db thì chỉ cache data đổi.
+// Deploy chỉ đổi header (vercel.json: CSP, Permissions-Policy, Cache-Control) KHÔNG đổi sw.js hay tên cache — đúng ý:
+// điều hướng là network-first nên khi online luôn nhận header mới. Chỉ bản trang lưu trong cache (lúc offline) còn
+// mang header cũ cho tới lần build sau đổi index.html/asset. Nếu một thay đổi header bắt buộc phải tới máy offline
+// ngay (vd. siết CSP vì sự cố), đổi kèm index.html để tên cache app đổi theo.
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';

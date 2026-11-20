@@ -25,6 +25,11 @@ describe('route()', () => {
     expect(route(at('/khong-co'), 'navigate')).toBe('network-first-page');
   });
 
+  it('/_vercel/* (Speed Insights, Web Analytics) luôn bypass: không cache script đo, để Vercel tự cập nhật', () => {
+    expect(route(at('/_vercel/speed-insights/script.js'), 'no-cors')).toBe('bypass');
+    expect(route(at('/_vercel/insights/script.js'), 'no-cors')).toBe('bypass');
+  });
+
   it('/api/* luôn bypass, kể cả khi là điều hướng', () => {
     expect(route(at('/api/ai'), 'cors')).toBe('bypass');
     expect(route(at('/api/img?x=1'), 'navigate')).toBe('bypass');

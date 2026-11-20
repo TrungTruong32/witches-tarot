@@ -8,8 +8,11 @@ const config = JSON.parse(readFileSync('vercel.json', 'utf8')) as VercelConfig;
 const csp = headersFor(config, '/')['Content-Security-Policy'] ?? '';
 const directive = (name: string) => (csp.split(';').map(s => s.trim()).find(s => s.startsWith(name + ' ')) ?? '').split(/\s+/).slice(1);
 
-/** Script inline chạy được (thẻ <script> trần, không thuộc tính) — JSON-LD có type nên không tính. */
-const inlineScripts = (html: string) => [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1] ?? '');
+/** Mọi <script> inline (không có src), trừ JSON-LD (type="application/ld+json" — dữ liệu, không chạy). */
+const inlineScripts = (html: string) =>
+  [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+    .filter(m => !/\bsrc\s*=/i.test(m[1] ?? '') && !/\btype\s*=\s*["']?application\/ld\+json/i.test(m[1] ?? ''))
+    .map(m => m[2] ?? '');
 const sha256 = (text: string) => `'sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}'`;
 
 describe('CSP không có script inline tuỳ tiện', () => {
@@ -27,9 +30,13 @@ describe('CSP không có script inline tuỳ tiện', () => {
     expect(src).toEqual(["'self'", "'wasm-unsafe-eval'", sha256(scripts[0]!)]);
   });
 
-  it('bản build (nếu có) giữ nguyên byte script inline → cùng hash', () => {
-    if (!existsSync('dist/index.html')) return;
+  it.skipIf(!existsSync('dist/index.html'))('bản build giữ nguyên byte script inline → cùng hash (bỏ qua khi chưa build)', () => {
     expect(inlineScripts(readFileSync('dist/index.html', 'utf8'))).toEqual(scripts);
+  });
+
+  it('bộ lọc script inline: bắt cả <script type="module"> inline, bỏ src và JSON-LD', () => {
+    const html = '<script>a</script><script type="module">b</script><script src="/x.js"></script><script type="application/ld+json">{}</script>';
+    expect(inlineScripts(html)).toEqual(['a', 'b']);
   });
 
   it('Permissions-Policy cho phép geolocation của chính site (bản đồ sao dùng GPS)', () => {

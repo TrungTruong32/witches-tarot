@@ -12,7 +12,14 @@
     { "source": "/bau-troi", "destination": "/index.html" }
   ],
   "redirects": [
-    { "source": "/witches_tarot.html", "destination": "/", "permanent": true }
+    { "source": "/witches_tarot.html", "destination": "/", "permanent": true },
+    { "source": "/hom-nay/", "destination": "/hom-nay", "permanent": true },
+    { "source": "/tra-cuu/", "destination": "/tra-cuu", "permanent": true },
+    { "source": "/boc-bai/", "destination": "/boc-bai", "permanent": true },
+    { "source": "/trai-bai/", "destination": "/trai-bai", "permanent": true },
+    { "source": "/nhat-ky/", "destination": "/nhat-ky", "permanent": true },
+    { "source": "/yes-no/", "destination": "/yes-no", "permanent": true },
+    { "source": "/bau-troi/", "destination": "/bau-troi", "permanent": true }
   ],
   "headers": [
     {

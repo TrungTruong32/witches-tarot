@@ -16,6 +16,8 @@ export function route(url: URL, mode: string, origin: string): SwRoute {
   if (url.origin !== origin) return FONT_HOSTS.has(url.hostname) && mode !== 'navigate' ? 'cache-first' : 'bypass';
   // API (LLM/ảnh proxy) luôn đi mạng, không cache.
   if (url.pathname.startsWith('/api/')) return 'bypass';
+  // Script đo của Vercel (Speed Insights, Web Analytics) không cache: Vercel tự cập nhật, offline thì bỏ qua được.
+  if (url.pathname.startsWith('/_vercel/')) return 'bypass';
   if (mode === 'navigate') {
     const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, '') : url.pathname;
     // Chỉ route của app được lưu làm vỏ app; các trang tĩnh /la-bai/… lưu theo đúng URL của nó.

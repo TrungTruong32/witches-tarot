@@ -17,12 +17,20 @@ describe('matchesSource (tập con path-to-regexp của Vercel)', () => {
     expect(matchesSource('/la-bai/:slug', '/la-bai/x')).toBe(true);
     expect(matchesSource('/la-bai/:slug', '/la-bai/x/y')).toBe(false);
   });
+
+  it('cú pháp chưa hỗ trợ → ném lỗi thay vì khớp sai', () => {
+    for (const s of ['/x?', '/a+', '/(.*', '/:a?', '/[x]', '/a/(.*)?', 'no-slash', '/a|b'])
+      expect(() => matchesSource(s, '/x'), s).toThrow(/chưa hỗ trợ/);
+  });
 });
 
 describe('serveDist áp luật vercel.json', () => {
   const root = mkdtempSync(join(tmpdir(), 'serve-dist-'));
   const config: VercelConfig = {
-    rewrites: [{ source: '/trai-bai', destination: '/index.html' }],
+    rewrites: [
+      { source: '/trai-bai', destination: '/index.html' },
+      { source: '/real.txt', destination: '/index.html' },
+    ],
     redirects: [{ source: '/old.html', destination: '/', permanent: true }],
     headers: [
       { source: '/(.*)', headers: [{ key: 'X-A', value: 'all' }, { key: 'Content-Security-Policy', value: 'site' }] },
@@ -34,6 +42,7 @@ describe('serveDist áp luật vercel.json', () => {
   let close = () => {};
   beforeAll(async () => {
     writeFileSync(join(root, 'index.html'), 'app');
+    writeFileSync(join(root, 'real.txt'), 'real');
     mkdirSync(join(root, 'assets'));
     writeFileSync(join(root, 'assets', 'a.js'), 'js');
     mkdirSync(join(root, 'la-bai'));
@@ -58,6 +67,14 @@ describe('serveDist áp luật vercel.json', () => {
     expect(r.headers.get('content-security-policy')).toBe('site');
     expect(await (await fetch(base + '/la-bai/')).text()).toBe('seo');
     expect((await fetch(base + '/assets/a.js')).headers.get('cache-control')).toBe('immutable');
+  });
+
+  it('file có thật thắng rewrite (như Vercel); /_vercel/* trả script rỗng 200', async () => {
+    expect(await (await fetch(base + '/real.txt')).text()).toBe('real');
+    const v = await fetch(base + '/_vercel/speed-insights/script.js');
+    expect(v.status).toBe(200);
+    expect(v.headers.get('content-type')).toMatch(/javascript/);
+    expect(await v.text()).toBe('');
   });
 
   it('redirect, /api 404 (không chạy hàm) với CSP của api, đường dẫn lạ 404', async () => {

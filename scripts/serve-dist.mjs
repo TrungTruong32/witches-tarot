@@ -12,12 +12,16 @@ const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
   '.wasm': 'application/wasm', '.db': 'application/octet-stream', '.png': 'image/png', '.webp': 'image/webp',
   '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.xml': 'application/xml',
-  '.txt': 'text/plain',
+  '.txt': 'text/plain', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.mjs': 'text/javascript',
+  '.map': 'application/json', '.avif': 'image/avif',
 };
 
-/** Tập con path-to-regexp mà vercel.json dùng: chữ thường (thoát ký tự regex), nhóm "(...)" giữ nguyên,
- *  ":name" → một đoạn, ":name*" → nhiều đoạn. Khớp toàn bộ đường dẫn. */
+/** Tập con path-to-regexp mà vercel.json dùng: chữ thường ("." là ký tự thường), nhóm regex "(...)" giữ nguyên,
+ *  ":name" → một đoạn, ":name*" → nhiều đoạn. Khớp toàn bộ đường dẫn.
+ *  Cú pháp khác (?, +, *, {}, [], ":name?"…) → ném lỗi, để không âm thầm khớp sai so với Vercel. */
 export function sourceToRegExp(source) {
+  const bad = why => new Error(`vercel.json source "${source}": ${why} — serve-dist chưa hỗ trợ`);
+  if (!source.startsWith('/')) throw bad('phải bắt đầu bằng /');
   let re = '';
   for (let i = 0; i < source.length; ) {
     const ch = source[i];
@@ -27,14 +31,20 @@ export function sourceToRegExp(source) {
         if (source[j] === '(') depth++;
         else if (source[j] === ')' && --depth === 0) break;
       }
+      if (j >= source.length) throw bad('thiếu ")"');
+      if (/[?+*{]/.test(source[j + 1] || '')) throw bad('bộ lặp sau nhóm');
       re += source.slice(i, j + 1);
       i = j + 1;
     } else if (ch === ':') {
       const m = /^:(\w+)(\*)?/.exec(source.slice(i));
+      if (!m) throw bad('":" không có tên tham số');
+      if (/[?+(]/.test(source[i + m[0].length] || '')) throw bad('bộ lặp/regex sau :' + m[1]);
       re += m[2] ? '(.*)' : '([^/]+)';
       i += m[0].length;
+    } else if ('*+?{}[]|^$\\)'.includes(ch)) {
+      throw bad(`ký tự "${ch}"`);
     } else {
-      re += ch.replace(/[.*+?^${}|[\]\\]/g, '\\$&');
+      re += ch === '.' ? '\\.' : ch;
       i++;
     }
   }
@@ -53,7 +63,7 @@ export function headersFor(config, path) {
   return out;
 }
 
-/** Đích rewrite (khớp chính xác theo source) hoặc null. */
+/** Đích rewrite (luật đầu tiên khớp) hoặc null — serveDist chỉ dùng khi không có file thật. */
 export function rewriteFor(config, path) {
   const r = (config.rewrites || []).find(x => matchesSource(x.source, path));
   return r ? r.destination : null;
@@ -81,12 +91,25 @@ export function serveDist(root, port = 0, config = readVercelConfig()) {
     }
     for (const [k, v] of Object.entries(headersFor(config, path))) res.setHeader(k, v);
     if (path.startsWith('/api/') || path === '/api') { res.statusCode = 404; return res.end('no functions locally'); }
-    const target = rewriteFor(config, path) || path;
+    // Speed Insights / Web Analytics của Vercel: ở máy trả script rỗng (khỏi 404 trên console)
+    if (path.startsWith('/_vercel/')) {
+      res.setHeader('Content-Type', 'text/javascript');
+      return res.end('');
+    }
+    // Như Vercel: file tĩnh có thật được phục vụ trước, rewrite chỉ áp khi không có file
     const base = site.root;
-    let f = resolve(base, '.' + target);
-    if (f !== base && !f.startsWith(base + sep)) { res.statusCode = 404; return res.end('not found'); }
-    if (existsSync(f) && statSync(f).isDirectory()) f = join(f, 'index.html');
-    if (!existsSync(f) || !statSync(f).isFile()) { res.statusCode = 404; return res.end('not found'); }
+    const fileAt = p => {
+      let f = resolve(base, '.' + p);
+      if (f !== base && !f.startsWith(base + sep)) return null;
+      if (existsSync(f) && statSync(f).isDirectory()) f = join(f, 'index.html');
+      return existsSync(f) && statSync(f).isFile() ? f : null;
+    };
+    let f = fileAt(path);
+    if (!f) {
+      const target = rewriteFor(config, path);
+      f = target ? fileAt(target) : null;
+    }
+    if (!f) { res.statusCode = 404; return res.end('not found'); }
     res.setHeader('Content-Type', MIME[extname(f)] || 'application/octet-stream');
     // mặc định của Vercel cho file tĩnh khi vercel.json không đặt Cache-Control
     if (!res.hasHeader('Cache-Control')) res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');

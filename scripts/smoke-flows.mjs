@@ -43,6 +43,9 @@ await ctx.route('**/api/readings', route => route.fulfill({ status: 200, body: '
 // proxy ảnh tarot.vn (dùng khi vẽ ảnh chia sẻ) → ảnh PNG 1×1 cùng nguồn, không đi mạng
 const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 await ctx.route('**/api/img?*', route => route.fulfill({ status: 200, contentType: 'image/png', body: PNG_1PX }));
+// Speed Insights / Web Analytics của Vercel (/_vercel/*): dev server và máy chủ thử không có → script rỗng
+const stubVercel = c => c.route(/\/_vercel\//, route => route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }));
+await stubVercel(ctx);
 
 const errors = [];
 const watchErrors = (p, tag) => {
@@ -153,6 +156,7 @@ try {
   await step('Hiệu ứng đầy đủ (không giảm chuyển động): xào → dừng → máy tự bốc → chia vào bàn trải AI', async () => {
     const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'no-preference', serviceWorkers: 'block' });
     await watchCsp(ctx2);
+    await stubVercel(ctx2);
     await ctx2.addInitScript(() => localStorage.setItem('tarotRitual', '0'));
     const p3 = await ctx2.newPage();
     watchErrors(p3, '(motion)');

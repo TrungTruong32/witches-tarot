@@ -1,7 +1,10 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
-import { headersFor, matchesSource, rewriteFor, type VercelConfig } from '../../scripts/serve-dist.mjs';
+import type { AddressInfo } from 'node:net';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { headersFor, matchesSource, rewriteFor, serveDist, type VercelConfig } from '../../scripts/serve-dist.mjs';
 
 const config = JSON.parse(readFileSync('vercel.json', 'utf8')) as VercelConfig;
 const APP_ROUTES = ['/hom-nay', '/tra-cuu', '/boc-bai', '/trai-bai', '/nhat-ky', '/yes-no', '/bau-troi'];
@@ -30,6 +33,11 @@ describe('vercel.json cho bản build Vite', () => {
     expect(config.redirects).toContainEqual({ source: '/witches_tarot.html', destination: '/', permanent: true });
   });
 
+  it('mỗi route của app có redirect vĩnh viễn /x/ → /x (không dùng trailingSlash)', () => {
+    for (const r of APP_ROUTES) expect(config.redirects, r).toContainEqual({ source: r + '/', destination: r, permanent: true });
+    for (const x of config.redirects ?? []) expect(matchesSource(x.source, '/la-bai/'), x.source).toBe(false);
+  });
+
   it('CSP của /api giữ nguyên, các header bảo mật vẫn có ở mọi trang', () => {
     expect(headersFor(config, '/api/ai')['Content-Security-Policy']).toBe(API_CSP);
     const h = headersFor(config, '/trai-bai');
@@ -50,5 +58,35 @@ describe('vercel.json cho bản build Vite', () => {
   it('không bật cleanUrls/trailingSlash (giữ URL /la-bai/.../ chuẩn)', () => {
     expect(config.cleanUrls).toBeUndefined();
     expect(config.trailingSlash).toBeUndefined();
+  });
+});
+
+describe('vercel.json thật qua serve-dist', () => {
+  const root = mkdtempSync(join(tmpdir(), 'vercel-config-'));
+  let base = '';
+  let close = () => {};
+  beforeAll(async () => {
+    writeFileSync(join(root, 'index.html'), 'app');
+    mkdirSync(join(root, 'la-bai'));
+    writeFileSync(join(root, 'la-bai', 'index.html'), 'seo');
+    const { server } = await serveDist(root, 0, config);
+    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    close = () => server.close();
+  });
+  afterAll(() => {
+    close();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('/x/ → 308 về /x; /x trả app; /la-bai/ không bị redirect', async () => {
+    for (const r of APP_ROUTES) {
+      const res = await fetch(base + r + '/', { redirect: 'manual' });
+      expect(res.status, r + '/').toBe(308);
+      expect(res.headers.get('location')).toBe(r);
+      expect(await (await fetch(base + r)).text()).toBe('app');
+    }
+    const seo = await fetch(base + '/la-bai/', { redirect: 'manual' });
+    expect(seo.status).toBe(200);
+    expect(await seo.text()).toBe('seo');
   });
 });
