@@ -14,4 +14,10 @@
       .details h2 { font-size: 1.5rem; }
       .modal { padding: 18px; }
     }
-  
+      /* Điện thoại: chừa chỗ hai bên cho nút ☰ cố định (48px ở góc phải) để tên app không bị che; chữ nhỏ lại theo bề ngang */
+    @media (max-width: 480px) {
+      header .brand { max-width: calc(100% - 120px); gap: 9px; white-space: nowrap; }
+      header .logo { width: 40px; height: 40px; border-radius: 12px; }
+      .brand .brand-name { font-size: clamp(1.12rem, 5.6vw, 1.5rem); letter-spacing: 1px; }
+      header p { font-size: .88rem; line-height: 1.45; text-wrap: balance; }
+    }
