@@ -2,11 +2,11 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { existsSync, createReadStream } from 'node:fs';
+import { ROOT_STATIC } from './scripts/root-static.mjs';
 import { resolve, extname } from 'node:path';
 
 // Dữ liệu bài & ảnh vẫn nằm ở gốc repo (git-ignored, deploy từ máy). Khi chạy dev, phục vụ thẳng từ gốc.
 // Việc chuyển chúng vào bản build thuộc Kế hoạch 3.
-const ROOT_STATIC = /^\/(tarot\.db|card_en\.json|sky\.json|cardback\.png|cardback-witches\.webp|icon-[\w-]+\.png|apple-touch-icon\.png|manifest\.webmanifest|og-image\.jpg)$/;
 const MIME: Record<string, string> = {
   '.db': 'application/octet-stream', '.json': 'application/json', '.png': 'image/png',
   '.webp': 'image/webp', '.jpg': 'image/jpeg', '.webmanifest': 'application/manifest+json',

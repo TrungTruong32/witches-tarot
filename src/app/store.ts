@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { normalizeCardBack } from '../core/cardBacks';
 import type { CardEnMap, Lang } from '../core/types';
 import type { CardsDb } from '../services/cardsDb';
+import type { BeforeInstallPromptEvent } from './pwaInstall';
 import { getStr, KEYS, loadAiSettings, remove, saveAiSettings as persistAi, setStr, type AiSettings } from '../services/storage';
 
 export interface Prefs {
@@ -35,6 +36,8 @@ export interface AppState {
   aiSettings: AiSettings;
   overlay: OverlayId | null;
   lightbox: { url: string; reversed: boolean } | null;
+  /** Lời mời cài PWA đã bắt được (xem pwaInstall.ts); null = không có nút Cài ứng dụng. */
+  installPrompt: BeforeInstallPromptEvent | null;
   setLang(l: Lang): void;
   setPref<K extends keyof Prefs>(k: K, v: Prefs[K]): void;
   setDeck(d: string): void;
@@ -105,6 +108,7 @@ export function initialState(): Data {
     aiSettings: loadAiSettings(),
     overlay: null,
     lightbox: null,
+    installPrompt: null,
   };
 }
 

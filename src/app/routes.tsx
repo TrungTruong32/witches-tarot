@@ -1,5 +1,5 @@
 // Bảng route của app. "/" = trang mở đầu; mỗi màn hình khác có đường dẫn riêng (nút Back của trình duyệt dùng được).
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { IconSprite } from '../components/IconSprite';
 import { Lightbox } from '../components/Lightbox';
@@ -20,7 +20,19 @@ function RootAttrs() {
   const prefs = useApp(s => s.prefs);
   const { pathname } = useLocation();
   const mode = MODE_BY_PATH[pathname] ?? null;
-  useEffect(() => syncRootAttrs({ lang, prefs }, mode), [lang, prefs, mode]);
+  // layout effect: áp trước lần vẽ đầu tiên như bản cũ (fx/sky/lang/--cardback không nhấp nháy một khung hình sai)
+  useLayoutEffect(() => syncRootAttrs({ lang, prefs }, mode), [lang, prefs, mode]);
+  return null;
+}
+
+/** Màn hình mới không mang theo menu/hộp thoại/ảnh phóng to của màn trước (vd. bấm Back khi đang mở menu).
+ *  Ngoại lệ: `state.openNav` (nút ☰ ở trang mở đầu) vào app với menu mở sẵn. */
+function ResetOverlaysOnNavigate() {
+  const { pathname, state } = useLocation();
+  const openNav = (state as { openNav?: boolean } | null)?.openNav === true;
+  useEffect(() => {
+    useApp.setState({ overlay: openNav ? 'nav' : null, lightbox: null });
+  }, [pathname, openNav]);
   return null;
 }
 
@@ -29,6 +41,7 @@ function Root() {
     <>
       <IconSprite />
       <RootAttrs />
+      <ResetOverlaysOnNavigate />
       <Outlet />
       <Lightbox />
     </>

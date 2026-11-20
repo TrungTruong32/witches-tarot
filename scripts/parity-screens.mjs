@@ -8,25 +8,26 @@ import { chromium } from '@playwright/test';
 import { createServer as createVite } from 'vite';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
+import { ROOT_STATIC } from './root-static.mjs';
 
 const OUT = '.superpowers/parity';
 mkdirSync(OUT, { recursive: true });
 const ROOT = resolve('.');
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.db': 'application/octet-stream', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.webmanifest': 'application/manifest+json' };
 
-// Bản cũ: phục vụ thư mục gốc, "/" → witches_tarot.html
+// Bản cũ: chỉ phục vụ witches_tarot.html + danh sách trắng dữ liệu, và chỉ trên 127.0.0.1 (không lộ .env/Data/ ra mạng LAN)
 const legacyServer = createServer((req, res) => {
   let p = decodeURIComponent((req.url || '/').split('?')[0]);
   if (p === '/') p = '/witches_tarot.html';
   const f = join(ROOT, p);
-  if (!f.startsWith(ROOT) || !existsSync(f) || statSync(f).isDirectory()) { res.statusCode = 404; return res.end(); }
+  if ((p !== '/witches_tarot.html' && !ROOT_STATIC.test(p)) || !existsSync(f) || statSync(f).isDirectory()) { res.statusCode = 404; return res.end(); }
   res.setHeader('Content-Type', MIME[extname(f)] || 'application/octet-stream');
   res.end(readFileSync(f));
-}).listen(5310);
+}).listen(5310, '127.0.0.1');
 const vite = await createVite({ server: { port: 5311, strictPort: true }, logLevel: 'error' });
 await vite.listen();
 
-const LEGACY = 'http://localhost:5310';
+const LEGACY = 'http://127.0.0.1:5310';
 const REACT = 'http://localhost:5311';
 
 // Giống nhau cho cả hai: Math.random cố định, tắt animation/transition, ẩn nền sao động (Kế hoạch 2c)

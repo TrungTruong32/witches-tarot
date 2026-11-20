@@ -1,21 +1,29 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes, MODE_BY_PATH, PATH_BY_MODE } from './routes';
+import { initPwaInstall } from './pwaInstall';
 import { initialState, useApp } from './store';
 
 function Where() {
   const loc = useLocation();
-  return <output data-testid="where">{loc.pathname + loc.hash}</output>;
+  const navigate = useNavigate();
+  return (
+    <>
+      <output data-testid="where">{loc.pathname + loc.hash}</output>
+      <button data-testid="back" onClick={() => navigate(-1)} />
+    </>
+  );
 }
-const renderAt = (url: string) =>
+const renderAt = (url: string | string[]) =>
   render(
-    <MemoryRouter initialEntries={[url]}>
+    <MemoryRouter initialEntries={Array.isArray(url) ? url : [url]} initialIndex={Array.isArray(url) ? url.length - 1 : 0}>
       <AppRoutes />
       <Where />
     </MemoryRouter>,
   );
+const back = () => userEvent.click(screen.getByTestId('back'));
 const where = () => screen.getByTestId('where').textContent;
 
 beforeEach(() => {
@@ -34,6 +42,47 @@ describe('route table', () => {
 });
 
 describe('app shell', () => {
+  it('Back with the drawer, a settings dialog or the lightbox open leaves nothing open on the next screen', async () => {
+    renderAt(['/', '/hom-nay']);
+    await userEvent.click(document.getElementById('navToggle')!);
+    act(() => useApp.getState().openLightbox('x.jpg', false));
+    await back();
+    expect(where()).toBe('/');
+    expect(useApp.getState().overlay).toBeNull();
+    expect(useApp.getState().lightbox).toBeNull();
+    await userEvent.click(document.querySelector('.lt-nav [data-go="daily"]')!);
+    expect(document.getElementById('navMenu')!.classList.contains('open')).toBe(false);
+  });
+
+  it('the landing burger enters Today with the drawer open', async () => {
+    renderAt('/');
+    await userEvent.click(document.getElementById('landingBurger')!);
+    expect(where()).toBe('/hom-nay');
+    expect(document.getElementById('navMenu')!.classList.contains('open')).toBe(true);
+  });
+
+  it('re-clicking the current screen does not add a history entry', async () => {
+    renderAt(['/tra-cuu', '/hom-nay']);
+    await userEvent.click(document.getElementById('modeDaily')!);
+    await back();
+    expect(where()).toBe('/tra-cuu');
+  });
+
+  it('an install prompt fired on the landing is kept and offered once inside the app', async () => {
+    const off = initPwaInstall(window);
+    renderAt('/');
+    const evt = Object.assign(new Event('beforeinstallprompt', { cancelable: true }), { prompt: vi.fn(async () => {}), userChoice: Promise.resolve({}) });
+    act(() => { window.dispatchEvent(evt); });
+    expect(evt.defaultPrevented).toBe(true);
+    await userEvent.click(document.querySelector('.lt-nav [data-go="daily"]')!);
+    const btn = document.getElementById('installBtn')!;
+    expect(btn.style.display).toBe('');
+    await userEvent.click(btn);
+    expect(evt.prompt).toHaveBeenCalled();
+    await vi.waitFor(() => expect(document.getElementById('installBtn')!.style.display).toBe('none'));
+    off();
+  });
+
   it('nav buttons navigate, set body[data-mode], mark the active button and close the drawer', async () => {
     renderAt('/hom-nay');
     expect(document.body.dataset.mode).toBe('daily');
@@ -114,12 +163,25 @@ describe('app shell', () => {
     expect(useApp.getState().deck).toBe('Rider-Waite');
   });
 
-  it('nav listeners are removed on unmount', () => {
-    const remove = vi.spyOn(window, 'removeEventListener');
+  it('every window/document listener the app adds is removed with the same handler on unmount', () => {
+    const live = new Map<unknown, string>();
+    for (const target of [window, document]) {
+      const add = target.addEventListener.bind(target);
+      const rem = target.removeEventListener.bind(target);
+      vi.spyOn(target, 'addEventListener').mockImplementation((type: string, h: EventListenerOrEventListenerObject | null, o?: boolean | AddEventListenerOptions) => {
+        if (h) live.set(h, type);
+        add(type, h, o);
+      });
+      vi.spyOn(target, 'removeEventListener').mockImplementation((type: string, h: EventListenerOrEventListenerObject | null, o?: boolean | EventListenerOptions) => {
+        if (h && live.get(h) === type) live.delete(h);
+        rem(type, h, o);
+      });
+    }
     const { unmount } = renderAt('/hom-nay');
+    const added = [...live.values()];
+    for (const t of ['scroll', 'resize', 'mousemove']) expect(added).toContain(t);
     unmount();
-    const types = remove.mock.calls.map(c => c[0]);
-    for (const t of ['scroll', 'resize', 'mousemove', 'beforeinstallprompt', 'appinstalled']) expect(types).toContain(t);
+    expect([...live.values()]).toEqual([]);
   });
 });
 

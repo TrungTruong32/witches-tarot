@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MODE_BY_PATH, PATH_BY_MODE, type Mode } from '../app/modes';
+import { promptInstall } from '../app/pwaInstall';
 import { useApp } from '../app/store';
 import type { I18nKey } from '../i18n/vi';
 import { useT } from '../i18n/useT';
@@ -34,12 +35,6 @@ const MODE_ITEMS: NavItem[] = [
   { id: 'modeHistory', label: 'nav.history', icon: 'hourglass', mode: 'history' },
 ];
 
-/** Nút có icon: <svg.ico> + <span.lbl> với nhãn đã bỏ ký hiệu đầu (như setLabel của bản cũ). */
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<unknown>;
-}
-
 /** Đặt độ lệch dọc cho từng mục theo parabol → các mục xếp thành vòm (layoutNavArc của bản cũ). */
 function layoutNavArc(nav: HTMLElement) {
   const items = [...nav.children].filter(
@@ -62,8 +57,7 @@ export function NavMenu() {
   const closeOverlay = useApp(s => s.closeOverlay);
   const openOverlay = useApp(s => s.openOverlay);
   const navRef = useRef<HTMLDivElement>(null);
-  const installEvt = useRef<BeforeInstallPromptEvent | null>(null);
-  const [installVisible, setInstallVisible] = useState(false);
+  const installVisible = useApp(s => s.installPrompt !== null);
   const [reduced] = useState(prefersReducedMotion);
 
   useOverlay(open, closeOverlay);
@@ -120,41 +114,14 @@ export function NavMenu() {
     };
   }, []);
 
-  // Cài ứng dụng (PWA)
-  useEffect(() => {
-    const onPrompt = (e: Event) => {
-      e.preventDefault();
-      installEvt.current = e as BeforeInstallPromptEvent;
-      setInstallVisible(true);
-    };
-    const onInstalled = () => {
-      installEvt.current = null;
-      setInstallVisible(false);
-    };
-    window.addEventListener('beforeinstallprompt', onPrompt);
-    window.addEventListener('appinstalled', onInstalled);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt);
-      window.removeEventListener('appinstalled', onInstalled);
-    };
-  }, []);
-
   const install = async () => {
-    const e = installEvt.current;
-    if (!e) return;
-    void e.prompt();
-    try {
-      await e.userChoice;
-    } catch {
-      /* người dùng huỷ */
-    }
-    installEvt.current = null;
-    setInstallVisible(false);
+    await promptInstall();
     closeOverlay();
   };
 
   const go = (mode: Mode) => {
-    navigate(PATH_BY_MODE[mode]);
+    const path = PATH_BY_MODE[mode];
+    navigate(path, { replace: path === pathname });
     closeOverlay();
   };
 

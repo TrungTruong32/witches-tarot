@@ -41,7 +41,6 @@ export function Landing() {
   const navigate = useNavigate();
   const status = useApp(s => s.dbStatus);
   const dbError = useApp(s => s.dbError);
-  const openOverlay = useApp(s => s.openOverlay);
 
   const [q, setQ] = useState('');
   const [focused, setFocused] = useState(false);
@@ -156,7 +155,7 @@ export function Landing() {
           ))}
         </nav>
         <button type="button" className="lt-burger" id="landingBurger" aria-label="Mở menu"
-          onClick={() => whenReady(() => { navigate(PATH_BY_MODE.daily); openOverlay('nav'); })}>☰</button>
+          onClick={() => whenReady(() => navigate(PATH_BY_MODE.daily, { state: { openNav: true } }))}>☰</button>
       </header>
       <div className="landing-inner">
         <div className="landing-moon" id="landingMoon" dangerouslySetInnerHTML={{ __html: moon.html }} />
