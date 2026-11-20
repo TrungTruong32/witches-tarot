@@ -143,3 +143,30 @@ describe('free AI endpoint', () => {
     expect((e as AiError).message).toBe('AI miễn phí đang gặp sự cố (500)');
   });
 });
+
+describe('AbortSignal', () => {
+  const abortingFetch = () => fakeFetch((_u, init) => {
+    if (init.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    return streamResponse(['data: {"choices":[{"delta":{"content":"x"}}]}\n']);
+  });
+  const cases: [string, typeof callGemini, Partial<AiSettings>][] = [
+    ['free', callFree, {}],
+    ['gemini', callGemini, { geminiKey: 'K' }],
+    ['beeknoee', callBeeknoee, { beeknoeeKey: 'K' }],
+    ['zenmux', callZenmux, { zenmuxKey: 'K' }],
+    ['ollama local', callOllama, {}],
+    ['ollama cloud', callOllama, { ollamaUrl: 'https://ollama.com', ollamaKey: 'K' }],
+  ];
+  for (const [name, call, s] of cases) {
+    it(`${name}: passes ctx.signal to fetch and rethrows an AbortError as is (not a "cannot connect" error)`, async () => {
+      const ff = abortingFetch();
+      const ac = new AbortController();
+      const ctx: ProviderCtx = { settings: settings(s), lang: 'vi', deck: 'Witches Tarot', fetch: ff.fetch, signal: ac.signal };
+      await call(msgs, () => {}, undefined, ctx);
+      expect(ff.calls[0]!.init.signal).toBe(ac.signal);
+      ac.abort();
+      const e = await call(msgs, () => {}, undefined, ctx).catch(x => x);
+      expect((e as Error).name).toBe('AbortError');
+    });
+  }
+});

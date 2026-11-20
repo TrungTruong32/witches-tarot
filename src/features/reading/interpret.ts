@@ -9,7 +9,7 @@ import type { Lang, Reading, SpreadCard } from '../../core/types';
 import { prefersReducedMotion } from '../../lib/media';
 import { chatComplete, providerChain, type ChatResult } from '../../services/ai/chat';
 import { providerLabel } from '../../services/ai/models';
-import type { ChatMessage, FreeAiInfo, ProviderCtx, ProviderId } from '../../services/ai/providers';
+import { isAbortError, type ChatMessage, type FreeAiInfo, type ProviderCtx, type ProviderId } from '../../services/ai/providers';
 import { addReading, updateReading } from '../../services/idb';
 import { cloudSaveReading } from '../../services/readingsApi';
 import type { AiSettings } from '../../services/storage';
@@ -94,19 +94,65 @@ const withDefaults = (d: InterpretDeps) => ({
   cloud: d.cloud ?? cloudSaveReading,
 });
 
-/** Mỗi lần diễn giải mới tăng phiên → lượt hỏi tiếp của trải bài cũ còn đang chạy không ghi vào trải bài mới. */
+/**
+ * Phiên = một lời giải đang mở. Diễn giải mới / mở lời giải khác (showLoadedAnswer) tăng phiên và huỷ (abort) mọi lượt gọi AI
+ * của phiên cũ: lượt hỏi tiếp cũ không được ghi vào giao diện / hội thoại của lời giải mới.
+ */
 let session = 0;
+let sessionAbort = new AbortController();
+function newSession(): { id: number; signal: AbortSignal } {
+  sessionAbort.abort();
+  sessionAbort = new AbortController();
+  return { id: ++session, signal: sessionAbort.signal };
+}
+
+/**
+ * Bản ghi nhật ký mới nhất theo id. Lưu lời giải, hỏi tiếp và ghi chú đều đi qua đây, nên hẹn giờ ghi chú (500 ms)
+ * hay lượt hỏi tiếp đã bị thay thế luôn ghi đè lên bản đầy đủ nhất — không bao giờ làm mất phần kia.
+ */
+const latest = new Map<number, Reading>();
+function remember(r: Reading): Reading {
+  if (r.id != null) latest.set(r.id, r);
+  return r;
+}
+const latestOf = (r: Reading): Reading => (r.id != null ? latest.get(r.id) ?? r : r);
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-function providerCtx(cards: SpreadCard[]): ProviderCtx {
+function providerCtx(cards: SpreadCard[], signal: AbortSignal): ProviderCtx {
   const app = useApp.getState();
-  return { settings: app.aiSettings, lang: app.lang, deck: readingDecks(cards).join(', ') || app.deck || '' };
+  return { settings: app.aiSettings, lang: app.lang, deck: readingDecks(cards).join(', ') || app.deck || '', signal };
+}
+
+/** Lượt gọi bị huỷ vì đã sang phiên khác — im lặng, không báo lỗi. */
+const aborted = (e: unknown, signal: AbortSignal) => isAbortError(e) || signal.aborted;
+
+/** Gộp các lần vẽ trong một khung hình (rAF); không có rAF thì vẽ ngay. */
+function frameBatcher(flush: () => void): { schedule(): void; cancel(): void } {
+  let scheduled = false;
+  let id = 0;
+  const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : null;
+  return {
+    schedule() {
+      if (!raf) return flush();
+      if (scheduled) return;
+      scheduled = true; // đặt trước khi gọi: rAF chạy đồng bộ (test) vẫn đúng
+      id = raf(() => {
+        scheduled = false;
+        flush();
+      });
+    },
+    cancel() {
+      if (scheduled && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id);
+      scheduled = false;
+    },
+  };
 }
 
 /**
  * streamInto của bản cũ: gọi AI, đẩy từng bước vào `onView`. Trả về chữ trả lời ('' nếu AI không trả gì) + provider đã trả lời.
- * Lỗi được ném lại cho nơi gọi (mỗi nơi hiện câu lỗi riêng).
+ * Chữ / suy nghĩ cộng dồn ngay nhưng chỉ vẽ tối đa một lần mỗi khung hình (rAF); trạng thái cuối luôn vẽ ngay khi stream xong.
+ * Lỗi được ném lại cho nơi gọi (mỗi nơi hiện câu lỗi riêng); khi đó lần vẽ đang chờ bị huỷ.
  */
 export async function streamInto(
   messages: ChatMessage[],
@@ -115,20 +161,28 @@ export async function streamInto(
   ctx: ProviderCtx,
 ): Promise<{ text: string; result: ChatResult; view: StreamView }> {
   let v = connectingView();
-  const emit = (next: StreamView) => { v = next; onView(v); };
-  emit(v);
-  const result = await chat(messages, {
-    onToken: t => emit({ ...v, status: 'streaming', text: v.text + t }),
-    // Đã có chữ trả lời: suy nghĩ đến muộn chỉ cộng dồn, hiện ở lần vẽ kế (khung suy nghĩ đã gập) — như bản cũ
-    onReasoning: t => {
-      const reasoning = v.reasoning + t;
-      if (v.text) v = { ...v, reasoning };
-      else if (reasoning) emit({ ...v, reasoning, status: 'thinking' });
-    },
-    // Chuyển provider: bỏ suy nghĩ của provider vừa lỗi, quay về "Đang kết nối…" kèm dòng báo dự phòng
-    onSwitch: () => emit({ ...v, status: 'connecting', reasoning: '', switched: true }),
-  }, ctx);
-  emit(v.text ? { ...v, status: 'done' } : { ...v, status: 'empty' });
+  const frame = frameBatcher(() => onView(v));
+  const now = (next: StreamView) => { frame.cancel(); v = next; onView(v); };
+  const later = (next: StreamView) => { v = next; frame.schedule(); };
+  now(v);
+  let result: ChatResult;
+  try {
+    result = await chat(messages, {
+      onToken: t => later({ ...v, status: 'streaming', text: v.text + t }),
+      // Đã có chữ trả lời: suy nghĩ đến muộn chỉ cộng dồn, hiện ở lần vẽ kế (khung suy nghĩ đã gập) — như bản cũ
+      onReasoning: t => {
+        const reasoning = v.reasoning + t;
+        if (v.text) v = { ...v, reasoning };
+        else if (reasoning) later({ ...v, reasoning, status: 'thinking' });
+      },
+      // Chuyển provider: bỏ suy nghĩ của provider vừa lỗi, quay về "Đang kết nối…" kèm dòng báo dự phòng
+      onSwitch: () => now({ ...v, status: 'connecting', reasoning: '', switched: true }),
+    }, ctx);
+  } catch (e) {
+    frame.cancel();
+    throw e;
+  }
+  now(v.text ? { ...v, status: 'done' } : { ...v, status: 'empty' });
   return { text: v.text, result, view: v };
 }
 
@@ -174,7 +228,7 @@ async function saveReading(record: Reading, d: ReturnType<typeof withDefaults>):
   let saved: Reading | null = null;
   try {
     await d.save(record);
-    saved = record;
+    saved = remember(record);
   } catch (e) {
     console.warn('Lưu lịch sử thất bại', e);
   }
@@ -210,7 +264,7 @@ export async function runInterpret(deps: InterpretDeps = {}): Promise<void> {
   const snap = snapshotReading();
   const { cards } = snap;
   if (!cards.length || useInterpret.getState().running) return;
-  const my = ++session;
+  const { id: my, signal } = newSession();
   const live = () => my === session; // false = đã mở lời giải khác (showLoadedAnswer) trong lúc AI đang trả lời
   const decks = readingDecks(cards);
   const deckLabel = decks.length ? decks.join(', ') : app.deck || 'Tarot';
@@ -236,7 +290,7 @@ export async function runInterpret(deps: InterpretDeps = {}): Promise<void> {
   );
 
   try {
-    const { text, result } = await streamInto(messages, v => live() && patch({ main: v }), d.chat, providerCtx(cards));
+    const { text, result } = await streamInto(messages, v => live() && patch({ main: v }), d.chat, providerCtx(cards, signal));
     if (!text) return;
     const free = result.free ?? useInterpret.getState().free;
     const record = buildReadingRecord(snap, text, result, free);
@@ -252,7 +306,7 @@ export async function runInterpret(deps: InterpretDeps = {}): Promise<void> {
     useReading.getState().setCurrent(saved);
     patch({ chatOpen: true, tts: true, share: true });
   } catch (e) {
-    if (!live()) return;
+    if (!live() || aborted(e, signal)) return; // huỷ vì sang lời giải khác: không báo lỗi, không lưu
     // Giữ dòng "đã chuyển provider" (switched), bỏ phần đã stream: khung chỉ còn câu lỗi
     const main = useInterpret.getState().main ?? connectingView();
     patch({ main: { ...main, status: 'error', text: '', reasoning: '', error: interpretError(errMsg(e)) } });
@@ -262,17 +316,24 @@ export async function runInterpret(deps: InterpretDeps = {}): Promise<void> {
   }
 }
 
-/** sendFollow: hỏi tiếp trong cùng ngữ cảnh trải bài; có trả lời thì ghi vào followups của bản ghi nhật ký. */
+/**
+ * sendFollow: hỏi tiếp trong cùng ngữ cảnh trải bài; có trả lời thì ghi vào followups của bản ghi nhật ký.
+ * Bản ghi được chụp trước khi gọi AI: lượt đã bị thay thế (diễn giải mới) mà vẫn có câu trả lời thì vẫn lưu vào đúng
+ * bản ghi của nó, chỉ không đụng tới giao diện / hội thoại của lời giải mới. Bị huỷ (abort) thì bỏ qua im lặng.
+ */
 export async function runFollowUp(question: string, deps: InterpretDeps = {}): Promise<void> {
   const d = withDefaults(deps);
   const q = question.trim();
   const r = useReading.getState();
   if (!q || !r.messages.length || useInterpret.getState().chatBusy) return;
   const my = session;
+  const signal = sessionAbort.signal;
+  const live = () => my === session;
+  const owner = r.current; // bản ghi nhật ký của lượt này
   const messages: ChatMessage[] = [...r.messages, { role: 'user', content: q }];
   const idx = useInterpret.getState().follows.length;
   const setView = (v: StreamView) => {
-    if (my !== session) return;
+    if (!live()) return;
     const follows = useInterpret.getState().follows.slice();
     if (follows[idx]) follows[idx] = { q, view: v };
     patch({ follows });
@@ -281,32 +342,31 @@ export async function runFollowUp(question: string, deps: InterpretDeps = {}): P
   r.setMessages(messages);
   r.setAiBg('thinking');
   try {
-    const { text } = await streamInto(messages, setView, d.chat, providerCtx(r.cards));
-    if (my !== session) return;
-    const st = useReading.getState();
-    if (!text) {
-      st.setMessages(messages.slice(0, -1)); // bỏ câu hỏi nếu không có trả lời
-      return;
-    }
-    st.setMessages([...messages, { role: 'assistant', content: text }]);
-    const followups = [...st.followups, { q, a: text }];
-    st.setFollowups(followups);
-    const cur = st.current;
-    if (cur) {
-      const next: Reading = { ...cur, followups: [...(cur.followups || []), { q, a: text }] };
-      st.setCurrent(next);
-      try {
-        await d.update(next);
-      } catch {
-        /* như bản cũ: lỗi lưu hỏi-tiếp bỏ qua */
+    const { text } = await streamInto(messages, setView, d.chat, providerCtx(r.cards, signal));
+    if (live()) {
+      const st = useReading.getState();
+      if (!text) {
+        st.setMessages(messages.slice(0, -1)); // bỏ câu hỏi nếu không có trả lời
+        return;
       }
+      st.setMessages([...messages, { role: 'assistant', content: text }]);
+      st.setFollowups([...st.followups, { q, a: text }]);
+    }
+    if (!text || !owner) return;
+    const base = latestOf(owner);
+    const next = remember({ ...base, followups: [...(base.followups || []), { q, a: text }] });
+    if (live()) useReading.getState().setCurrent(next);
+    try {
+      await d.update(next);
+    } catch {
+      /* như bản cũ: lỗi lưu hỏi-tiếp bỏ qua */
     }
   } catch (e) {
-    if (my !== session) return;
+    if (!live() || aborted(e, signal)) return;
     setView({ ...connectingView(), status: 'error', error: '⚠️ Lỗi: ' + errMsg(e) });
     useReading.getState().setMessages(messages.slice(0, -1));
   } finally {
-    if (my === session) {
+    if (live()) {
       patch({ chatBusy: false });
       useReading.getState().setAiBg('done');
       document.querySelectorAll('#chatLog .chat-a')[idx]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -325,22 +385,22 @@ const noteTimers = new Map<number, ReturnType<typeof setTimeout>>();
  */
 export function saveNoteDebounced(reading: Reading, value: string, update: typeof updateReading = updateReading): Reading {
   const id = reading.id;
-  const next: Reading = { ...reading, note: value };
-  if (id == null) return next;
+  if (id == null) return { ...reading, note: value };
+  const next = remember({ ...latestOf(reading), note: value });
   const st = useReading.getState();
-  if (st.current?.id === id) st.setCurrent({ ...st.current, note: value });
+  if (st.current?.id === id) st.setCurrent(next);
   patch({ noteStatus: { kind: 'saving' } });
   clearTimeout(noteTimers.get(id));
   noteTimers.set(id, setTimeout(async () => {
     noteTimers.delete(id);
-    // Lưu bản mới nhất (có thể đã thêm hỏi-tiếp trong lúc chờ)
-    const cur = useReading.getState().current;
-    const rec = cur?.id === id ? cur : next;
+    // Lưu bản mới nhất (có thể đã thêm hỏi-tiếp trong lúc chờ, kể cả khi bản ghi đã không còn mở)
+    // Trạng thái chỉ báo cho ô ghi chú của chính bản ghi này (đã mở bản khác thì thôi)
+    const status = (st: NoteStatus) => useReading.getState().current?.id === id && patch({ noteStatus: st });
     try {
-      await update(rec);
-      patch({ noteStatus: { kind: 'saved' } });
+      await update(latest.get(id) ?? next);
+      status({ kind: 'saved' });
     } catch (e) {
-      patch({ noteStatus: { kind: 'failed', msg: errMsg(e) } });
+      status({ kind: 'failed', msg: errMsg(e) });
     }
   }, 500));
   return next;
@@ -370,7 +430,7 @@ export function quotaText(s: Pick<InterpretState, 'quotaFrom' | 'free'>, setting
  * `record` có id (từ lịch sử) → gắn để ghi chú tiếp; từ link chia sẻ thì truyền null. Gọi SAU khi đã setCards.
  */
 export function showLoadedAnswer(text: string, record: Reading | null): void {
-  ++session; // hỏi-tiếp đang chạy của trải bài trước không được ghi vào bản này
+  newSession(); // huỷ lượt gọi AI của lời giải trước; hỏi-tiếp cũ không được ghi vào giao diện của bản này
   const r = useReading.getState();
   patch({
     main: { status: 'done', text, reasoning: '', switched: false },
@@ -379,6 +439,6 @@ export function showLoadedAnswer(text: string, record: Reading | null): void {
   r.setAnswer(text);
   r.setMessages([]);
   r.setFollowups([]);
-  r.setCurrent(record && record.id != null ? record : null);
+  r.setCurrent(record && record.id != null ? remember(record) : null);
   r.setAiBg(text && r.cards.length ? 'done' : 'off');
 }

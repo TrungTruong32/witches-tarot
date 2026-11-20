@@ -18,6 +18,8 @@ export interface ProviderCtx {
   deck: string;
   /** Tiêm fetch (test); mặc định fetch toàn cục. */
   fetch?: typeof fetch;
+  /** Huỷ lượt gọi (người dùng bắt đầu lượt mới): truyền vào mọi fetch; huỷ thì ném AbortError, không chuyển provider. */
+  signal?: AbortSignal;
 }
 
 export type ProviderCall = (
@@ -39,6 +41,11 @@ export class AiError extends Error {
 }
 
 const fetchOf = (ctx: ProviderCtx): typeof fetch => ctx.fetch ?? globalThis.fetch.bind(globalThis);
+
+/** Lỗi do huỷ (AbortController.abort()) — không phải lỗi của provider. */
+export function isAbortError(e: unknown): boolean {
+  return !!e && typeof e === 'object' && (e as { name?: unknown }).name === 'AbortError';
+}
 const trimSlash = (u: string) => u.replace(/\/$/, '');
 
 /** Gọi qua proxy cùng-origin /api/llm (tránh CORS); URL đích nằm trong header x-target-url. */
@@ -72,7 +79,7 @@ export const callGemini: ProviderCall = async (messages, onToken, _onReasoning, 
     .filter(m => m.role !== 'system')
     .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
   const body = { systemInstruction: { parts: [{ text: sys }] }, contents, generationConfig: { temperature: 0.9 } };
-  const resp = await fetchOf(ctx)(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const resp = await fetchOf(ctx)(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctx.signal });
   if (!resp.ok) throw await httpError(resp);
   await streamLines(resp, line => {
     const payload = sseData(line);
@@ -106,11 +113,13 @@ async function callOpenAICompat(
     method: 'POST',
     headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal: ctx.signal,
   };
   let resp: Response;
   try {
     resp = viaProxy ? await proxyFetch(url, init, fetchOf(ctx)) : await fetchOf(ctx)(url, init);
-  } catch {
+  } catch (e) {
+    if (isAbortError(e)) throw e;
     throw new AiError(`Không kết nối được ${name} tại ${base} (có thể do CORS trình duyệt).`);
   }
   if (!resp.ok) throw await httpError(resp);
@@ -147,12 +156,13 @@ export const callOllama: ProviderCall = async (messages, onToken, onReasoning, c
   const local = ollamaIsLocal(base);
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (s.ollamaKey) headers.Authorization = 'Bearer ' + s.ollamaKey;
-  const init: RequestInit = { method: 'POST', headers, body: JSON.stringify({ model: s.ollamaModel, messages, stream: true }) };
+  const init: RequestInit = { method: 'POST', headers, body: JSON.stringify({ model: s.ollamaModel, messages, stream: true }), signal: ctx.signal };
   let resp: Response;
   try {
     // Cloud (ollama.com) đi qua proxy để tránh CORS
     resp = local ? await fetchOf(ctx)(base + '/api/chat', init) : await proxyFetch(base + '/api/chat', init, fetchOf(ctx));
-  } catch {
+  } catch (e) {
+    if (isAbortError(e)) throw e;
     throw new AiError(
       local
         ? 'Không kết nối được Ollama tại ' + base + '. Kiểm tra Ollama đang chạy và OLLAMA_ORIGINS=*.'
@@ -198,8 +208,10 @@ export const callFree = async (
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ device_id: dev, lang: ctx.lang, deck: ctx.deck, messages: conv }),
+      signal: ctx.signal,
     });
-  } catch {
+  } catch (e) {
+    if (isAbortError(e)) throw e;
     throw new AiError(en ? 'Cannot reach the free AI' : 'Không kết nối được AI miễn phí');
   }
   if (!resp.ok) {

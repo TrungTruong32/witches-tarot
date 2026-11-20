@@ -1,6 +1,6 @@
 // Chọn provider và tự chuyển sang provider kế khi lỗi.
 import { DEFAULT_AI_SETTINGS, type AiSettings, type BYOKProvider } from '../storage';
-import { PROVIDERS, type ChatMessage, type FreeAiInfo, type OnReasoning, type OnToken, type ProviderCall, type ProviderCtx, type ProviderId } from './providers';
+import { isAbortError, PROVIDERS, type ChatMessage, type FreeAiInfo, type OnReasoning, type OnToken, type ProviderCall, type ProviderCtx, type ProviderId } from './providers';
 
 export const PROVIDER_ORDER: readonly BYOKProvider[] = ['gemini', 'zenmux', 'beeknoee', 'ollama'];
 
@@ -68,7 +68,8 @@ export async function chatComplete(
       if (!got && next) throw new Error(ctx.lang === 'en' ? 'empty response' : 'không trả về nội dung');
       return p === 'free' && isFreeInfo(r) ? { provider: p, free: r } : { provider: p };
     } catch (e) {
-      if (got || !next) throw e;
+      // Đã stream một phần, hết provider, hoặc người dùng huỷ → không chuyển provider
+      if (got || !next || isAbortError(e) || ctx.signal?.aborted) throw e;
       lastErr = e;
       cb.onSwitch?.(p, next, e);
     }

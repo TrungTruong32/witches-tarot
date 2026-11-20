@@ -16,8 +16,8 @@ import { computeSpreadFacts, factLines } from '../../core/facts';
 import { buildSystemPrompt, buildUserPrompt } from '../../core/prompt';
 import { renderMarkdown } from '../../core/markdown';
 import type { Card, Reading as ReadingRecord, SpreadCard } from '../../core/types';
-import type { chatComplete, ChatCallbacks, ChatResult } from '../../services/ai/chat';
-import type { ChatMessage } from '../../services/ai/providers';
+import { chatComplete, type ChatCallbacks, type ChatResult } from '../../services/ai/chat';
+import { PROVIDERS, type ChatMessage, type ProviderCall, type ProviderCtx } from '../../services/ai/providers';
 import { openCardsDb, type CardsDb } from '../../services/cardsDb';
 import { addReading, allReadings } from '../../services/idb';
 import { cloudSaveReading } from '../../services/readingsApi';
@@ -86,6 +86,41 @@ const deferred = () => {
   return { promise, resolve };
 };
 const noCloud: InterpretDeps['cloud'] = () => {};
+
+/** rAF thủ công: các lần vẽ chờ tới khi gọi flush() (huỷ bằng cancelAnimationFrame). */
+function manualRaf() {
+  const q = new Map<number, FrameRequestCallback>();
+  let n = 0;
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => { q.set(++n, cb); return n; });
+  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => { q.delete(id); });
+  return {
+    pending: () => q.size,
+    flush() {
+      const cbs = [...q.values()];
+      q.clear();
+      cbs.forEach(cb => cb(0));
+    },
+  };
+}
+/** rAF chạy ngay (mỗi callback một lần vẽ, như bản cũ). */
+const syncRaf = () => vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => { cb(0); return 0; });
+
+/**
+ * chatComplete THẬT với chuỗi [gemini, free]: gemini stream `first` rồi chờ tới khi bị huỷ (ném AbortError).
+ * Huỷ thì không được chuyển sang free (onSwitch không gọi, free không chạy).
+ */
+function abortableChat(first: string) {
+  const onSwitch = vi.fn();
+  const free = vi.fn(async () => {});
+  useApp.setState({ aiSettings: { ...useApp.getState().aiSettings, geminiKey: 'K' } });
+  const gemini: ProviderCall = async (_m, onToken, _r, ctx) => {
+    if (first) onToken(first);
+    await new Promise<never>((_, rej) => ctx.signal!.addEventListener('abort', () => rej(new DOMException('Aborted', 'AbortError'))));
+  };
+  const chat = ((m: ChatMessage[], cb: ChatCallbacks, ctx: ProviderCtx) =>
+    chatComplete(m, { ...cb, onSwitch: (...x) => { onSwitch(...x); cb.onSwitch?.(...x); } }, ctx, { ...PROVIDERS, gemini, free })) as typeof chatComplete;
+  return { chat, onSwitch, free };
+}
 
 /** Trải 2 lá (đủ để có dữ kiện), kiểu trải 3 lá ppf → có vị trí. */
 function setSpread() {
@@ -158,6 +193,7 @@ describe('streamHtml matches legacy streamInto DOM step by step', () => {
         await L.streamInto(legacyEl, []);
         legacySnaps.push(legacyEl.innerHTML);
 
+        syncRaf();
         const views: StreamView[] = [];
         await streamInto([], v => views.push(v), fakeChat([script]).chat, { settings: useApp.getState().aiSettings, lang, deck: W });
         const norm = (html: string) => { const d = document.createElement('div'); d.innerHTML = html; return d.innerHTML; };
@@ -176,9 +212,12 @@ describe('Interpret', () => {
     renderReading();
     const gate = deferred();
     const f = fakeChat([[['reason', 'đang nghĩ'], ['wait', gate.promise], ['token', '**Xin**'], ['token', ' chào']]]);
+    const raf = manualRaf();
     let run!: Promise<void>;
     await act(async () => { run = runInterpret({ chat: f.chat, cloud: noCloud }); });
     expect($('resultPanel').classList.contains('is-empty')).toBe(false);
+    expect($('aiOutput').querySelector('.thinking')).toBeNull(); // suy nghĩ chờ khung hình kế
+    act(() => raf.flush());
     expect($('aiOutput').querySelector('.thinking')!.textContent).toBe(' ☿︎ Đang suy nghĩ…\n\nđang nghĩ');
     expect($<HTMLButtonElement>('interpretBtn').disabled).toBe(true);
     expect(useReading.getState().aiBg).toBe('thinking');
@@ -322,6 +361,66 @@ describe('Interpret', () => {
   });
 });
 
+describe('Cancellation and render batching', () => {
+  it('abort mid-stream (another answer opened): nothing saved, no onSwitch, no error shown, button enabled', async () => {
+    setSpread();
+    renderReading();
+    const a = abortableChat('nửa câu');
+    const save = vi.fn(addReading);
+    const cloud = vi.fn();
+    let run!: Promise<void>;
+    await act(async () => { run = runInterpret({ chat: a.chat, save, cloud }); });
+    act(() => showLoadedAnswer('Bản cũ', null));
+    await act(() => run);
+    expect(save).not.toHaveBeenCalled();
+    expect(cloud).not.toHaveBeenCalled();
+    expect(a.onSwitch).not.toHaveBeenCalled();
+    expect(a.free).not.toHaveBeenCalled();
+    expect($('aiOutput').textContent).toBe('Bản cũ');
+    expect($('aiOutput').classList.contains('ai-hint')).toBe(false);
+    expect($<HTMLButtonElement>('interpretBtn').disabled).toBe(false);
+    expect(await allReadings()).toEqual([]);
+  });
+
+  it('the AbortSignal reaches the chat ctx; a new session aborts it', async () => {
+    setSpread();
+    let seen: AbortSignal | undefined;
+    const chat = (async (_m: ChatMessage[], cb: ChatCallbacks, ctx: { signal?: AbortSignal }) => { seen = ctx.signal; cb.onToken('x'); return { provider: 'free' }; }) as unknown as typeof chatComplete;
+    await runInterpret({ chat, cloud: noCloud });
+    expect(seen!.aborted).toBe(false);
+    showLoadedAnswer('y', null);
+    expect(seen!.aborted).toBe(true);
+  });
+
+  it('tokens are batched into one render per animation frame; the final state is rendered at once when the stream ends', async () => {
+    const raf = manualRaf();
+    const gate = deferred();
+    const views: StreamView[] = [];
+    const run = streamInto([], v => views.push(v), fakeChat([[['token', 'a'], ['token', 'b'], ['reason', 'r'], ['token', 'c'], ['wait', gate.promise], ['token', 'd']]]).chat,
+      { settings: useApp.getState().aiSettings, lang: 'vi', deck: W });
+    await Promise.resolve();
+    expect(views.map(v => v.status)).toEqual(['connecting']);
+    expect(raf.pending()).toBe(1);
+    raf.flush();
+    expect(views.at(-1)).toMatchObject({ status: 'streaming', text: 'abc', reasoning: 'r' });
+    gate.resolve();
+    const out = await run;
+    expect(views.at(-1)).toMatchObject({ status: 'done', text: 'abcd' }); // không cần khung hình nữa
+    expect(raf.pending()).toBe(0); // lần vẽ đang chờ đã huỷ
+    expect(out.text).toBe('abcd');
+    expect(views).toHaveLength(3);
+  });
+
+  it('an error mid-stream cancels the pending frame', async () => {
+    const raf = manualRaf();
+    const views: StreamView[] = [];
+    await expect(streamInto([], v => views.push(v), fakeChat([[['token', 'a'], ['throw', 'x']]]).chat,
+      { settings: useApp.getState().aiSettings, lang: 'vi', deck: W })).rejects.toThrow('x');
+    expect(raf.pending()).toBe(0);
+    expect(views).toHaveLength(1);
+  });
+});
+
 describe('Follow-up', () => {
   const interpretFirst = async (scripts: Step[][]) => {
     setSpread();
@@ -373,7 +472,7 @@ describe('Follow-up', () => {
     expect($<HTMLButtonElement>('chatSend').disabled).toBe(false);
   });
 
-  it('a follow-up still streaming when a new interpret starts does not write into the new reading', async () => {
+  it('a superseded follow-up (provider ignores the abort) is still saved to its own record, never into the new reading', async () => {
     const gate = deferred();
     const f = await interpretFirst([[['wait', gate.promise], ['token', 'cũ']], [['token', 'Lời giải mới']]]);
     let follow!: Promise<void>;
@@ -382,8 +481,27 @@ describe('Follow-up', () => {
     await act(async () => { gate.resolve(); await follow; });
     expect(useReading.getState().followups).toEqual([]);
     expect(useReading.getState().messages.map(m => m.content).slice(-1)).toEqual(['Lời giải mới']);
-    expect((await allReadings()).map(r => r.followups)).toEqual([[], []]);
+    expect((await allReadings()).map(r => r.followups)).toEqual([[{ q: 'Hỏi cũ', a: 'cũ' }], []]);
     expect($('chatLog').children).toHaveLength(0);
+    expect($<HTMLButtonElement>('chatSend').disabled).toBe(false);
+  });
+
+  it('abort: a new interpret cancels a running follow-up — no error, no follow-up saved, new reading untouched', async () => {
+    setSpread();
+    renderReading();
+    await act(() => runInterpret({ chat: fakeChat([[['token', 'Lời giải']]]).chat, cloud: noCloud }));
+    const a = abortableChat('');
+    const update = vi.fn(async () => {});
+    let follow!: Promise<void>;
+    await act(async () => { follow = runFollowUp('Hỏi', { chat: a.chat, update }); });
+    await act(() => runInterpret({ chat: fakeChat([[['token', 'Mới']]]).chat, cloud: noCloud }));
+    await act(() => follow);
+    expect(update).not.toHaveBeenCalled();
+    expect(a.onSwitch).not.toHaveBeenCalled();
+    expect(a.free).not.toHaveBeenCalled();
+    expect($('chatLog').children).toHaveLength(0);
+    expect($('aiOutput').textContent).toBe('Mới');
+    expect((await allReadings()).map(r => r.followups)).toEqual([[], []]);
   });
 });
 
@@ -406,6 +524,22 @@ describe('Reading note', () => {
     expect($('readingNoteStatus').textContent).toBe('✓ Đã lưu');
     await act(() => runFollowUp('q', { chat: f.chat }));
     expect((await allReadings())[0]).toMatchObject({ note: 'Ghi chú', followups: [{ q: 'q', a: 'y' }] });
+  });
+
+  it('race: a note typed, a follow-up finished, then Interpret clicked — the pending note save keeps the follow-up', async () => {
+    setSpread();
+    renderReading();
+    const f = fakeChat([[['token', 'x']], [['token', 'y']], [['token', 'mới']]]);
+    await act(() => runInterpret({ chat: f.chat, cloud: noCloud }));
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    fireEvent.change($('readingNote'), { target: { value: 'Ghi chú' } });
+    await act(() => runFollowUp('q', { chat: f.chat }));
+    await act(() => runInterpret({ chat: f.chat, cloud: noCloud }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    vi.useRealTimers();
+    await vi.waitFor(async () => expect((await allReadings())[0]).toMatchObject({ note: 'Ghi chú', followups: [{ q: 'q', a: 'y' }] }));
+    expect((await allReadings())[1]).toMatchObject({ text: 'mới', note: '', followups: [] });
+    expect($('readingNoteStatus').textContent).toBe(''); // trạng thái của bản cũ không hiện ở bản mới
   });
 
   it('a failed save shows "⚠️ Lưu thất bại: …"', async () => {
@@ -438,6 +572,22 @@ describe('TTS', () => {
       fireEvent.click($('ttsBtn'));
       expect(synth.cancel).toHaveBeenCalledTimes(2);
       expect(synth.speak).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('TTS on leave', () => {
+  it('unmounting the panel cancels speech only while speaking', () => {
+    const synth = { speaking: false, speak: vi.fn(), cancel: vi.fn(), getVoices: () => [] };
+    vi.stubGlobal('speechSynthesis', synth);
+    try {
+      renderReading().unmount();
+      expect(synth.cancel).not.toHaveBeenCalled();
+      synth.speaking = true;
+      renderReading().unmount();
+      expect(synth.cancel).toHaveBeenCalledTimes(1);
     } finally {
       vi.unstubAllGlobals();
     }

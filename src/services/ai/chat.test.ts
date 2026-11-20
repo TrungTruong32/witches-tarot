@@ -115,3 +115,28 @@ describe('chatComplete free-AI info', () => {
     expect(r).toEqual({ provider: 'gemini' });
   });
 });
+
+describe('chatComplete cancellation (AbortSignal)', () => {
+  const abortErr = () => new DOMException('Aborted', 'AbortError');
+  it('an AbortError never triggers a provider fallback: no onSwitch, next provider not called, error rethrown', async () => {
+    const onSwitch = vi.fn();
+    const free = vi.fn(async () => {});
+    const err = await chatComplete([], { onToken: () => {}, onSwitch }, ctx, calls({
+      gemini: async () => { throw abortErr(); },
+      free,
+    })).catch(e => e);
+    expect((err as Error).name).toBe('AbortError');
+    expect(onSwitch).not.toHaveBeenCalled();
+    expect(free).not.toHaveBeenCalled();
+  });
+  it('an aborted signal stops the fallback even if the provider threw a different error', async () => {
+    const ac = new AbortController();
+    ac.abort();
+    const onSwitch = vi.fn();
+    await expect(chatComplete([], { onToken: () => {}, onSwitch }, { ...ctx, signal: ac.signal }, calls({
+      gemini: async () => { throw new Error('network'); },
+      free: async (_m, onToken) => onToken('x'),
+    }))).rejects.toThrow('network');
+    expect(onSwitch).not.toHaveBeenCalled();
+  });
+});

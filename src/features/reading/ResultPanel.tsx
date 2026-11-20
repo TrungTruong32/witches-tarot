@@ -146,6 +146,15 @@ export function ResultPanel() {
   const outRef = useRef<HTMLDivElement>(null);
   const bgOn = useAiCardsBg(boxRef);
 
+  // Rời màn: dừng giọng đọc đang đọc lời giải
+  useEffect(() => () => {
+    try {
+      if (window.speechSynthesis?.speaking) window.speechSynthesis.cancel();
+    } catch {
+      /* không có TTS */
+    }
+  }, []);
+
   const empty = !main && !chatOpen;
   return (
     <div className={'panel result-panel' + (empty ? ' is-empty' : '')} id="resultPanel">
