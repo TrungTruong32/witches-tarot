@@ -132,7 +132,7 @@ export const DrawStage = forwardRef<DrawStageHandle, DrawStageProps>(function Dr
   const startOrbit = useCallback(
     (mode: Mode) => {
       const run: Run = { token: 0, mode, shuffle: null, wheel: null };
-      run.token = claimDraw(ctx, () => cancelRun(run));
+      run.token = claimDraw(() => cancelRun(run));
       runRef.current = run;
       propsRef.current.onStart();
       const fan = fanRef.current, status = statusRef.current, orbit = orbitRef.current;

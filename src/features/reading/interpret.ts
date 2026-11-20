@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import { useApp } from '../../app/store';
 import { computeSpreadFacts, factLines } from '../../core/facts';
 import { buildSystemPrompt, buildUserPrompt, readingDecks } from '../../core/prompt';
+import { defsFor } from '../../core/spreads';
 import type { Lang, Reading, SpreadCard } from '../../core/types';
 import { prefersReducedMotion } from '../../lib/media';
 import { chatComplete, providerChain, type ChatResult } from '../../services/ai/chat';
@@ -13,7 +14,7 @@ import { isAbortError, type ChatMessage, type FreeAiInfo, type ProviderCtx, type
 import { addReading, updateReading } from '../../services/idb';
 import { cloudSaveReading } from '../../services/readingsApi';
 import type { AiSettings } from '../../services/storage';
-import { majorNameLookup, positionsFor, useReading } from './readingStore';
+import { majorNameLookup, useReading } from './readingStore';
 
 // ---------- trạng thái một khung trả lời đang stream ----------
 
@@ -218,7 +219,7 @@ export function snapshotReading(): ReadingSnapshot {
 export function buildReadingRecord(snap: ReadingSnapshot, text: string, result: ChatResult, free: FreeAiInfo): Reading {
   const app = useApp.getState();
   const { cards, spreadKey } = snap;
-  const positions = positionsFor({ spreadKey }, app.lang);
+  const positions = defsFor(spreadKey, app.lang);
   return {
     ts: Date.now(),
     deck: readingDecks(cards).join(', ') || app.deck || '',
@@ -289,7 +290,7 @@ export async function runInterpret(deps: InterpretDeps = {}): Promise<void> {
     {
       role: 'user',
       content: buildUserPrompt({
-        question: snap.question, cards, spreadKey: snap.spreadKey, positions: positionsFor(snap, app.lang), lang: app.lang,
+        question: snap.question, cards, spreadKey: snap.spreadKey, positions: defsFor(snap.spreadKey, app.lang), lang: app.lang,
         cardEn: app.cardEn, majorName: majorNameLookup(app.db, cards),
       }),
     },

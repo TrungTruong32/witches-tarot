@@ -13,14 +13,14 @@ import { SpreadPicker } from '../../components/spread/SpreadPicker';
 import { readDrawCount, toSpreadCard } from '../../core/draw';
 import { computeSpreadFacts, factLines } from '../../core/facts';
 import { createCardSearch } from '../../core/search';
-import { SPREADS, posDesc, spreadByKey } from '../../core/spreads';
+import { SPREADS, defsFor, posDesc, spreadByKey } from '../../core/spreads';
 import type { Card, SpreadCard } from '../../core/types';
 import { useT } from '../../i18n/useT';
 import { prefersReducedMotion } from '../../lib/media';
 import { useTimers } from '../../lib/useTimers';
 import type { ReadingEntryState } from '../landing/Landing';
 import { runInterpret, useInterpret } from './interpret';
-import { majorNameLookup, positionsFor, useReading } from './readingStore';
+import { majorNameLookup, useReading } from './readingStore';
 import { SpreadList } from './SpreadList';
 
 const CHIPS = [
@@ -179,7 +179,7 @@ export function Steps() {
   const setSpreadKey = useReading(s => s.setSpreadKey);
   const clear = useReading(s => s.clear);
   const interpreting = useInterpret(s => s.running);
-  const positions = positionsFor({ spreadKey }, lang);
+  const positions = defsFor(spreadKey, lang);
 
   // Ô số lá: kiểu trải cố định khoá theo số vị trí (applySpreadType); về Tự do vẫn giữ số vừa khoá như bản cũ.
   const [countRaw, setCountRaw] = useState(() => (positions ? String(positions.length) : '3'));
@@ -190,7 +190,7 @@ export function Steps() {
     if (positions) setCountRaw(String(positions.length));
   }
   const onSpread = (k: string) => {
-    const pos = positionsFor({ spreadKey: k }, lang);
+    const pos = defsFor(k, lang);
     if (pos) setCountRaw(String(pos.length));
     setSpreadKey(k);
   };

@@ -5,7 +5,7 @@ import { defsFor } from '../../core/spreads';
 import { MAJOR_NAMES } from '../../core/cards';
 import { toSpreadCard } from '../../core/draw';
 import type { CardsDb } from '../../services/cardsDb';
-import type { Card, Lang, Orientation, Reading as ReadingRecord, SpreadCard } from '../../core/types';
+import type { Card, Orientation, Reading as ReadingRecord, SpreadCard } from '../../core/types';
 import type { ChatMessage } from '../../services/ai/providers';
 
 export type Reveal = 'none' | 'seq' | 'deal';
@@ -74,11 +74,6 @@ export function initialReading(): Data {
 export function majorNameLookup(db: CardsDb | null, cards: SpreadCard[]): (n: number) => string | null {
   const deck = cards.find(c => c.deck)?.deck ?? null;
   return n => (db && deck ? db.majorNameIn(deck, n) : null) ?? MAJOR_NAMES[n] ?? null;
-}
-
-/** Tên các vị trí của kiểu trải đang chọn theo ngôn ngữ (spreadPositions của bản cũ); null = tự do. */
-export function positionsFor(state: Pick<ReadingState, 'spreadKey'>, lang: Lang): string[] | null {
-  return defsFor(state.spreadKey, lang);
 }
 
 // Mọi thay đổi trải bài = renderSpread() không đối số của bản cũ → lá hiện sẵn (reveal 'none').

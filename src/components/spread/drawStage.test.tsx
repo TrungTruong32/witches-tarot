@@ -46,11 +46,11 @@ const stage = (ctx: 'draw' | 'reading', over: Partial<Parameters<typeof DrawStag
 );
 
 describe('drawSession', () => {
-  it('claim cancels the previous holder (same owner too), release only frees its own token', () => {
+  it('claim cancels the previous holder, release only frees its own token', () => {
     const c1 = vi.fn(), c2 = vi.fn();
-    const t1 = claimDraw('draw', c1);
+    const t1 = claimDraw(c1);
     expect(isLive(t1)).toBe(true);
-    const t2 = claimDraw('draw', c2);
+    const t2 = claimDraw(c2);
     expect(c1).toHaveBeenCalledTimes(1);
     expect(isLive(t1)).toBe(false);
     releaseDraw(t1);
@@ -209,7 +209,7 @@ describe('DrawStage before the DB is ready', () => {
     const onStart = vi.fn();
     render(stage('draw', { onStart }));
     const held = vi.fn();
-    const tk = claimDraw('reading', held);
+    const tk = claimDraw(held);
     expect(($('drawBtn') as HTMLButtonElement).disabled).toBe(true);
     expect(($('pickBtn') as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click($('drawBtn'));
