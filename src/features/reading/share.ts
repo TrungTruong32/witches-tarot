@@ -14,6 +14,9 @@ import { useReading } from './readingStore';
 /** Bản ghi mở lại được: bản ghi nhật ký đầy đủ, hoặc trải bài dựng từ link chia sẻ (không id). */
 export type LoadableReading = Pick<Reading, 'question' | 'deck' | 'text' | 'cards'> & Partial<Pick<Reading, 'id' | 'spread'>>;
 
+/** Người dùng tự đóng hộp chia sẻ → không làm gì thêm (không chép link / prompt / tải file). */
+const cancelled = (e: unknown) => !!e && typeof e === 'object' && (e as { name?: unknown }).name === 'AbortError';
+
 const touchDevice = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 
 /**
@@ -53,9 +56,9 @@ export function __resetSharedHash(): void {
  */
 export async function loadSharedHash(hash: string): Promise<boolean> {
   if (hash.indexOf('#r=') !== 0 || handledHashes.has(hash)) return false;
-  handledHashes.add(hash); // đánh dấu trước khi await → không nạp hai lần
   const db = useApp.getState().db;
   if (!db) return false;
+  handledHashes.add(hash); // đánh dấu trước khi await → không nạp hai lần
   const data = await decodeShare(hash.slice(3));
   if (!data) return false;
   const shared = sanitizeShared(data, id => db.byId(id));
@@ -81,8 +84,9 @@ export async function shareReadingLink(): Promise<ShareLinkResult> {
     try {
       await navigator.share({ title: 'Witches Tarot', text: 'Trải bài Tarot của tôi', url });
       return 'shared';
-    } catch {
-      /* huỷ chia sẻ → chép link */
+    } catch (e) {
+      if (cancelled(e)) return 'none';
+      /* lỗi khác → chép link */
     }
   }
   try {
@@ -304,8 +308,9 @@ export async function exportReadingImage(): Promise<void> {
       try {
         await navigator.share({ files: [file], title: 'Witches Tarot', text: question || 'Trải bài Tarot' });
         return;
-      } catch {
-        /* huỷ → tải file */
+      } catch (e) {
+        if (cancelled(e)) return;
+        /* lỗi khác → tải file */
       }
     }
     const a = document.createElement('a');

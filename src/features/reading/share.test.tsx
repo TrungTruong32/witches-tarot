@@ -221,6 +221,27 @@ describe('share link button', () => {
     await act(async () => { fireEvent.click($('shareLinkBtn')); });
     await waitFor(() => expect(share).toHaveBeenCalledWith({ title: 'Witches Tarot', text: 'Trải bài Tarot của tôi', url: expect.stringContaining('/#r=') }));
   });
+  it('cancelling the share sheet (AbortError) does nothing; any other share error falls back to the clipboard', async () => {
+    const writeText = vi.fn(async () => {});
+    const prompt = vi.spyOn(window, 'prompt').mockImplementation(() => null);
+    let err: Error = new DOMException('cancel', 'AbortError');
+    const share = vi.fn(async () => { throw err; });
+    vi.stubGlobal('navigator', { ...navigator, share, clipboard: { writeText } });
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === '(pointer: coarse)', addEventListener() {}, removeEventListener() {} }));
+    useReading.setState({ cards: [card('Karma')] });
+    useInterpret.setState({ share: true });
+    renderAt();
+    await act(async () => { fireEvent.click($('shareLinkBtn')); });
+    await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+    await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+    expect(writeText).not.toHaveBeenCalled();
+    expect(prompt).not.toHaveBeenCalled();
+    expect($('shareLinkBtn').textContent).toBe('🔗 Link');
+    err = new Error('NotAllowedError');
+    await act(async () => { fireEvent.click($('shareLinkBtn')); });
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(prompt).not.toHaveBeenCalled();
+  });
 });
 
 describe('share image', () => {
@@ -270,6 +291,22 @@ describe('share image', () => {
     expect(images).toEqual([fixture(W, 'The Fool').image_url, fixture(W, 'The Tower').image_url].map(u => '/api/img?u=' + encodeURIComponent(String(u))));
     await waitFor(() => expect(btn.textContent).toBe('📸 Tải ảnh'));
     expect(btn.disabled).toBe(false);
+  });
+  it('touch: cancelling the share sheet (AbortError) does not download; other share errors still download', async () => {
+    let err: Error = new DOMException('cancel', 'AbortError');
+    const share = vi.fn(async () => { throw err; });
+    vi.stubGlobal('navigator', { ...navigator, share, canShare: () => true });
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === '(pointer: coarse)', addEventListener() {}, removeEventListener() {} }));
+    const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    useReading.setState({ question: 'Q', cards: [card('The Fool')] });
+    await exportReadingImage();
+    expect(share).toHaveBeenCalledWith({ files: [expect.any(File)], title: 'Witches Tarot', text: 'Q' });
+    expect(downloads).toEqual([]);
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalled();
+    err = new Error('boom');
+    await exportReadingImage();
+    expect(downloads).toEqual(['witches-tarot-' + dailyKey() + '.png']);
   });
   it('alerts on failure', async () => {
     blobOk = false;
