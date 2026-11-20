@@ -24,6 +24,11 @@ export function getAudioCtx(): AudioContext | null {
   return audioCtx;
 }
 
+/** Bộ đệm nhiễu trắng dùng chung (null trước ensureAudio) — nhạc nền "nến" dùng lại, không tạo bộ thứ hai. */
+export function getNoiseBuf(): AudioBuffer | null {
+  return noiseBuf;
+}
+
 /** Tạo (lười) và đánh thức AudioContext; gọi từ một cử chỉ người dùng. */
 export function ensureAudio(): AudioContext | null {
   try {
