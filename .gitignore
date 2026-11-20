@@ -1,5 +1,9 @@
 .vercel
 *.env
+# .env.local, .env.production… cũng chứa bí mật; chỉ mẫu .env.example được commit
+.env
+.env.*
+!.env.example
 node_modules/
 .codegraph/
 # notebook thử nghiệm — chứa API key, KHÔNG commit
