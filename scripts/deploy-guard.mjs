@@ -1,5 +1,5 @@
-// Chặn deploy Production từ nhánh khác main: deploy-prod.mjs tải cả thư mục làm việc lên Vercel,
-// nên deploy nhầm từ nhánh đang chuyển sang React sẽ làm trang chủ trắng.
+// Chặn deploy Production từ nhánh khác main: deploy-prod.mjs build ở máy (vercel build --prod) từ thư mục làm việc
+// hiện tại rồi tải bản prebuilt (.vercel/output) lên — deploy nhầm nhánh là đưa code chưa merge lên trang thật.
 /**
  * @param {string} branch
  * @param {string[]} argv

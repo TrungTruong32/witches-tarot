@@ -6,8 +6,8 @@ import { ROOT_STATIC } from './scripts/root-static.mjs';
 import { resolve, extname } from 'node:path';
 import { computeAppVersion } from './scripts/app-version.mjs';
 
-// Dữ liệu bài & ảnh vẫn nằm ở gốc repo (git-ignored, deploy từ máy). Khi chạy dev, phục vụ thẳng từ gốc.
-// Việc chuyển chúng vào bản build thuộc Kế hoạch 3.
+// Dữ liệu bài & ảnh nằm ở gốc repo (git-ignored, deploy từ máy). Khi chạy dev, phục vụ thẳng từ gốc (danh sách trắng);
+// khi build, scripts/copy-static.mjs chép chúng vào dist/.
 const MIME: Record<string, string> = {
   '.db': 'application/octet-stream', '.json': 'application/json', '.png': 'image/png',
   '.webp': 'image/webp', '.jpg': 'image/jpeg', '.webmanifest': 'application/manifest+json',

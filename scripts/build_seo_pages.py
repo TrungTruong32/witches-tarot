@@ -3,7 +3,8 @@
 
     python scripts/build_seo_pages.py
 
-Tạo ra (đều được commit và deploy như file tĩnh, KHÔNG sửa tay):
+Tạo ra (KHÔNG sửa tay; la-bai/ là git-ignored vì chứa dữ liệu bài — không commit, chỉ deploy từ máy như file tĩnh;
+sitemap.xml, robots.txt được commit):
   la-bai/index.html                    — trang tổng: danh sách các bộ bài
   la-bai/<bo-bai>/index.html           — danh sách 78 lá của một bộ
   la-bai/<bo-bai>/<la-bai>/index.html  — ý nghĩa từng lá (xuôi, ngược, từ khóa…)
