@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_AI_SETTINGS } from '../services/storage';
-import { initialState, loadPrefs, useApp } from './store';
+import { asAmbientMode, initialState, loadPrefs, useApp } from './store';
 
 beforeEach(() => {
   localStorage.clear();
@@ -19,6 +19,16 @@ describe('loadPrefs follows the legacy init code for each key', () => {
     expect(loadPrefs().ambientMode).toBe('mystic');
     localStorage.setItem('tarotAmbientMode', 'candle');
     expect(loadPrefs().ambientMode).toBe('candle');
+  });
+  it('ambientMode is validated on read: an unknown value becomes off (the legacy 1 → mystic migration still applies when empty)', () => {
+    localStorage.setItem('tarotAmbientMode', 'bogus');
+    localStorage.setItem('tarotAmbient', '1');
+    expect(loadPrefs().ambientMode).toBe('off');   // có mode (dù lạ) → không di trú
+    localStorage.setItem('tarotAmbientMode', '');
+    expect(loadPrefs().ambientMode).toBe('mystic');
+    localStorage.removeItem('tarotAmbient');
+    expect(loadPrefs().ambientMode).toBe('off');
+    expect(['off', 'mystic', 'candle', 'Mystic', ' candle'].map(asAmbientMode)).toEqual(['off', 'mystic', 'candle', 'off', 'off']);
   });
   it('keeps unknown theme strings as-is (legacy applies them verbatim) and maps old card backs', () => {
     localStorage.setItem('theme', 'bogus');

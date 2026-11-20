@@ -1,4 +1,6 @@
 export type Lang = 'vi' | 'en';
+/** Nhạc nền: tắt, kalimba huyền bí, ngọn nến. */
+export type AmbientMode = 'off' | 'mystic' | 'candle';
 export type Orientation = 'xuoi' | 'nguoc';
 export type Element = 'fire' | 'water' | 'air' | 'earth';
 

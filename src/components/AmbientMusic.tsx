@@ -2,11 +2,11 @@
 // Trình duyệt chặn audio trước tương tác: nếu mở app khi mode đã bật thì chờ pointerdown/keydown đầu tiên.
 import { useEffect, useRef } from 'react';
 import { useApp } from '../app/store';
-import { startAmbient, type AmbientEngine, type AmbientMode } from '../engines/ambient';
+import { startAmbient, type AmbientEngine } from '../engines/ambient';
 import { ensureAudio } from '../engines/audio';
 
 export function AmbientMusic() {
-  const mode = useApp(s => s.prefs.ambientMode) as AmbientMode;
+  const mode = useApp(s => s.prefs.ambientMode);
   const vol = useApp(s => s.prefs.ambientVol);
   const engine = useRef<AmbientEngine | null>(null);
   const mountMode = useRef(mode); // mode lúc mở app

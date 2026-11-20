@@ -1,8 +1,8 @@
 // Nhạc nền ambient (tổng hợp trực tiếp, không cần file) — chép từ bản cũ L2252–2378.
 // 'mystic' = kalimba tự sinh theo vòng hợp âm; 'candle' = nền trầm + lách tách ngọn nến. Dùng AudioContext chung của audio.ts.
+import type { AmbientMode } from '../core/types';
 import { getAudioCtx, getNoiseBuf, makeReverb } from './audio';
 
-export type AmbientMode = 'off' | 'mystic' | 'candle';
 export interface AmbientEngine {
   setVolume(v: number): void;
   stop(): void;
@@ -35,7 +35,7 @@ export function resetAmbientForTests(): void {
 /** Bật nhạc nền. Trả null nếu chưa có AudioContext (chưa ensureAudio) hoặc mode 'off'. */
 export function startAmbient(mode: AmbientMode, vol: number): AmbientEngine | null {
   const ctx = getAudioCtx();
-  if (!ctx || (mode !== 'mystic' && mode !== 'candle')) return null; // off hoặc mode lạ trong storage: không phát gì
+  if (!ctx || (mode !== 'mystic' && mode !== 'candle')) return null; // off (hoặc mode lạ — store đã lọc, đây chỉ phòng thủ): không phát gì
   current?.stop();
 
   const timers = new Set<ReturnType<typeof setTimeout>>(); // mọi hẹn giờ của engine này, kể cả hẹn dừng node

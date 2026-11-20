@@ -1,7 +1,7 @@
 // Trạng thái toàn app (Zustand). Phần cần nhớ được ghi qua services/storage với ĐÚNG key + định dạng của bản cũ.
 import { create } from 'zustand';
 import { normalizeCardBack } from '../core/cardBacks';
-import type { CardEnMap, Lang } from '../core/types';
+import type { AmbientMode, CardEnMap, Lang } from '../core/types';
 import type { CardsDb } from '../services/cardsDb';
 import type { BeforeInstallPromptEvent } from './pwaInstall';
 import { getStr, KEYS, loadAiSettings, remove, saveAiSettings as persistAi, setStr, type AiSettings } from '../services/storage';
@@ -17,7 +17,7 @@ export interface Prefs {
   ritualOff: boolean;
   soundOn: boolean;
   soundVol: number;
-  ambientMode: string;
+  ambientMode: AmbientMode;
   ambientVol: number;
   cloudSave: boolean;
 }
@@ -74,6 +74,11 @@ const vol = (raw: string, fallback: number) => {
   return isNaN(v) ? fallback : Math.min(1, Math.max(0, v));
 };
 
+/** Chỉ nhận ba chế độ nhạc nền đã biết; giá trị lạ (storage hỏng / tay sửa) → 'off'. */
+export function asAmbientMode(v: string): AmbientMode {
+  return v === 'mystic' || v === 'candle' ? v : 'off';
+}
+
 /** Đọc cài đặt trang theo đúng cách bản cũ khởi tạo từng key. */
 export function loadPrefs(): Prefs {
   let ambientMode = getStr(KEYS.ambientMode, '');
@@ -87,7 +92,7 @@ export function loadPrefs(): Prefs {
     ritualOff: getStr(KEYS.ritual, '') === '0',
     soundOn: getStr(KEYS.sound, '') !== '0',
     soundVol: vol(getStr(KEYS.soundVol, ''), 0.7),
-    ambientMode: ambientMode || 'off',
+    ambientMode: asAmbientMode(ambientMode),
     ambientVol: vol(getStr(KEYS.ambientVol, ''), 0.5),
     cloudSave: getStr(KEYS.cloudSave, '') !== '0',
   };

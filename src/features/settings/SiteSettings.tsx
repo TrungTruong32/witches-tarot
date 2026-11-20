@@ -2,7 +2,7 @@
 // Markup theo bản cũ L1268–1337; hành vi theo initSiteSettings / initCardBack / initTheme (L2389–2471, L5677–5710).
 // Ảnh thu nhỏ mặt lưng: gán thẳng thuộc tính style như bản cũ (nền nhiều lớp url(...) + màu).
 // Mọi thay đổi ghi thẳng vào store (→ localStorage key cũ); nhạc nền/âm thanh/sao nền đọc store (Kế hoạch 2c).
-import { useApp } from '../../app/store';
+import { asAmbientMode, useApp } from '../../app/store';
 import { ModalOverlay } from '../../components/Overlay';
 import { CARD_BACK_KEYS, CARD_BACK_NAMES, cardBackCss } from '../../core/cardBacks';
 import { useT } from '../../i18n/useT';
@@ -102,7 +102,7 @@ export function SiteSettings() {
 
       <div className="field">
         <label htmlFor="ambientMode">{t('site.music')}</label>
-        <select id="ambientMode" value={prefs.ambientMode} onChange={e => setPref('ambientMode', e.target.value)}>
+        <select id="ambientMode" value={prefs.ambientMode} onChange={e => setPref('ambientMode', asAmbientMode(e.target.value))}>
           <option value="off">{t('music.off')}</option>
           <option value="mystic">{t('music.mystic')}</option>
           <option value="candle">{t('music.candle')}</option>
