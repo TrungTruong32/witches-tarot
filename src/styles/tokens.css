@@ -47,5 +47,10 @@
     :root[data-theme="light"] .provider-toggle button.on { color: #fff; }
     /* dòng "✓ Đã lưu…" xanh nhạt #9fe6b4 trên nền trắng không đọc được → xanh đậm (chỉ theme sáng) */
     :root[data-theme="light"] .saved-note { color: #2e7d4f; }
+    /* Nền sáng — nút bật/tắt đang chọn (tab provider, lớp bầu trời Chòm sao/Hành tinh…): nền --accent → chữ trắng;
+       khi rê chuột giữ nền tím (luật hover chung ở trên mạnh hơn sẽ đổi sang tím nhạt → chữ trắng không đọc được) */
+    :root[data-theme="light"] button.sky-tg.on { color: #fff; }
+    :root[data-theme="light"] .provider-toggle button.on:not(:disabled):hover,
+    :root[data-theme="light"] button.sky-tg.on:not(.btn-primary):not(:disabled):hover { background: color-mix(in srgb, var(--accent) 88%, var(--text)); color: #fff; }
     /* Nền sáng — danh sách lá trong Nhật ký khi mở "Xem" (#d9d2ea gần như trắng) */
     :root[data-theme="light"] .hist-cards { color: var(--muted); }
