@@ -82,8 +82,40 @@ describe('service worker handlers', () => {
     const calls = counting(env);
     const sw = createSw(env.deps, cfg({ appAssets: ['/index.html'], dataAssets: ['/tarot.db', '/sky.json'] }));
     await sw.install();
-    expect(calls).toEqual(['/index.html']);
+    // tarot.db đã có → không tải lại; sky.json (phụ, lần trước lỗi) còn thiếu → được thử lại
+    expect(calls.sort()).toEqual(['/index.html', '/sky.json']);
     expect(await ((await env.map.get(DATA)?.match('/tarot.db')) as Response).text()).toBe('db-cu');
+    expect(keys(env, DATA)).toEqual(['/sky.json', '/tarot.db']);
+  });
+
+  it('install: deploy chỉ đổi dữ liệu (cache app đã có) → không tải lại /assets/* đã có trong cache app', async () => {
+    const env = fakeEnv([]);
+    await env.open(APP).put('/assets/a.js', new Response('a-cu'));
+    await env.open(APP).put('/index.html', new Response('shell-cu'));
+    await env.open('wtarot-data-old').put('/tarot.db', new Response('db-cu'));
+    const calls = counting(env);
+    const sw = createSw(env.deps, cfg({ appAssets: ['/index.html', '/assets/a.js', '/assets/b.js'], dataAssets: ['/tarot.db'] }));
+    await sw.install();
+    expect(calls.sort()).toEqual(['/assets/b.js', '/index.html', '/tarot.db']);
+    expect(await ((await env.map.get(APP)?.match('/assets/a.js')) as Response).text()).toBe('a-cu');
+  });
+
+  it('lúc chạy: file dữ liệu tải từ mạng được lưu vào cache data, không phải cache app', async () => {
+    const env = fakeEnv([]);
+    counting(env);
+    const sw = createSw(env.deps, cfg({ dataAssets: ['/tarot.db', '/sky.json'] }));
+    await sw.handle(new Request(BASE + '/sky.json'));
+    await tick();
+    expect(keys(env, DATA)).toEqual(['/sky.json']);
+    expect(keys(env, APP)).toEqual([]);
+  });
+
+  it('lúc chạy: bản cũ của file dữ liệu nằm trong cache app không che bản ở cache data', async () => {
+    const env = fakeEnv([]);
+    await env.open(APP).put('/tarot.db', new Response('db-cu-trong-app'));
+    await env.open(DATA).put('/tarot.db', new Response('db-moi'));
+    const sw = createSw(env.deps, cfg({ dataAssets: ['/tarot.db'] }));
+    expect(await ((await sw.handle(new Request(BASE + '/tarot.db'))) as Response).text()).toBe('db-moi');
   });
 
   it('install: /assets/* đã có trong cache wtarot-* cũ thì chép sang, không đi mạng', async () => {

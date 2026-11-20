@@ -30,6 +30,13 @@ const REQUIRED = (u: string) => u.startsWith('/assets/') || u === '/tarot.db';
 
 export function createSw(deps: SwDeps, { appCache, dataCache, appAssets, dataAssets }: SwConfig) {
   const { caches } = deps;
+  const origin = new URL(deps.base).origin;
+  const DATA_PATHS = new Set(dataAssets);
+  /** File dữ liệu (cùng origin, có trong danh sách data) → chỉ sống ở cache data. */
+  const isData = (key: RequestInfo) => {
+    const u = new URL(typeof key === 'string' ? key : key.url, deps.base);
+    return u.origin === origin && DATA_PATHS.has(u.pathname);
+  };
 
   /** Tải một file vào cache. cache: 'reload' → bỏ qua HTTP cache của trình duyệt (không nhét bản tarot.db cũ vào
    *  cache mới). Bỏ response bị redirect (vd. host đổi /index.html → /): Chrome từ chối trả nó cho điều hướng. */
@@ -50,10 +57,19 @@ export function createSw(deps: SwDeps, { appCache, dataCache, appAssets, dataAss
     const reuse = (await caches.keys()).filter(k => k.startsWith('wtarot-') && k !== appCache && k !== dataCache);
     const hadApp = await caches.has(appCache);
     const hadData = await caches.has(dataCache);
-    // Dữ liệu không đổi (cache data cùng tên đã có tarot.db) → khỏi tải lại tarot.db khi chỉ đổi code.
-    const dataReady = hadData && !!(await (await caches.open(dataCache)).match('/tarot.db'));
     const app = await caches.open(appCache);
     const data = await caches.open(dataCache);
+    // Bỏ qua mục đã có sẵn trong cache cùng tên (cùng nội dung theo tên cache):
+    //  - data: dữ liệu không đổi → khỏi tải lại tarot.db khi chỉ đổi code; mục phụ lần trước lỗi (còn thiếu) thì thử lại;
+    //  - app: deploy chỉ đổi dữ liệu → /assets/* đã có trong cache app hiện tại thì khỏi tải lại.
+    //    Vỏ '/', '/index.html' vẫn tải lại (nhẹ, và có thể đã được cập nhật lúc chạy).
+    const missing = async (c: Cache, had: boolean, list: readonly string[], skippable: (u: string) => boolean) => {
+      if (!had) return list;
+      const present = await Promise.all(list.map(async u => skippable(u) && !!(await c.match(u))));
+      return list.filter((_, i) => !present[i]);
+    };
+    const appTodo = await missing(app, hadApp, appAssets, u => u.startsWith('/assets/'));
+    const dataTodo = await missing(data, hadData, dataAssets, () => true);
     // Phần bắt buộc lỗi → ném lỗi, install thất bại: SW cũ + cache cũ ở lại, lần sau trình duyệt thử lại.
     // Phần phụ (icon, mặt lưng, card_en/sky.json, '/') lỗi thì bỏ qua để không hỏng toàn bộ install, như bản cũ.
     const one = (c: Cache, u: string, from: readonly string[]) =>
@@ -62,8 +78,8 @@ export function createSw(deps: SwDeps, { appCache, dataCache, appAssets, dataAss
       });
     try {
       await Promise.all([
-        ...appAssets.map(u => one(app, u, reuse)),
-        ...(dataReady ? [] : dataAssets.map(u => one(data, u, []))),
+        ...appTodo.map(u => one(app, u, reuse)),
+        ...dataTodo.map(u => one(data, u, [])),
       ]);
       // Vỏ app: cần ít nhất một trong '/index.html' / '/' (host có thể redirect /index.html → /).
       if (!(await app.match(SHELL_KEY)) && !(await app.match('/'))) throw new Error('Không tải được vỏ app');
@@ -84,14 +100,20 @@ export function createSw(deps: SwDeps, { appCache, dataCache, appAssets, dataAss
     await deps.claim();
   }
 
-  // Lưu lúc chạy luôn vào cache app (cache data chỉ do install ghi).
+  // Lưu lúc chạy: file dữ liệu vào cache data, còn lại vào cache app.
   async function put(key: RequestInfo, res: Response) {
-    const c = await caches.open(appCache);
+    const c = await caches.open(isData(key) ? dataCache : appCache);
     await c.put(key, res).catch(() => {});
   }
 
+  // File dữ liệu: tìm cache data trước — bản cũ lỡ nằm trong cache app không được che bản đúng ở cache data.
   async function match(key: RequestInfo) {
-    return (await (await caches.open(appCache)).match(key)) || (await (await caches.open(dataCache)).match(key));
+    const order = isData(key) ? [dataCache, appCache] : [appCache, dataCache];
+    for (const name of order) {
+      const hit = await (await caches.open(name)).match(key);
+      if (hit) return hit;
+    }
+    return undefined;
   }
 
   // Điều hướng trang: network-first, offline (hoặc máy chủ 5xx) thì trả HTML đã cache.
@@ -127,7 +149,7 @@ export function createSw(deps: SwDeps, { appCache, dataCache, appAssets, dataAss
   /** null = không can thiệp (để trình duyệt tự đi mạng): non-GET, /api/*. */
   function handle(req: Request): Promise<Response> | null {
     if (req.method !== 'GET') return null;
-    const r = route(new URL(req.url), req.mode, new URL(deps.base).origin);
+    const r = route(new URL(req.url), req.mode, origin);
     if (r === 'bypass') return null;
     if (r === 'network-first-app') return navigate(req, true);
     if (r === 'network-first-page') return navigate(req, false);
