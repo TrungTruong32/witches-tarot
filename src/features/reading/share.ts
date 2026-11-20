@@ -8,14 +8,15 @@ import { sanitizeShared, type SharedReading } from '../../core/safeShare';
 import { buildShareData, decodeShare, encodeShare } from '../../core/share';
 import { defsFor, spreadByKey } from '../../core/spreads';
 import type { Reading, SpreadCard } from '../../core/types';
+import { isAbortError } from '../../services/ai/providers';
 import { showLoadedAnswer, useInterpret } from './interpret';
 import { useReading } from './readingStore';
 
 /** Bản ghi mở lại được: bản ghi nhật ký đầy đủ, hoặc trải bài dựng từ link chia sẻ (không id). */
 export type LoadableReading = Pick<Reading, 'question' | 'deck' | 'text' | 'cards'> & Partial<Pick<Reading, 'id' | 'spread'>>;
 
-/** Người dùng tự đóng hộp chia sẻ → không làm gì thêm (không chép link / prompt / tải file). */
-const cancelled = (e: unknown) => !!e && typeof e === 'object' && (e as { name?: unknown }).name === 'AbortError';
+/** Người dùng tự đóng hộp chia sẻ (navigator.share ném AbortError) → không làm gì thêm (không chép link / prompt / tải file). */
+const cancelled = isAbortError;
 
 const touchDevice = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 

@@ -1,5 +1,5 @@
 // Tương ứng huyền học của lá bài (suy từ chất bài + số) — logic thuần, không đụng DOM.
-import type { Card, CardEnMap, CardText, Element, Lang } from './types';
+import type { Card, CardEnMap, CardText, Element, Lang, SpreadCard } from './types';
 
 export const ELEMENTS: Record<Element, { emoji: string; name: string; nameEn: string; hint: string }> = {
   fire: { emoji: '🜂', name: 'Lửa', nameEn: 'Fire', hint: 'đam mê · hành động · ý chí' },
@@ -114,4 +114,18 @@ export function cardText(c: Card, lang: Lang, cardEn: CardEnMap | null): CardTex
     return { ten: c.ten, tu_khoa: e.kw, y_nghia_xuoi: e.up, nghia_nguoc: e.rev };
   }
   return { ten: c.ten, tu_khoa: c.tu_khoa, y_nghia_xuoi: c.y_nghia_xuoi, nghia_nguoc: c.nghia_nguoc };
+}
+
+/** Phần của DB bài cần để tra tên Ẩn Chính theo bộ (CardsDb thoả mãn; core không phụ thuộc services). */
+export interface MajorNameSource {
+  majorNameIn(deck: string, n: number): string | null;
+}
+
+/**
+ * Tên Ẩn Chính số n theo bộ của trải bài (cho dữ kiện "lá tinh hoa"): bộ = bộ của lá đầu tiên có bộ,
+ * không có trong DB thì dùng tên chuẩn MAJOR_NAMES.
+ */
+export function majorNameFor(db: MajorNameSource | null, cards: SpreadCard[]): (n: number) => string | null {
+  const deck = cards.find(c => c.deck)?.deck ?? null;
+  return n => (db && deck ? db.majorNameIn(deck, n) : null) ?? MAJOR_NAMES[n] ?? null;
 }

@@ -11,6 +11,7 @@ import { makeDb, sqlJs } from '../../../tests/fixtures/makeDb';
 import { fakeFetch } from '../../../tests/helpers/stream';
 import { loadLegacy } from '../../../tests/legacy/harness';
 import { initialState, useApp } from '../../app/store';
+import { majorNameFor } from '../../core/cards';
 import { toSpreadCard } from '../../core/draw';
 import { computeSpreadFacts, factLines } from '../../core/facts';
 import { buildSystemPrompt, buildUserPrompt } from '../../core/prompt';
@@ -25,7 +26,7 @@ import { aiBgKey, startAiCardsBg } from './aiCardsBg';
 import { streamHtml } from './AiStream';
 import { forgetAllReadings, initialInterpret, runFollowUp, runInterpret, saveNoteDebounced, showLoadedAnswer, streamInto, useInterpret, type InterpretDeps, type StreamView } from './interpret';
 import { Reading } from './Reading';
-import { initialReading, majorNameLookup, useReading } from './readingStore';
+import { initialReading, useReading } from './readingStore';
 
 const W = 'Witches Tarot';
 const legacyHtml = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'tests', 'legacy', 'witches_tarot.legacy.html'), 'utf8');
@@ -224,7 +225,7 @@ describe('Interpret', () => {
     await act(async () => { gate.resolve(); await run; });
 
     const cards = useReading.getState().cards;
-    const majorName = majorNameLookup(db, cards);
+    const majorName = majorNameFor(db, cards);
     expect(f.calls[0]).toEqual([
       { role: 'system', content: buildSystemPrompt('vi', W) },
       { role: 'user', content: buildUserPrompt({ question: '  Tình yêu?  ', cards, spreadKey: 'ppf', positions: ['Quá khứ', 'Hiện tại', 'Tương lai'], lang: 'vi', cardEn: null, majorName }) },

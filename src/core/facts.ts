@@ -154,3 +154,8 @@ export function factLines(cards: SpreadCard[], f: SpreadFacts, lang: Lang, major
     );
   return out;
 }
+
+/** Dữ kiện trải bài đã thành câu (khung "Dữ kiện trải bài", prompt gửi AI, bản ghi nhật ký); dưới 2 lá thì không có. */
+export function spreadFactLines(cards: SpreadCard[], lang: Lang, majorName: (n: number) => string | null): string[] {
+  return cards.length >= 2 ? factLines(cards, computeSpreadFacts(cards), lang, majorName) : [];
+}

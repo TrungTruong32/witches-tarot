@@ -22,6 +22,7 @@ import { useT } from '../../i18n/useT';
 import { prefersReducedMotion } from '../../lib/media';
 import { useTimers } from '../../lib/useTimers';
 import { useReading } from '../reading/readingStore';
+import { useDraw } from './drawStore';
 
 /** 'deal' = lá đã rút, đang chờ/đang chia vào bàn; 'done' = chia xong, hiện ý nghĩa. */
 type Phase = 'idle' | 'deal' | 'done';
@@ -64,14 +65,14 @@ export function Draw() {
   const soundOn = useApp(s => s.prefs.soundOn);
   const setPref = useApp(s => s.setPref);
   const question = useReading(s => s.question);
-  const spreadKey = useReading(s => s.drawSpreadKey);
-  const result = useReading(s => s.drawResult);
+  const spreadKey = useDraw(s => s.spreadKey);
+  const result = useDraw(s => s.result);
   const positions = defsFor(spreadKey, lang);
   const navigate = useNavigate();
 
   const [countRaw, setCountRaw] = useState('3');
   // Quay lại màn khi đã có kết quả (kể cả rời giữa lúc chia) → hiện sẵn bàn + ý nghĩa
-  const [phase, setPhase] = useState<Phase>(() => (useReading.getState().drawResult.length ? 'done' : 'idle'));
+  const [phase, setPhase] = useState<Phase>(() => (useDraw.getState().result.length ? 'done' : 'idle'));
 
   const stageRef = useRef<DrawStageHandle>(null);
   const boardRef = useRef<SpreadBoardHandle>(null);
@@ -91,16 +92,16 @@ export function Draw() {
   const onSpread = (k: string) => {
     if (k === spreadKey) return;
     timers.clear();
-    const st = useReading.getState();
-    st.setDrawSpreadKey(k);
-    if (st.drawResult.length) st.setDrawResult([]);
+    const st = useDraw.getState();
+    st.setSpreadKey(k);
+    if (st.result.length) st.setResult([]);
     setPhase('idle');
   };
 
   // onStart của DRAW_CTX.draw: xoá kết quả, khoá nút "Đưa sang Trải bài AI"
   const onStart = () => {
     timers.clear();
-    useReading.getState().setDrawResult([]);
+    useDraw.getState().setResult([]);
     setPhase('idle');
   };
 
@@ -108,7 +109,7 @@ export function Draw() {
   const onPicked = (picked: SpreadCard[], live: () => boolean) => {
     const next = picked.map(toSpreadCard);
     flushSync(() => {
-      useReading.getState().setDrawResult(next);
+      useDraw.getState().setResult(next);
       setPhase('deal');
     });
     dealAfterPick({
@@ -118,7 +119,7 @@ export function Draw() {
       scrollTarget: () => boardOr(panelRef.current, 'drawBoard', resultsRef.current),
       deal: () => boardRef.current?.deal(),
       onDealt: () => {
-        if (live() && useReading.getState().drawResult === next) setPhase('done');
+        if (live() && useDraw.getState().result === next) setPhase('done');
       },
     });
   };
@@ -131,10 +132,11 @@ export function Draw() {
 
   // #drawToReading (L5480): mang kiểu trải + các lá sang Trải bài AI, danh sách lật lần lượt (renderSpread(true))
   const toReading = () => {
+    const { spreadKey: k, result: drawn } = useDraw.getState();
+    if (!drawn.length) return;
     const st = useReading.getState();
-    if (!st.drawResult.length) return;
-    st.setSpreadKey(st.drawSpreadKey);
-    st.setCards(st.drawResult.map(toSpreadCard), 'seq');
+    st.setSpreadKey(k);
+    st.setCards(drawn.map(toSpreadCard), 'seq');
     navigate(PATH_BY_MODE.reading);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

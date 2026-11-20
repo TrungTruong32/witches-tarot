@@ -1,7 +1,7 @@
 // Dựng tin nhắn người dùng gửi AI: câu hỏi + từng lá (chiều, vị trí, ý nghĩa đúng bộ) + khối SPREAD FACTS do code tính.
 // System prompt nằm ở shared/prompt.js (dùng chung với server).
 import { cardText } from './cards';
-import { computeSpreadFacts, factLines } from './facts';
+import { spreadFactLines } from './facts';
 import { posDesc, spreadByKey } from './spreads';
 import type { CardEnMap, Lang, SpreadCard } from './types';
 
@@ -55,7 +55,7 @@ export function buildUserPrompt(i: UserPromptInput): string {
     })
     .join('\n\n');
   const sdef = spreadByKey(spreadKey);
-  const facts = cards.length >= 2 ? factLines(cards, computeSpreadFacts(cards), lang, i.majorName) : [];
+  const facts = spreadFactLines(cards, lang, i.majorName);
   const factBlock = facts.map(l => '- ' + l).join('\n');
 
   if (en) {

@@ -2,7 +2,7 @@
 // Markup theo bản cũ L852–907, hành vi theo initLanding L2019–2098.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PATH_BY_MODE, type Mode } from '../../app/modes';
+import { PATH_BY_MODE, type Mode, type ReadingEntryState } from '../../app/modes';
 import { useApp } from '../../app/store';
 import { IconLabel } from '../../components/Icon';
 import { Logo } from '../../components/Logo';
@@ -25,12 +25,6 @@ const NAV: { go: Mode; key: I18nKey }[] = [
   { go: 'sky', key: 'landing.nSky' },
 ];
 const MAX = 300;
-
-/** Trạng thái state gửi sang màn Trải bài khi vào từ ô hỏi. */
-export interface ReadingEntryState {
-  question: string;
-  autoPick: true;
-}
 
 function Static({ html }: { html: string }) {
   return <span style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: html }} />;

@@ -2,8 +2,10 @@
 // Hàm async thuần + store nhỏ cho phần hiển thị: chạy và test được không cần React; ResultPanel chỉ vẽ lại từ store.
 // Phụ thuộc bên ngoài (gọi AI, IndexedDB, lưu máy chủ) tiêm qua `deps` để test thay bằng bản giả.
 import { create } from 'zustand';
+import { aiCtx } from '../../app/aiCtx';
 import { useApp } from '../../app/store';
-import { computeSpreadFacts, factLines } from '../../core/facts';
+import { majorNameFor } from '../../core/cards';
+import { spreadFactLines } from '../../core/facts';
 import { buildSystemPrompt, buildUserPrompt, readingDecks } from '../../core/prompt';
 import { defsFor } from '../../core/spreads';
 import type { Lang, Reading, SpreadCard } from '../../core/types';
@@ -14,7 +16,7 @@ import { isAbortError, type ChatMessage, type FreeAiInfo, type ProviderCtx, type
 import { addReading, updateReading } from '../../services/idb';
 import { cloudSaveReading } from '../../services/readingsApi';
 import type { AiSettings } from '../../services/storage';
-import { majorNameLookup, useReading } from './readingStore';
+import { useReading } from './readingStore';
 
 // ---------- trạng thái một khung trả lời đang stream ----------
 
@@ -134,10 +136,7 @@ const gone = (id: number | undefined, epoch: number) => epoch !== clearEpoch || 
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-function providerCtx(cards: SpreadCard[], signal: AbortSignal): ProviderCtx {
-  const app = useApp.getState();
-  return { settings: app.aiSettings, lang: app.lang, deck: readingDecks(cards).join(', ') || app.deck || '', signal };
-}
+const providerCtx = (cards: SpreadCard[], signal: AbortSignal): ProviderCtx => aiCtx(readingDecks(cards).join(', '), signal);
 
 /** Lượt gọi bị huỷ vì đã sang phiên khác — im lặng, không báo lỗi. */
 const aborted = (e: unknown, signal: AbortSignal) => isAbortError(e) || signal.aborted;
@@ -230,7 +229,7 @@ export function buildReadingRecord(snap: ReadingSnapshot, text: string, result: 
     note: '',
     spread: spreadKey,
     positions: positions ? positions.slice() : null,
-    facts: cards.length >= 2 ? factLines(cards, computeSpreadFacts(cards), app.lang, majorNameLookup(app.db, cards)) : [],
+    facts: spreadFactLines(cards, app.lang, majorNameFor(app.db, cards)),
     cards: cards.map(c => ({
       id: c.id, deck: c.deck, ten: c.ten, bo: c.bo, so: c.so, y_nghia_xuoi: c.y_nghia_xuoi, nghia_nguoc: c.nghia_nguoc,
       tu_khoa: c.tu_khoa, image_url: c.image_url, orientation: c.orientation,
@@ -291,7 +290,7 @@ export async function runInterpret(deps: InterpretDeps = {}): Promise<void> {
       role: 'user',
       content: buildUserPrompt({
         question: snap.question, cards, spreadKey: snap.spreadKey, positions: defsFor(snap.spreadKey, app.lang), lang: app.lang,
-        cardEn: app.cardEn, majorName: majorNameLookup(app.db, cards),
+        cardEn: app.cardEn, majorName: majorNameFor(app.db, cards),
       }),
     },
   ];

@@ -25,3 +25,9 @@ export const VIEW_ID: Record<Mode, string> = {
   yesno: 'yesnoView',
   sky: 'skyView',
 };
+
+/** location.state gửi sang màn Trải bài khi vào từ ô hỏi ở trang mở đầu: điền câu hỏi rồi tự bấm "Tự tay chọn lá". */
+export interface ReadingEntryState {
+  question: string;
+  autoPick: true;
+}

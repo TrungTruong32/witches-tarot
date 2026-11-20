@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
+import type { ReadingEntryState } from '../../app/modes';
 import { useApp } from '../../app/store';
 import { DeckSelect } from '../../components/DeckSelect';
 import { IconLabel } from '../../components/Icon';
@@ -11,16 +12,16 @@ import { DrawStage, type DrawStageHandle } from '../../components/spread/DrawSta
 import { SpreadBoard, type SpreadBoardHandle } from '../../components/spread/SpreadBoard';
 import { SpreadPicker } from '../../components/spread/SpreadPicker';
 import { readDrawCount, toSpreadCard } from '../../core/draw';
-import { computeSpreadFacts, factLines } from '../../core/facts';
+import { majorNameFor } from '../../core/cards';
+import { spreadFactLines } from '../../core/facts';
 import { createCardSearch } from '../../core/search';
 import { SPREADS, defsFor, posDesc, spreadByKey } from '../../core/spreads';
 import type { Card, SpreadCard } from '../../core/types';
 import { useT } from '../../i18n/useT';
 import { prefersReducedMotion } from '../../lib/media';
 import { useTimers } from '../../lib/useTimers';
-import type { ReadingEntryState } from '../landing/Landing';
 import { runInterpret, useInterpret } from './interpret';
-import { majorNameLookup, useReading } from './readingStore';
+import { useReading } from './readingStore';
 import { SpreadList } from './SpreadList';
 
 const CHIPS = [
@@ -262,10 +263,7 @@ export function Steps() {
     });
   };
 
-  const facts = useMemo(() => {
-    if (cards.length < 2) return [];
-    return factLines(cards, computeSpreadFacts(cards), lang, majorNameLookup(db, cards));
-  }, [cards, lang, db]);
+  const facts = useMemo(() => spreadFactLines(cards, lang, majorNameFor(db, cards)), [cards, lang, db]);
 
   const pending = reveal === 'deal' && cards.length > 0 && !prefersReducedMotion();
   const has = cards.length > 0;

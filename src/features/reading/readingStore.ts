@@ -1,10 +1,8 @@
 // Trạng thái màn "Trải bài AI" (Zustand riêng, không nằm trong useApp). Không lưu xuống storage —
-// rời màn rồi quay lại vẫn còn (bản cũ chỉ ẩn view). Màn "Bốc bài" (Task 5) đọc/ghi drawSpreadKey + drawResult ở đây.
+// rời màn rồi quay lại vẫn còn (bản cũ chỉ ẩn view). Màn "Bốc bài" có store riêng (features/draw/drawStore).
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { defsFor } from '../../core/spreads';
-import { MAJOR_NAMES } from '../../core/cards';
 import { toSpreadCard } from '../../core/draw';
-import type { CardsDb } from '../../services/cardsDb';
 import type { Card, Orientation, Reading as ReadingRecord, SpreadCard } from '../../core/types';
 import type { ChatMessage } from '../../services/ai/providers';
 
@@ -24,8 +22,6 @@ export interface ReadingState {
   followups: { q: string; a: string }[];
   current: ReadingRecord | null;
   aiBg: AiBg;
-  drawSpreadKey: string;
-  drawResult: SpreadCard[];
   setQuestion(q: string): void;
   setSpreadKey(k: string): void;
   setCards(c: SpreadCard[], reveal?: Reveal): void;
@@ -42,12 +38,10 @@ export interface ReadingState {
   setFollowups(f: { q: string; a: string }[]): void;
   setCurrent(r: ReadingRecord | null): void;
   setAiBg(m: AiBg): void;
-  setDrawSpreadKey(k: string): void;
-  setDrawResult(c: SpreadCard[]): void;
 }
 
 type Data = Pick<ReadingState,
-  'question' | 'spreadKey' | 'cards' | 'reveal' | 'answer' | 'provider' | 'messages' | 'followups' | 'current' | 'aiBg' | 'drawSpreadKey' | 'drawResult'>;
+  'question' | 'spreadKey' | 'cards' | 'reveal' | 'answer' | 'provider' | 'messages' | 'followups' | 'current' | 'aiBg'>;
 
 /** Trạng thái ban đầu (dùng để reset trong test). */
 export function initialReading(): Data {
@@ -62,18 +56,7 @@ export function initialReading(): Data {
     followups: [],
     current: null,
     aiBg: 'off',
-    drawSpreadKey: 'free',
-    drawResult: [],
   };
-}
-
-/**
- * Tên Ẩn Chính số n theo bộ của trải bài (cho dữ kiện "lá tinh hoa"): bộ = bộ của lá đầu tiên có bộ,
- * không có trong DB thì dùng tên chuẩn MAJOR_NAMES.
- */
-export function majorNameLookup(db: CardsDb | null, cards: SpreadCard[]): (n: number) => string | null {
-  const deck = cards.find(c => c.deck)?.deck ?? null;
-  return n => (db && deck ? db.majorNameIn(deck, n) : null) ?? MAJOR_NAMES[n] ?? null;
 }
 
 // Mọi thay đổi trải bài = renderSpread() không đối số của bản cũ → lá hiện sẵn (reveal 'none').
@@ -99,6 +82,4 @@ export const useReading: UseBoundStore<StoreApi<ReadingState>> = create<ReadingS
   setFollowups: f => set({ followups: f }),
   setCurrent: r => set({ current: r }),
   setAiBg: m => set({ aiBg: m }),
-  setDrawSpreadKey: k => set({ drawSpreadKey: k }),
-  setDrawResult: c => set({ drawResult: c }),
 }));

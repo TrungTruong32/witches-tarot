@@ -8,6 +8,7 @@ import { initialState, useApp } from '../../app/store';
 import type { SpreadCard } from '../../core/types';
 import { openCardsDb, type CardsDb } from '../../services/cardsDb';
 import { initialReading, useReading } from '../reading/readingStore';
+import { initialDraw, useDraw } from './drawStore';
 
 const W = 'Witches Tarot';
 
@@ -22,6 +23,7 @@ beforeEach(() => {
   useApp.setState({ ...initialState(), db, decks: db.decks(), deck: W, dbStatus: 'ready' });
   useApp.getState().setPref('ritualOff', true);
   useReading.setState(initialReading());
+  useDraw.setState(initialDraw());
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
   (Element.prototype as unknown as { animate: unknown }).animate = vi.fn(() => ({ cancel: vi.fn() }));
   window.scrollTo = vi.fn() as unknown as typeof window.scrollTo;
@@ -90,7 +92,7 @@ describe('Draw tab layout', () => {
     renderDraw();
     fireEvent.click(tile('ppf'));
     expect($('drawCount')).toBeNull();
-    expect(useReading.getState().drawSpreadKey).toBe('ppf');
+    expect(useDraw.getState().spreadKey).toBe('ppf');
     expect(document.querySelectorAll('#drawBoard .board-slot')).toHaveLength(3);
     fireEvent.click(tile('free'));
     expect($('drawCount')).not.toBeNull();
@@ -103,10 +105,10 @@ describe('Drawing', () => {
     renderDraw();
     fireEvent.click(tile('ppf'));
     await pickBy(3);
-    expect(useReading.getState().drawResult).toHaveLength(3);
+    expect(useDraw.getState().result).toHaveLength(3);
     expect(document.querySelectorAll('#drawBoard .board-card.revealed')).toHaveLength(3);
     expect($('drawFan').style.display).toBe('none');
-    const r = useReading.getState().drawResult;
+    const r = useDraw.getState().result;
     expect(names().map(n => n.replace(/\s+(Xuôi|Ngược)$/, ''))).toEqual([
       '1. Quá khứ — ' + r[0]!.ten, '2. Hiện tại — ' + r[1]!.ten, '3. Tương lai — ' + r[2]!.ten,
     ]);
@@ -120,9 +122,9 @@ describe('Drawing', () => {
     renderDraw();
     fireEvent.change($('drawCount'), { target: { value: '5' } });
     await pickBy(5);
-    expect(useReading.getState().drawResult).toHaveLength(5);
+    expect(useDraw.getState().result).toHaveLength(5);
     expect(drawCards()).toHaveLength(5);
-    expect(names()[0]!.startsWith('1. ' + useReading.getState().drawResult[0]!.ten + ' ')).toBe(true);
+    expect(names()[0]!.startsWith('1. ' + useDraw.getState().result[0]!.ten + ' ')).toBe(true);
   });
 
   it('#drawToReading stays disabled until the deal ends; clicking it hands off to /trai-bai with seq reveal', async () => {
@@ -132,8 +134,8 @@ describe('Drawing', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
     fireEvent.click($('drawBtn'));
     fireEvent.click($('stopShuffle'));
-    for (let i = 0; i < 300 && !useReading.getState().drawResult.length; i++) act(() => vi.advanceTimersByTime(100));
-    expect(useReading.getState().drawResult).toHaveLength(3);
+    for (let i = 0; i < 300 && !useDraw.getState().result.length; i++) act(() => vi.advanceTimersByTime(100));
+    expect(useDraw.getState().result).toHaveLength(3);
     expect(document.querySelectorAll('#drawBoard .board-card.await')).toHaveLength(3);
     expect(drawCards()).toHaveLength(0);
     expect($<HTMLButtonElement>('drawToReading').disabled).toBe(true);
@@ -150,7 +152,7 @@ describe('Drawing', () => {
     expect(drawCards()).toHaveLength(3);
     expect($<HTMLButtonElement>('drawToReading').disabled).toBe(false);
 
-    const drawn = useReading.getState().drawResult;
+    const drawn = useDraw.getState().result;
     fireEvent.click($('drawToReading'));
     expect(screen.getByTestId('where').textContent).toBe('/trai-bai');
     const st = useReading.getState();
@@ -169,7 +171,7 @@ describe('Drawing', () => {
     expect(drawCards()).toHaveLength(3);
     fireEvent.click($('pickBtn'));
     expect(drawCards()).toHaveLength(0);
-    expect(useReading.getState().drawResult).toHaveLength(0);
+    expect(useDraw.getState().result).toHaveLength(0);
     expect($<HTMLButtonElement>('drawToReading').disabled).toBe(true);
   });
 
@@ -179,7 +181,7 @@ describe('Drawing', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
     fireEvent.click($('drawBtn'));
     fireEvent.click($('stopShuffle'));
-    for (let i = 0; i < 300 && !useReading.getState().drawResult.length; i++) act(() => vi.advanceTimersByTime(100));
+    for (let i = 0; i < 300 && !useDraw.getState().result.length; i++) act(() => vi.advanceTimersByTime(100));
     fireEvent.click(screen.getByTestId('toBrowse'));
     act(() => vi.advanceTimersByTime(10000));
     fireEvent.click(screen.getByTestId('toDraw'));
@@ -197,9 +199,9 @@ describe('Results text', () => {
   } as SpreadCard);
 
   it('meaning goes through renderMarkdown (escaped); reversed shows the Ngược badge and noimg text', () => {
-    useReading.setState({
-      drawSpreadKey: 'free',
-      drawResult: [card({ orientation: 'nguoc', nghia_nguoc: '**đậm** <img src=x onerror=alert(1)>' })],
+    useDraw.setState({
+      spreadKey: 'free',
+      result: [card({ orientation: 'nguoc', nghia_nguoc: '**đậm** <img src=x onerror=alert(1)>' })],
     });
     renderDraw();
     const d = drawCards()[0]!;
@@ -215,7 +217,7 @@ describe('Results text', () => {
 
   it('follows the language: EN badge and English meaning from cardEn', () => {
     useApp.setState({ lang: 'en', cardEn: { 7: { kw: 'kw', up: 'English upright', rev: 'English reversed' } } as never });
-    useReading.setState({ drawSpreadKey: 'ppf', drawResult: [card({})] });
+    useDraw.setState({ spreadKey: 'ppf', result: [card({})] });
     renderDraw();
     const d = drawCards()[0]!;
     expect(d.querySelector('.draw-name')!.textContent).toBe('1. Past — The Fool Upright');
