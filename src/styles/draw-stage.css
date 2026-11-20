@@ -9,6 +9,14 @@
     .draw-mode .hint { font-size: .78rem; color: var(--muted); line-height: 1.35; text-align: center; text-wrap: balance; }
     .draw-extra { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
     .draw-extra[hidden] { display: none; }
+    @media (min-width: 481px) {
+      /* Bốc bài: khung chiếm cả bề ngang panel → cả 3 hàng (Số lá, hai nút, hàng phụ) cùng căn giữa trên một trục */
+      .draw-controls.draw-stage { align-items: center; }
+      .draw-controls.draw-stage .draw-modes { width: 100%; max-width: 720px; }
+      .draw-controls.draw-stage .draw-count, .draw-controls.draw-stage .draw-extra { justify-content: center; }
+      /* Trải bài AI bước 3: giữ mép trái chung với "Số lá" và "Tự thêm từng lá", hai nút trải hết cột (thẳng hàng ô câu hỏi ở bước 1) */
+      .draw-row.draw-stage .draw-modes { max-width: none; }
+    }
     @media (max-width: 480px) {
       .draw-modes { grid-template-columns: 1fr; max-width: none; }
     }
