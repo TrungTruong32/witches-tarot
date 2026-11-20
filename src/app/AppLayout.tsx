@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { DeckSelect } from '../components/DeckSelect';
 import { Logo } from '../components/Logo';
 import { NavMenu } from '../components/NavMenu';
+import { AiSettings } from '../features/settings/AiSettings';
 import { SiteSettings } from '../features/settings/SiteSettings';
 import { useT } from '../i18n/useT';
 import { useApp } from './store';
@@ -44,6 +45,7 @@ export function AppLayout() {
         <BootStatus />
         <Outlet />
       </div>
+      <AiSettings />
       <SiteSettings />
     </>
   );
