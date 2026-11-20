@@ -7,42 +7,16 @@
 // 5) Tắt hẳn máy chủ + setOffline → chỉ cache trả lời được. Mở /tra-cuu, /boc-bai, /nhat-ky: app phải hiện,
 //    danh sách lá nạp từ tarot.db đã cache.
 // Chạy: node scripts/offline-check.mjs   → in PASS/FAIL từng bước, thoát mã 1 nếu có bước lỗi.
-import { createServer } from 'node:http';
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { extname, join, resolve, sep } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import { buildSw } from './build-sw.mjs';
+// máy chủ tĩnh áp đúng rewrite + header của vercel.json (route app → index.html, /assets immutable, /sw.js no-cache)
+import { serveDist } from './serve-dist.mjs';
 
 const DIST = resolve(fileURLToPath(import.meta.url), '..', '..', 'dist');
-const APP_ROUTES = new Set(['/', '/hom-nay', '/tra-cuu', '/boc-bai', '/trai-bai', '/nhat-ky', '/yes-no', '/bau-troi']);
-const MIME = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
-  '.wasm': 'application/wasm', '.db': 'application/octet-stream', '.png': 'image/png', '.webp': 'image/webp',
-  '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.xml': 'application/xml',
-  '.txt': 'text/plain',
-};
-
-/** Máy chủ tĩnh tí hon: route của app → index.html (như rewrite SPA của Vercel), thư mục → index.html.
- *  `site.root` đổi được lúc chạy (giả lập deploy bản mới); `site.hits` ghi lại đường dẫn đã được yêu cầu. */
-export function serveDist(dist, port = 0) {
-  const site = { root: dist, hits: [] };
-  const server = createServer((req, res) => {
-    let p = decodeURIComponent((req.url || '/').split('?')[0]);
-    site.hits.push(p);
-    if (APP_ROUTES.has(p.replace(/\/+$/, '') || '/')) p = '/index.html';
-    const root = site.root;
-    let f = resolve(root, '.' + p);
-    if (f !== root && !f.startsWith(root + sep)) { res.statusCode = 403; return res.end(); }
-    if (existsSync(f) && statSync(f).isDirectory()) f = join(f, 'index.html');
-    if (!existsSync(f)) { res.statusCode = 404; return res.end('not found'); }
-    res.setHeader('Content-Type', MIME[extname(f)] || 'application/octet-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.end(readFileSync(f));
-  });
-  return new Promise(ok => server.listen(port, '127.0.0.1', () => ok({ server, site })));
-}
 
 /** Bản sao dist/ (bỏ la-bai cho nhẹ) với index.html đổi thẻ app-version, tuỳ chọn thêm một asset; sinh lại sw.js. */
 async function variant(tmp, name, { meta, extraAsset }) {
