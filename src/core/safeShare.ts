@@ -27,6 +27,7 @@ export function sanitizeShared(d: ShareData, byId: (id: number) => Card | null):
       const sc = (raw ?? {}) as Record<string, unknown>; // link cũ dạng object
       id = sc.i; o = sc.o === 'nguoc' ? 1 : 0; ten = sc.t; img = sc.u; bo = sc.b; so = sc.s; deck = sc.k;
     }
+    // id phải là số thật (chặt hơn bản cũ, vốn ép cả chuỗi số)
     const hit = typeof id === 'number' && id >= 0 ? byId(id) : null;
     const full = hit && (!deck || hit.deck === deck) ? hit : null; // id của bộ import cũ có thể trùng id bộ mới
     const safeImg = typeof img === 'string' && /^https:\/\/(www\.)?tarot\.vn\//.test(img) ? img : '';

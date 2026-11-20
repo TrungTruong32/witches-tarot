@@ -37,7 +37,8 @@ describe('drawRandomCards', () => {
 
 describe('readDrawCount / uid', () => {
   it('clamps 1..12, default 3', () => {
-    expect(readDrawCount('0')).toBe(1);
+    expect(readDrawCount('0')).toBe(3);
+    expect(readDrawCount('-5')).toBe(1);
     expect(readDrawCount('99')).toBe(12);
     expect(readDrawCount('x')).toBe(3);
     expect(readDrawCount('5')).toBe(5);

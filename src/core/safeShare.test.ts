@@ -44,7 +44,9 @@ describe('sanitizeShared', () => {
       q: 'q', d: 'Rider-Waite', p: ['Quá khứ', 'Hiện tại', 'Tương lai'], a: 'a',
       c: [{ i: 1, o: 'nguoc' }, { i: -1, o: 'xuoi', t: 'T', u: 'https://tarot.vn/a.png', b: 'B', s: '1', k: 'Witches Tarot' }],
     };
-    const inputs = [base, old, { ...base, p: 'zzz', d: 'Evil' }, { ...base, c: [[999, 0]] }, { ...base, c: [[101, 0, '', '', '', '', 'Witches Tarot']] }];
+    const celtic = { ...base, p: ['Hiện tại', 'Thử thách', 'Nền tảng', 'Quá khứ', 'Mục tiêu', 'Tương lai gần', 'Bản thân', 'Môi trường', 'Hy vọng & nỗi sợ', 'Kết quả'] };
+    const celticLabels = (await import('./spreads')).defsFor('celtic', 'vi')!;
+    const inputs = [{ ...base, p: celticLabels }, celtic, { ...base, c: [[1, 0, '', '', '', '', 'Rider-Waite']] }, base, old, { ...base, p: 'zzz', d: 'Evil' }, { ...base, c: [[999, 0]] }, { ...base, c: [[101, 0, '', '', '', '', 'Witches Tarot']] }];
     for (const d of inputs) {
       const r = sanitizeShared(d as ShareData, byId)!;
       const l = (await legacyResult(d)) as { question: string; deck: string; text: string; cards: Record<string, unknown>[]; spread: string };

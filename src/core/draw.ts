@@ -23,9 +23,7 @@ export function drawRandomCards(cards: Card[], n: number, rng: () => number = Ma
 
 /** Số lá muốn bốc: 1..12, không đọc được thì 3. */
 export function readDrawCount(raw: string): number {
-  const n = parseInt(raw, 10);
-  if (Number.isNaN(n)) return 3;
-  return Math.max(1, Math.min(12, n));
+  return Math.max(1, Math.min(12, parseInt(raw, 10) || 3));
 }
 
 /** Tập con trường như legacy + uid mới. */
