@@ -20,7 +20,8 @@ const clip = (v: unknown, n: number): string => (typeof v === 'string' ? v.slice
 /** `byId` tra DB theo id (mọi bộ). Lá không có trong DB: chỉ giữ chữ ngắn, ảnh chỉ nhận từ tarot.vn, id = -1. */
 export function sanitizeShared(d: ShareData, byId: (id: number) => Card | null): SharedReading | null {
   if (!d || !Array.isArray(d.c)) return null;
-  const cards: SpreadCard[] = (d.c as unknown[]).map(raw => {
+  // Cắt 15 lá TRƯỚC khi tra DB: link ác ý có hàng nghìn lá cũng chỉ tốn 15 lần tra
+  const cards: SpreadCard[] = (d.c as unknown[]).slice(0, 15).map(raw => {
     let id: unknown, o: unknown, ten: unknown, img: unknown, bo: unknown, so: unknown, deck: unknown;
     if (Array.isArray(raw)) [id, o, ten, img, bo, so, deck] = raw;
     else {
@@ -51,7 +52,7 @@ export function sanitizeShared(d: ShareData, byId: (id: number) => Card | null):
     question: clip(d.q, 500),
     deck: typeof d.d === 'string' && SPREAD_SAFE_DECKS.has(d.d) ? d.d : '',
     text: clip(d.a, 14000),
-    cards: cards.slice(0, 15),
+    cards,
     spreadKey: spreadByKey(stype) ? stype : 'free',
   };
 }

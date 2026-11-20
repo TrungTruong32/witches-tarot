@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { loadLegacyWithContext } from '../../tests/legacy/harness';
 import { fx } from '../../tests/fixtures/cards';
 import { sanitizeShared } from './safeShare';
@@ -73,8 +73,10 @@ describe('sanitizeShared', () => {
   });
   it('clamps cards to 15, question to 500 and answer to 14000', () => {
     const many = Array.from({ length: 30 }, () => [1, 0] as [number, 0]);
-    const r = sanitizeShared({ ...base, q: 'q'.repeat(600), a: 'a'.repeat(15000), c: many }, byId)!;
+    const lookup = vi.fn(byId);
+    const r = sanitizeShared({ ...base, q: 'q'.repeat(600), a: 'a'.repeat(15000), c: many }, lookup)!;
     expect(r.cards).toHaveLength(15);
+    expect(lookup).toHaveBeenCalledTimes(15); // cắt trước khi tra DB
     expect(r.question).toHaveLength(500);
     expect(r.text).toHaveLength(14000);
   });
