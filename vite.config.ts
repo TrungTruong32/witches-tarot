@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import { existsSync, createReadStream } from 'node:fs';
 import { ROOT_STATIC } from './scripts/root-static.mjs';
 import { resolve, extname } from 'node:path';
+import { computeAppVersion } from './scripts/app-version.mjs';
 
 // Dữ liệu bài & ảnh vẫn nằm ở gốc repo (git-ignored, deploy từ máy). Khi chạy dev, phục vụ thẳng từ gốc.
 // Việc chuyển chúng vào bản build thuộc Kế hoạch 3.
@@ -29,8 +30,19 @@ function serveRootStatic(): Plugin {
   };
 }
 
+// Gắn <meta name="app-version"> vào index.html khi build (dev: 'dev'). Bước kiểm tra sau deploy đọc thẻ này.
+function appVersionMeta(): Plugin {
+  return {
+    name: 'app-version-meta',
+    transformIndexHtml: {
+      order: 'pre',
+      handler: (html, ctx) => html.replace('%APP_VERSION%', ctx.server ? 'dev' : computeAppVersion()),
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), serveRootStatic()],
+  plugins: [react(), serveRootStatic(), appVersionMeta()],
   publicDir: false,
   server: {
     // Gốc dự án là gốc repo → chặn file bí mật / dữ liệu riêng (test.ipynb có API key, Data/ là dữ liệu bài gốc…)
