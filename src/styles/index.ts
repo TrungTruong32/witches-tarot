@@ -37,3 +37,4 @@ import './wheel.css';
 import './responsive.css';
 // Các đợt chỉnh giao diện sau khi bỏ bản cũ (nạp sau cùng để đè lên CSS gốc)
 import './draw-stage.css';
+import './daily.css';
