@@ -151,6 +151,17 @@ describe('Manual add', () => {
     expect(document.querySelector('#pickerResults .picker-empty')).not.toBeNull();
   });
 
+  it('a new result list (deck switch with the same query) makes the first row active again', () => {
+    renderReading();
+    type('cups');
+    fireEvent.keyDown(picker(), { key: 'ArrowDown' });
+    expect(document.querySelectorAll('#pickerResults .picker-item')[1]!.classList.contains('active')).toBe(true);
+    act(() => useApp.getState().setDeck('Rider-Waite'));
+    const items = [...document.querySelectorAll('#pickerResults .picker-item')];
+    expect(items.length).toBeGreaterThan(0);
+    expect(items[0]!.classList.contains('active')).toBe(true);
+  });
+
   it('IME composition Enter does not add', () => {
     renderReading();
     type('fool');
@@ -278,6 +289,8 @@ describe('Draw into the spread', () => {
     act(() => useApp.getState().setPref('ritualOff', true));
     renderReading();
     fireEvent.click(tile('ppf'));
+    // Bánh xe tự rút (wheel.ts, như bản cũ L5453) có thể trùng chỉ số giữa hai đoạn kề nhau → treo; cố định random để test ổn định
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
     fireEvent.click($('spreadDrawBtn'));
     fireEvent.click($('spreadStopShuffle'));
     for (let i = 0; i < 300 && !useReading.getState().cards.length; i++) act(() => vi.advanceTimersByTime(100));
@@ -299,6 +312,7 @@ function Nav() {
       <output data-testid="where">{loc.pathname}</output>
       <button data-testid="toBrowse" onClick={() => navigate('/tra-cuu')} />
       <button data-testid="toReading" onClick={() => navigate('/trai-bai')} />
+      <button data-testid="back" onClick={() => navigate(-1)} />
     </>
   );
 }
@@ -321,6 +335,8 @@ describe('Routing', () => {
     act(() => useApp.getState().setPref('ritualOff', true));
     render(<MemoryRouter initialEntries={['/trai-bai']}><AppRoutes /><Nav /></MemoryRouter>);
     fireEvent.click(tile('ppf'));
+    // Bánh xe tự rút (wheel.ts, như bản cũ L5453) có thể trùng chỉ số giữa hai đoạn kề nhau → treo; cố định random để test ổn định
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
     fireEvent.click($('spreadDrawBtn'));
     fireEvent.click($('spreadStopShuffle'));
     for (let i = 0; i < 300 && !useReading.getState().cards.length; i++) act(() => vi.advanceTimersByTime(100));
@@ -352,16 +368,48 @@ describe('Routing', () => {
     expect($('ritualQ').textContent).toBe('“Q”');
   });
 
-  it('autoPick timer is cleared on unmount', () => {
-    const r = render(
+  it('autoPick under the full AppRoutes (ResetOverlaysOnNavigate, ritual on): the ritual opens after 380 ms', () => {
+    render(
       <MemoryRouter initialEntries={[{ pathname: '/trai-bai', state: { question: 'Q', autoPick: true } }]}>
-        <RitualOverlay />
-        <Routes><Route path="/trai-bai" element={<Reading />} /></Routes>
+        <AppRoutes /><Nav />
       </MemoryRouter>,
     );
-    act(() => vi.advanceTimersByTime(0)); // jsdom: <details open> hẹn một sự kiện toggle
-    expect(vi.getTimerCount()).toBe(1);
-    r.unmount();
-    expect(vi.getTimerCount()).toBe(0);
+    expect($<HTMLTextAreaElement>('questionInput').value).toBe('Q');
+    act(() => vi.advanceTimersByTime(379));
+    expect($('ritualOverlay').style.display).toBe('none');
+    act(() => vi.advanceTimersByTime(1));
+    expect($('ritualOverlay').style.display).toBe('flex');
+    expect($('ritualQ').textContent).toBe('“Q”');
+  });
+
+  it('leaving before 380 ms: no pick fires, and Back to the entry does not replay it (state consumed)', () => {
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/trai-bai', state: { question: 'Q', autoPick: true } }]}>
+        <AppRoutes /><Nav />
+      </MemoryRouter>,
+    );
+    act(() => vi.advanceTimersByTime(200));
+    fireEvent.click(screen.getByTestId('toBrowse'));
+    act(() => vi.advanceTimersByTime(1000));
+    expect(useApp.getState().ritual).toBeNull();
+    useReading.getState().setQuestion('typed later');
+    fireEvent.click(screen.getByTestId('back'));
+    expect(screen.getByTestId('where').textContent).toBe('/trai-bai');
+    act(() => vi.advanceTimersByTime(1000));
+    expect(useApp.getState().ritual).toBeNull();
+    expect($('ritualOverlay').style.display).toBe('none');
+    expect($<HTMLTextAreaElement>('questionInput').value).toBe('typed later');
+  });
+
+  it("leaving mid-'seq' and coming back shows every thumb revealed (no replay)", async () => {
+    const cards = deckCards.slice(0, 3).map((c, i) => ({ ...c, orientation: 'xuoi' as const, uid: 2000 + i }));
+    useReading.getState().setCards(cards, 'seq');
+    render(<MemoryRouter initialEntries={['/trai-bai']}><AppRoutes /><Nav /></MemoryRouter>);
+    act(() => vi.advanceTimersByTime(220));
+    expect(document.querySelectorAll('#spreadList .spread-flip.revealed')).toHaveLength(1);
+    await act(async () => { fireEvent.click(screen.getByTestId('toBrowse')); });
+    expect(useReading.getState().reveal).toBe('none');
+    fireEvent.click(screen.getByTestId('toReading'));
+    expect(document.querySelectorAll('#spreadList .spread-flip.revealed')).toHaveLength(3);
   });
 });

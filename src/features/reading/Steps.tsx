@@ -66,6 +66,12 @@ function ManualAdd({ cards }: { cards: SpreadCard[] }) {
   const search = useMemo(() => (db && deck ? createCardSearch(db.query({ deck })) : null), [db, deck]);
   const q = query.trim();
   const rows = useMemo<Card[]>(() => (q && search ? search(q, 8) : []), [q, search]);
+  // Danh sách mới (gõ, xoá, đổi bộ bài) → dòng đầu là dòng đang chọn, như renderPicker của bản cũ
+  const [rowsSeen, setRowsSeen] = useState(rows);
+  if (rowsSeen !== rows) {
+    setRowsSeen(rows);
+    setActive(0);
+  }
 
   useEffect(() => {
     if (!scrollActive.current) return;
@@ -81,7 +87,6 @@ function ManualAdd({ cards }: { cards: SpreadCard[] }) {
   const add = (card: Card) => {
     const ok = addCard(card);
     setQuery('');
-    setActive(0);
     if (ok) inputRef.current?.focus();
   };
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -90,7 +95,7 @@ function ManualAdd({ cards }: { cards: SpreadCard[] }) {
     else if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
       const card = rows[active];
       if (card) { e.preventDefault(); add(card); }
-    } else if (e.key === 'Escape') { setQuery(''); setActive(0); }
+    } else if (e.key === 'Escape') setQuery('');
   };
 
   return (
@@ -104,7 +109,7 @@ function ManualAdd({ cards }: { cards: SpreadCard[] }) {
         placeholder={t('reading.picker.ph')}
         value={query}
         ref={inputRef}
-        onChange={e => { setQuery(e.target.value); setActive(0); }}
+        onChange={e => setQuery(e.target.value)}
         onKeyDown={onKey}
       />
       <div id="pickerResults" className="picker-results" ref={resultsRef}>
@@ -191,40 +196,49 @@ export function Steps() {
     timers.current = [];
   };
 
-  // 'deal' chỉ do lượt bốc của chính màn này điều khiển; gặp lúc gắn/gỡ = lượt cũ đã bị huỷ → hiện sẵn các lá.
+  const autoPickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mounted = useRef(false);
+
+  // 'deal' chỉ do lượt bốc của chính màn này điều khiển → gặp lúc gắn = lượt cũ đã bị huỷ, hiện sẵn các lá.
+  // Rời màn giữa lúc chia ('deal') hay lật lần lượt ('seq') → quay lại thấy các lá hiện sẵn, không chạy lại.
+  // Kiểm tra trong microtask: StrictMode gỡ-rồi-gắn-lại đồng bộ, khi đó mounted đã true lại → không đụng tới.
   useEffect(() => {
+    mounted.current = true;
     const st = useReading.getState();
     if (st.reveal === 'deal') st.setReveal('none');
     return () => {
+      mounted.current = false;
       timers.current.forEach(clearTimeout);
       timers.current = [];
-      const s = useReading.getState();
-      if (s.reveal === 'deal') s.setReveal('none');
+      if (autoPickTimer.current) clearTimeout(autoPickTimer.current);
+      autoPickTimer.current = null;
+      queueMicrotask(() => {
+        const s = useReading.getState();
+        if (!mounted.current && s.reveal !== 'none') s.setReveal('none');
+      });
     };
   }, []);
 
   // Vào từ trang mở đầu (go() L2073): điền câu hỏi; sau 380 ms cuộn tới nút Tự chọn rồi bấm (bắt đầu bốc, kể cả nghi thức).
-  // Xong thì xoá state của mục lịch sử → Back/Forward quay lại không bốc lần nữa.
+  // State của mục lịch sử được xoá ngay (replace) → rời màn trước 380 ms hay Back/Forward quay lại đều không bốc lần nữa.
+  // Hẹn giờ không gắn với lần chạy effect này (replace đổi location.key); chỉ huỷ khi gỡ màn.
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
     const entry = location.state as Partial<ReadingEntryState> | null;
     if (!entry || typeof entry.question !== 'string') return;
     useReading.getState().setQuestion(entry.question);
-    const consume = () => navigate({ pathname: location.pathname, search: location.search, hash: location.hash }, { replace: true, state: null });
-    if (!entry.autoPick) {
-      consume();
-      return;
-    }
-    const id = setTimeout(() => {
+    navigate({ pathname: location.pathname, search: location.search, hash: location.hash }, { replace: true, state: null });
+    if (!entry.autoPick) return;
+    if (autoPickTimer.current) clearTimeout(autoPickTimer.current);
+    autoPickTimer.current = setTimeout(() => {
+      autoPickTimer.current = null;
       const pick = document.getElementById('spreadPickBtn') as HTMLButtonElement | null;
       if (pick && !pick.disabled) {
         pick.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
         pick.click();
       }
-      consume();
     }, 380);
-    return () => clearTimeout(id);
   }, [location.key, location.state, location.pathname, location.search, location.hash, navigate]);
 
   // onPicked của DRAW_CTX.reading (L4789): đưa lá vào trải bài → 1600 ms sau thu bánh xe, cuộn tới bàn → 450 ms sau chia lá.
@@ -232,7 +246,13 @@ export function Steps() {
     const next = picked.map(toSpreadCard);
     flushSync(() => useReading.getState().setCards(next, 'deal'));
     const reduce = prefersReducedMotion();
-    const later = (fn: () => void, ms: number) => timers.current.push(setTimeout(fn, ms));
+    const later = (fn: () => void, ms: number) => {
+      const id = setTimeout(() => {
+        timers.current = timers.current.filter(x => x !== id);
+        fn();
+      }, ms);
+      timers.current.push(id);
+    };
     later(() => {
       if (!live()) return;
       stageRef.current?.hideFan();
