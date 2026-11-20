@@ -1,6 +1,6 @@
 // Logic của service worker (install / activate / fetch), nhận caches/fetch/self qua tham số để test được.
 // Chỉ dùng kiểu có ở cả lib DOM lẫn WebWorker (Request, Response, CacheStorage) — sw.ts mới gắn vào sự kiện thật.
-import { route } from './routes';
+import { FONT_HOSTS, route } from './routes';
 
 export interface SwDeps {
   caches: CacheStorage;
@@ -67,13 +67,13 @@ export function createSw(deps: SwDeps, { cacheName, assets }: SwConfig) {
   }
 
   // Còn lại: cache-first, có thì trả ngay, không thì tải mạng rồi cache lại
-  // (cả response opaque từ host khác, vd. font — vẫn cache được để dùng offline).
+  // Response opaque (no-cors) chỉ được lưu khi là font Google — opaque không biết có lỗi hay không.
   async function cacheFirst(req: Request): Promise<Response> {
     const hit = await match(req);
     if (hit) return hit;
     try {
       const net = await deps.fetch(req);
-      if (net && (net.ok || net.type === 'opaque')) void put(req, net.clone());
+      if (net && (net.ok || (net.type === 'opaque' && FONT_HOSTS.has(new URL(req.url).hostname)))) void put(req, net.clone());
       return net;
     } catch {
       return Response.error();
@@ -83,7 +83,7 @@ export function createSw(deps: SwDeps, { cacheName, assets }: SwConfig) {
   /** null = không can thiệp (để trình duyệt tự đi mạng): non-GET, /api/*. */
   function handle(req: Request): Promise<Response> | null {
     if (req.method !== 'GET') return null;
-    const r = route(new URL(req.url), req.mode);
+    const r = route(new URL(req.url), req.mode, new URL(deps.base).origin);
     if (r === 'bypass') return null;
     if (r === 'network-first-app') return navigate(req, true);
     if (r === 'network-first-page') return navigate(req, false);

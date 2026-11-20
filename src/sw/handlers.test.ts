@@ -119,6 +119,17 @@ describe('service worker handlers', () => {
     expect(await ((await sw.handle(nav('/la-bai/y/'))) as Response).text()).toBe('shell');
   });
 
+  it('opaque chỉ được cache cho font Google', async () => {
+    const env = fakeEnv([]);
+    const opaque = () => { const r = new Response(null); Object.defineProperty(r, 'type', { value: 'opaque' }); Object.defineProperty(r, 'ok', { value: false }); return r; };
+    env.setFetch((async () => opaque()) as unknown as typeof fetch);
+    const sw = createSw(env.deps, { cacheName: 'wtarot-abc', assets: [] });
+    await sw.handle(new Request('https://fonts.gstatic.com/s/a.woff2'));
+    await sw.handle(new Request(BASE + '/odd.png'));
+    await tick();
+    expect([...(env.map.get('wtarot-abc') as FakeCache).store.keys()]).toEqual(['/s/a.woff2']);
+  });
+
   it('cache-first: có trong cache thì không gọi mạng; /api và non-GET thì bỏ qua (null)', async () => {
     const env = fakeEnv([]);
     await env.open('wtarot-abc').put('/tarot.db', new Response('db'));

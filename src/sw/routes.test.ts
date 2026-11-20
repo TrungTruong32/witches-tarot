@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { APP_ROUTES, route } from './routes';
+import { APP_ROUTES, FONT_HOSTS, route as routeAt } from './routes';
 
-const at = (path: string) => new URL(path, 'https://tarot.example');
+const ORIGIN = 'https://tarot.example';
+const at = (path: string) => new URL(path, ORIGIN);
+const route = (url: URL, mode: string) => routeAt(url, mode, ORIGIN);
 
 describe('route()', () => {
   it('mọi route của app (cả "/") khi điều hướng → network-first-app', () => {
@@ -31,7 +33,23 @@ describe('route()', () => {
   it('tài nguyên còn lại → cache-first', () => {
     for (const p of ['/assets/index-abc.js', '/assets/sql-wasm-x.wasm', '/tarot.db', '/card_en.json', '/sky.json', '/icon-192.png', '/la-bai/style.css'])
       expect(route(at(p), 'same-origin')).toBe('cache-first');
-    expect(route(new URL('https://fonts.gstatic.com/x.woff2'), 'cors')).toBe('cache-first');
+  });
+
+  it('host khác: chỉ font Google (danh sách trắng) được cache-first', () => {
+    expect(FONT_HOSTS.has('fonts.gstatic.com')).toBe(true);
+    expect(route(new URL('https://fonts.gstatic.com/s/x.woff2'), 'cors')).toBe('cache-first');
+    expect(route(new URL('https://fonts.googleapis.com/css2?family=Cinzel'), 'no-cors')).toBe('cache-first');
+  });
+
+  it('host khác ngoài danh sách → bypass (không bao giờ cache, vd. URL Gemini có ?key=)', () => {
+    expect(route(new URL('https://generativelanguage.googleapis.com/v1beta/models?key=AIza-secret'), 'cors')).toBe('bypass');
+    expect(route(new URL('https://cdn.example.com/lib.js'), 'no-cors')).toBe('bypass');
+    expect(route(new URL('https://other.example/'), 'navigate')).toBe('bypass');
+  });
+
+  it('/api/ của host khác cũng bypass (không nhầm là route của mình)', () => {
+    expect(route(new URL('https://evil.example/api/ai'), 'cors')).toBe('bypass');
+    expect(route(new URL('https://fonts.gstatic.com/api/x'), 'cors')).toBe('cache-first');
   });
 
   it('"/apix" không bị nhầm là /api/', () => {
