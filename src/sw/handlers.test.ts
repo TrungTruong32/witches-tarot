@@ -161,6 +161,27 @@ describe('service worker handlers', () => {
     expect(await (res as Response).text()).toBe('<html>shell</html>');
   });
 
+  it('máy chủ trả 5xx khi điều hướng → trả bản đã cache (nếu có), không ghi đè cache', async () => {
+    const env = fakeEnv([]);
+    await env.open(APP).put('/index.html', new Response('shell'));
+    await env.open(APP).put('/la-bai/x/', new Response('page-x'));
+    env.setFetch((async () => new Response('boom', { status: 502 })) as unknown as typeof fetch);
+    const sw = createSw(env.deps, cfg());
+    expect(await ((await sw.handle(nav('/boc-bai'))) as Response).text()).toBe('shell');
+    expect(await ((await sw.handle(nav('/la-bai/x/'))) as Response).text()).toBe('page-x');
+    expect(await ((await sw.handle(nav('/la-bai/y/'))) as Response).text()).toBe('shell');
+    // 404 không phải lỗi máy chủ → trả nguyên response mạng
+    env.setFetch((async () => new Response('nf', { status: 404 })) as unknown as typeof fetch);
+    expect(((await sw.handle(nav('/la-bai/z/'))) as Response).status).toBe(404);
+  });
+
+  it('5xx khi chưa có gì trong cache → trả nguyên response mạng', async () => {
+    const env = fakeEnv([]);
+    env.setFetch((async () => new Response('boom', { status: 500 })) as unknown as typeof fetch);
+    const sw = createSw(env.deps, cfg());
+    expect(((await sw.handle(nav('/tra-cuu'))) as Response).status).toBe(500);
+  });
+
   it('online: điều hướng app được lưu dưới khoá /index.html (cache app)', async () => {
     const env = fakeEnv([]);
     env.setFetch((async () => new Response('fresh')) as unknown as typeof fetch);

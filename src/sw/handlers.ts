@@ -94,16 +94,19 @@ export function createSw(deps: SwDeps, { appCache, dataCache, appAssets, dataAss
     return (await (await caches.open(appCache)).match(key)) || (await (await caches.open(dataCache)).match(key));
   }
 
-  // Điều hướng trang: network-first, offline thì trả HTML đã cache.
+  // Điều hướng trang: network-first, offline (hoặc máy chủ 5xx) thì trả HTML đã cache.
   // Route của app lưu dưới khoá '/index.html'; trang khác (/la-bai/…) lưu theo đúng URL của nó
   // (để mở trang lá bài không ghi đè bản offline của app).
   async function navigate(req: Request, isApp: boolean): Promise<Response> {
+    const cached = async () => (isApp ? undefined : await match(req.url)) || (await match(SHELL_KEY)) || (await match('/'));
     try {
       const net = await deps.fetch(req);
       if (net.ok && !net.redirected) void put(isApp ? SHELL_KEY : req.url, net.clone());
+      // Máy chủ lỗi (5xx) → dùng bản đã cache nếu có, còn hơn trang lỗi.
+      if (net.status >= 500) return (await cached()) || net;
       return net;
     } catch {
-      return (isApp ? undefined : await match(req.url)) || (await match(SHELL_KEY)) || (await match('/')) || Response.error();
+      return (await cached()) || Response.error();
     }
   }
 
