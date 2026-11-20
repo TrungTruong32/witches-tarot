@@ -12,45 +12,66 @@ export interface SwDeps {
 }
 
 export interface SwConfig {
-  /** 'wtarot-' + hash nội dung mọi file precache — đổi file nào là đổi tên cache, không cần bump tay như bản cũ. */
-  cacheName: string;
-  /** Vỏ ứng dụng: '/', '/index.html', /assets/* (kể cả wasm sql.js), tarot.db, card_en.json, sky.json, manifest, icon, mặt lưng bài. */
-  assets: readonly string[];
+  /** 'wtarot-app-<hash>': vỏ app + /assets/* + mọi thứ lưu lúc chạy (trang /la-bai/…, font, og-image). */
+  appCache: string;
+  /** 'wtarot-data-<hash>': tarot.db, card_en.json, sky.json, icon, mặt lưng — chỉ đổi khi dữ liệu đổi. */
+  dataCache: string;
+  /** '/', '/index.html', /assets/* (kể cả wasm sql.js). */
+  appAssets: readonly string[];
+  dataAssets: readonly string[];
 }
 
 /** Khoá cache của vỏ app: mọi route của app dùng chung một bản HTML. */
 const SHELL_KEY = '/index.html';
 
-export function createSw(deps: SwDeps, { cacheName, assets }: SwConfig) {
+export function createSw(deps: SwDeps, { appCache, dataCache, appAssets, dataAssets }: SwConfig) {
   const { caches } = deps;
 
+  /** Tải một file vào cache. cache: 'reload' → bỏ qua HTTP cache của trình duyệt (không nhét bản tarot.db cũ vào
+   *  cache mới). Bỏ response bị redirect (vd. host đổi /index.html → /): Chrome từ chối trả nó cho điều hướng. */
+  async function store(c: Cache, u: string, reuse: readonly string[]) {
+    // /assets/* bất biến theo tên (tên có hash nội dung) → có sẵn trong cache wtarot-* cũ thì chép sang, khỏi tải lại.
+    if (u.startsWith('/assets/')) {
+      for (const k of reuse) {
+        const hit = await (await caches.open(k)).match(u);
+        if (hit) return c.put(u, hit);
+      }
+    }
+    const res = await deps.fetch(new Request(new URL(u, deps.base), { cache: 'reload' }));
+    if (!res.ok || res.redirected) throw new Error(u + ' HTTP ' + res.status);
+    await c.put(u, res);
+  }
+
   async function install() {
-    const c = await caches.open(cacheName);
+    const reuse = (await caches.keys()).filter(k => k.startsWith('wtarot-') && k !== appCache && k !== dataCache);
+    // Dữ liệu không đổi (cache data cùng tên đã có tarot.db) → khỏi tải lại tarot.db khi chỉ đổi code.
+    const dataReady = (await caches.has(dataCache)) && !!(await (await caches.open(dataCache)).match('/tarot.db'));
+    const app = await caches.open(appCache);
+    const data = await caches.open(dataCache);
     // add từng cái, bỏ qua cái nào lỗi để không hỏng toàn bộ install.
-    // cache: 'reload' → bỏ qua HTTP cache của trình duyệt, không nhét bản tarot.db cũ vào cache mới.
-    // Bỏ response bị redirect (vd. host đổi /index.html → /): Chrome từ chối trả nó cho điều hướng.
-    const one = async (u: string) => {
-      const res = await deps.fetch(new Request(new URL(u, deps.base), { cache: 'reload' }));
-      if (res.ok && !res.redirected) await c.put(u, res);
-    };
-    await Promise.all(assets.map(u => one(u).catch(() => {})));
+    await Promise.all([
+      ...appAssets.map(u => store(app, u, reuse).catch(() => {})),
+      ...(dataReady ? [] : dataAssets.map(u => store(data, u, []).catch(() => {}))),
+    ]);
     await deps.skipWaiting();
   }
 
   async function activate() {
-    // Xoá mọi cache khác bản hiện tại — kể cả cache của SW cũ (wtarot-v9…), để bản cài đặt không kẹt bản cũ.
+    // Xoá mọi cache khác hai cache hiện tại — kể cả cache của SW cũ (wtarot-v9…), để bản cài đặt không kẹt bản cũ.
+    const keep = new Set([appCache, dataCache]);
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k !== cacheName).map(k => caches.delete(k)));
+    await Promise.all(keys.filter(k => !keep.has(k)).map(k => caches.delete(k)));
     await deps.claim();
   }
 
+  // Lưu lúc chạy luôn vào cache app (cache data chỉ do install ghi).
   async function put(key: RequestInfo, res: Response) {
-    const c = await caches.open(cacheName);
+    const c = await caches.open(appCache);
     await c.put(key, res).catch(() => {});
   }
 
   async function match(key: RequestInfo) {
-    return (await caches.open(cacheName)).match(key);
+    return (await (await caches.open(appCache)).match(key)) || (await (await caches.open(dataCache)).match(key));
   }
 
   // Điều hướng trang: network-first, offline thì trả HTML đã cache.

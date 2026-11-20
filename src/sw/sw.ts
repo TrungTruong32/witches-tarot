@@ -1,7 +1,7 @@
 // Service worker cho Witches Tarot — cho phép cài đặt & chạy offline phần lõi.
 // Sinh lúc build (scripts/build-sw.mjs → dist/sw.js): danh sách precache và phiên bản được nhúng vào hằng số bên dưới.
-// Phiên bản = hash nội dung mọi file precache, nên đổi tarot.db/icon/cardback/bản build là tự đổi tên cache
-// (không còn quy tắc "nhớ bump CACHE" như sw.js cũ).
+// Hai cache tên theo nội dung (wtarot-app-<hash>, wtarot-data-<hash>) — đổi code hay dữ liệu là tự đổi tên cache
+// (không còn quy tắc "nhớ bump CACHE" như sw.js cũ). Xem scripts/build-sw.mjs.
 import { createSw } from './handlers';
 
 declare const self: ServiceWorkerGlobalScope;
@@ -14,7 +14,7 @@ const sw = createSw(
     claim: () => self.clients.claim(),
     base: self.location.href,
   },
-  { cacheName: 'wtarot-' + __SW_VERSION__, assets: __SW_ASSETS__ },
+  { appCache: __SW_APP_CACHE__, dataCache: __SW_DATA_CACHE__, appAssets: __SW_APP_ASSETS__, dataAssets: __SW_DATA_ASSETS__ },
 );
 
 self.addEventListener('install', e => e.waitUntil(sw.install()));

@@ -1,3 +1,4 @@
-export function precacheList(dist: string): string[];
-export function swVersion(dist: string, list: string[]): string;
-export function buildSw(dist: string, entry?: string): Promise<{ version: string; assets: string[] }>;
+export interface PrecacheLists { app: string[]; data: string[] }
+export function precacheLists(dist: string): PrecacheLists;
+export function cacheNames(dist: string, lists: PrecacheLists): { app: string; data: string };
+export function buildSw(dist: string, entry?: string): Promise<{ app: string; data: string; lists: PrecacheLists }>;

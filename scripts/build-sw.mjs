@@ -1,6 +1,9 @@
 // Sau copy-static: sinh dist/sw.js từ src/sw/sw.ts (esbuild, đi kèm vite).
-// Nhúng danh sách precache + phiên bản = hash (đường dẫn + nội dung) mọi file precache —
-// đổi tarot.db, icon, mặt lưng bài hay bản build nào là tên cache đổi theo, SW cũ tự bị thay.
+// Hai cache, tên theo nội dung — tự đổi khi cần, không còn quy tắc "nhớ bump CACHE" của sw.js cũ:
+//   wtarot-app-<h1>: vỏ app + /assets/*. h1 = hash tên các asset (đã có hash nội dung) + index.html bỏ thẻ app-version
+//                    (thẻ đó có giờ build → nếu tính vào thì bản build nào cũng đổi tên dù không đổi gì).
+//   wtarot-data-<h2>: dữ liệu bài, icon, mặt lưng. h2 = hash (đường dẫn + nội dung) từng file → đổi code không bắt
+//                    máy người dùng tải lại tarot.db; đổi tarot.db thì chỉ cache data đổi.
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -10,39 +13,49 @@ import { ROOT_STATIC } from './root-static.mjs';
 
 const REPO = resolve(fileURLToPath(import.meta.url), '..', '..');
 
-// og-image chỉ dùng khi chia sẻ link → không precache (lưu khi được tải, như bản cũ).
-const NOT_PRECACHED = /^\/og-image\.jpg$/;
+// Không precache (bản ở gốc vẫn được chép vào dist):
+//  - og-image.jpg: chỉ dùng khi chia sẻ link (lưu khi được tải, như bản cũ);
+//  - manifest.webmanifest, cardback.png: index.html/CSS dùng bản có hash trong /assets → bản gốc chỉ là bản trùng.
+// Giữ icon-*.png (manifest trỏ tới /icon-*.png) và apple-touch-icon.png (iOS tự dò ở gốc).
+const NOT_PRECACHED = /^\/(og-image\.jpg|manifest\.webmanifest|cardback\.png)$/;
 
-/** Danh sách URL precache: vỏ app, /assets/* (kể cả wasm), dữ liệu bài, manifest, icon, mặt lưng bài. Không có la-bai/, SEO, sw.js. */
-export function precacheList(dist) {
-  const list = ['/', '/index.html'];
+const APP_VERSION_META = /<meta\s+name="app-version"[^>]*>/g;
+
+/** URL precache theo cache: app = '/', '/index.html', /assets/* (kể cả wasm); data = file dữ liệu ở gốc. */
+export function precacheLists(dist) {
+  const app = ['/', '/index.html'];
   const assets = join(dist, 'assets');
   if (existsSync(assets)) {
-    for (const name of readdirSync(assets).sort()) if (statSync(join(assets, name)).isFile()) list.push('/assets/' + name);
+    for (const name of readdirSync(assets).sort()) if (statSync(join(assets, name)).isFile()) app.push('/assets/' + name);
   }
+  const data = [];
   for (const name of readdirSync(dist).sort()) {
     const u = '/' + name;
-    if (ROOT_STATIC.test(u) && !NOT_PRECACHED.test(u) && statSync(join(dist, name)).isFile()) list.push(u);
+    if (ROOT_STATIC.test(u) && !NOT_PRECACHED.test(u) && statSync(join(dist, name)).isFile()) data.push(u);
   }
-  return list;
+  return { app, data };
 }
 
-/** Hash ngắn của (đường dẫn + nội dung) từng file — '/' trùng nội dung '/index.html' nên bỏ qua. */
-export function swVersion(dist, list) {
-  const h = createHash('sha256');
-  for (const u of [...list].sort()) {
-    if (u === '/') continue;
-    h.update(u + '\0');
-    h.update(readFileSync(join(dist, u.slice(1))));
-    h.update('\0');
+const short = h => h.digest('hex').slice(0, 16);
+
+/** Tên hai cache từ nội dung dist/. */
+export function cacheNames(dist, { app, data }) {
+  const ha = createHash('sha256');
+  for (const u of [...app].sort()) if (u.startsWith('/assets/')) ha.update(u + '\0');
+  ha.update(readFileSync(join(dist, 'index.html'), 'utf8').replace(APP_VERSION_META, ''));
+  const hd = createHash('sha256');
+  for (const u of [...data].sort()) {
+    hd.update(u + '\0');
+    hd.update(readFileSync(join(dist, u.slice(1))));
+    hd.update('\0');
   }
-  return h.digest('hex').slice(0, 16);
+  return { app: 'wtarot-app-' + short(ha), data: 'wtarot-data-' + short(hd) };
 }
 
 /** Biên dịch src/sw/sw.ts → dist/sw.js với hằng số đã nhúng. */
 export async function buildSw(dist, entry = join(REPO, 'src', 'sw', 'sw.ts')) {
-  const assets = precacheList(dist);
-  const version = swVersion(dist, assets);
+  const lists = precacheLists(dist);
+  const names = cacheNames(dist, lists);
   await build({
     entryPoints: [entry],
     outfile: join(dist, 'sw.js'),
@@ -52,15 +65,20 @@ export async function buildSw(dist, entry = join(REPO, 'src', 'sw', 'sw.ts')) {
     minify: true,
     legalComments: 'none',
     logLevel: 'warning',
-    define: { __SW_VERSION__: JSON.stringify(version), __SW_ASSETS__: JSON.stringify(assets) },
+    define: {
+      __SW_APP_CACHE__: JSON.stringify(names.app),
+      __SW_DATA_CACHE__: JSON.stringify(names.data),
+      __SW_APP_ASSETS__: JSON.stringify(lists.app),
+      __SW_DATA_ASSETS__: JSON.stringify(lists.data),
+    },
   });
-  return { version, assets };
+  return { ...names, lists };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const { version, assets } = await buildSw(join(REPO, 'dist'));
-    console.log(`build-sw: dist/sw.js, cache wtarot-${version}, ${assets.length} file precache`);
+    const r = await buildSw(join(REPO, 'dist'));
+    console.log(`build-sw: dist/sw.js, ${r.app} (${r.lists.app.length} file), ${r.data} (${r.lists.data.length} file)`);
   } catch (e) {
     console.error(e.message);
     process.exit(1);
