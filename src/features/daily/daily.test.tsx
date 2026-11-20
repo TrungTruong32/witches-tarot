@@ -131,3 +131,21 @@ describe('Daily midnight timer is robust', () => {
     unmount();
   });
 });
+
+describe('Daily trước khi tarot.db nạp xong', () => {
+  it('chưa có lá thì chưa hiện ô nhật ký (lá hiện sau sẽ đẩy nó xuống); DB về → lá + ô nhật ký cùng lúc', () => {
+    useApp.setState({ ...initialState() }); // db null, deck null, dbStatus 'loading'
+    render(<Daily />);
+    expect(document.querySelector('#dailyCard img')).toBeNull();
+    expect(document.getElementById('dailyNote')).toBeNull();
+    act(() => useApp.setState({ db, decks: db.decks(), deck: 'Witches Tarot', dbStatus: 'ready' }));
+    expect(document.querySelector('#dailyCard img')).not.toBeNull();
+    expect(document.getElementById('dailyNote')).not.toBeNull();
+  });
+
+  it('DB lỗi → ô nhật ký vẫn hiện như cũ', () => {
+    useApp.setState({ ...initialState(), dbStatus: 'error' });
+    render(<Daily />);
+    expect(document.getElementById('dailyNote')).not.toBeNull();
+  });
+});

@@ -49,6 +49,7 @@ export function Daily() {
   const { t, lang } = useT();
   const db = useApp(s => s.db);
   const deck = useApp(s => s.deck);
+  const loading = useApp(s => s.dbStatus === 'loading');
   const cardEn = useApp(s => s.cardEn);
   const day = useDayKey();
   const card = useMemo(() => (db && deck ? pickDailyCard(db.query({ deck }), deck, day) : null), [db, deck, day]);
@@ -87,7 +88,9 @@ export function Daily() {
           </>
         )}
       </div>
-      <DailyNote key={day} day={day} />
+      {/* DB còn đang nạp (chưa có lá) thì chưa hiện ô nhật ký: lá hiện ra sau sẽ đẩy ô này xuống (CLS).
+          Hiện cùng lúc với lá thì chỉ là phần tử mới, không xô gì. DB lỗi → vẫn hiện như cũ. */}
+      {(card || !loading) && <DailyNote key={day} day={day} />}
     </div>
   );
 }
