@@ -4,7 +4,7 @@ import { deckCards } from '../../tests/fixtures/deck';
 import { toSpreadCard } from '../core/draw';
 import type { SpreadCard } from '../core/types';
 import { ensureAudio, getAudioCtx, resetForTests as resetAudioForTests, setSfxEnabled, sfx } from './audio';
-import { burstAt, haptic } from './burst';
+import { burstAt, haptic, setBurstSink } from './burst';
 import { dealBoard } from './deal';
 import { startShuffle } from './shuffle';
 import { startWheel, type WheelOpts } from './wheel';
@@ -27,7 +27,7 @@ afterEach(() => {
   vi.useRealTimers();
   delete (Element.prototype as unknown as { animate?: unknown }).animate;
   document.body.innerHTML = '';
-  delete (window as unknown as { tarotBurst?: unknown }).tarotBurst;
+  setBurstSink(null);
 });
 
 const mount = (cls = '') => {
@@ -342,14 +342,17 @@ describe('dealBoard', () => {
 });
 
 describe('burst / haptic', () => {
-  it('burstAt is a no-op without tarotBurst, else calls it with the centre', () => {
+  it('burstAt is a no-op without a sink, else calls it with the centre; setBurstSink(null) unregisters', () => {
     const el = mount();
     expect(() => burstAt(el, 5)).not.toThrow();
     const fn = vi.fn();
-    (window as unknown as { tarotBurst: unknown }).tarotBurst = fn;
+    setBurstSink(fn);
     el.getBoundingClientRect = () => ({ left: 10, top: 20, width: 100, height: 40 }) as DOMRect;
     burstAt(el, 7);
     expect(fn).toHaveBeenCalledWith(60, 40, 7);
+    setBurstSink(null);
+    burstAt(el, 7);
+    expect(fn).toHaveBeenCalledTimes(1);
   });
   it('haptic calls navigator.vibrate and swallows errors', () => {
     const v = vi.fn();

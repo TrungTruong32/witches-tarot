@@ -1,9 +1,8 @@
 import { act, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useApp } from '../app/store';
+import * as burst from '../engines/burst';
 import { Background } from './Background';
-
-type W = { tarotBurst?: (x: number, y: number, n: number) => void };
 
 let pending = new Map<number, FrameRequestCallback>();
 let nextId = 1;
@@ -25,14 +24,17 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('Background', () => {
-  it('tạo #bgAura + canvas#bgStars; window.tarotBurst có khi gắn, mất khi gỡ', () => {
+  it('tạo #bgAura + canvas#bgStars; đăng ký nơi vẽ hạt khi gắn, gỡ khi gỡ — không còn window.tarotBurst', () => {
+    const sink = vi.spyOn(burst, 'setBurstSink');
     const { container, unmount } = render(<Background />);
     expect(container.querySelector('#bgAura')).not.toBeNull();
     expect(container.querySelector('canvas#bgStars')).not.toBeNull();
     expect(container.firstElementChild?.id).toBe('bgAura');
-    expect(typeof (window as W).tarotBurst).toBe('function');
-    unmount();
+    expect(sink).toHaveBeenCalledTimes(1);
+    expect(typeof sink.mock.calls[0]![0]).toBe('function');
     expect('tarotBurst' in window).toBe(false);
+    unmount();
+    expect(sink).toHaveBeenLastCalledWith(null);
   });
 
   it('prefs.fx off/on qua store: dừng rồi chạy lại đúng một vòng; gỡ thì không còn rAF/listener', () => {

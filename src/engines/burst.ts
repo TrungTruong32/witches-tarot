@@ -1,9 +1,18 @@
-// Bung hạt lấp lánh tại tâm một phần tử (bản cũ L2118). <Background/> (engines/starfield) gắn window.tarotBurst; chưa có thì bỏ qua.
+// Bung hạt lấp lánh tại tâm một phần tử (bản cũ L2118: window.tarotBurst). Nơi vẽ hạt do <Background/> đăng ký
+// (setBurstSink → engines/starfield) thay cho biến toàn cục; chưa đăng ký thì bỏ qua.
+export type BurstSink = (x: number, y: number, n: number) => void;
+
+let sink: BurstSink | null = null;
+
+/** Đăng ký nơi vẽ hạt (null = gỡ). Chỉ một nơi tại một thời điểm. */
+export function setBurstSink(fn: BurstSink | null): void {
+  sink = fn;
+}
+
 export function burstAt(el: Element | null | undefined, n: number): void {
-  const fn = (window as unknown as { tarotBurst?: (x: number, y: number, n: number) => void }).tarotBurst;
-  if (!el || !fn) return;
+  if (!el || !sink) return;
   const r = el.getBoundingClientRect();
-  fn(r.left + r.width / 2, r.top + r.height / 2, n);
+  sink(r.left + r.width / 2, r.top + r.height / 2, n);
 }
 
 /** Rung nhẹ trên điện thoại; trình duyệt không hỗ trợ thì bỏ qua. */

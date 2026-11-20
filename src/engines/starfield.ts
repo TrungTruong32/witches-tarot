@@ -1,4 +1,4 @@
-// Nền động toàn màn hình (bản cũ L5718–5892): sao trang trí hoặc bầu trời thật, hạt lấp lánh theo chuột, sao băng, tarotBurst.
+// Nền động toàn màn hình (bản cũ L5718–5892): sao trang trí hoặc bầu trời thật, hạt lấp lánh theo chuột, sao băng, burst() (tarotBurst của bản cũ, nối qua engines/burst).
 // Khác bản cũ (phán quyết): fx tắt → xoá canvas và DỪNG vòng rAF; tab ẩn hoặc đang toàn màn hình (bản đồ sao che nền) cũng dừng;
 // lines của sky.json đọc dạng [abbr, poly].
 import { loadSky, onSkyLoaded, type SkyData } from '../services/skyData';

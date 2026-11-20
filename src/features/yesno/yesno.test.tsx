@@ -4,6 +4,7 @@ import { deckCards } from '../../../tests/fixtures/deck';
 import { makeDb, sqlJs } from '../../../tests/fixtures/makeDb';
 import { initialState, useApp } from '../../app/store';
 import { cardText } from '../../core/cards';
+import { setBurstSink } from '../../engines/burst';
 import { firstSentence } from '../../core/yesno';
 import { openCardsDb, type CardsDb } from '../../services/cardsDb';
 import { YesNo } from './YesNo';
@@ -21,7 +22,7 @@ beforeEach(() => {
   localStorage.clear();
   useApp.setState({ ...initialState(), db, decks: db.decks(), deck: W, dbStatus: 'ready', aiSettings: noAi });
 });
-afterEach(() => { delete (window as unknown as { tarotBurst?: unknown }).tarotBurst; });
+afterEach(() => { setBurstSink(null); });
 
 const draw = async () => { await act(async () => { fireEvent.click(document.getElementById('yesnoBtn')!); }); };
 
@@ -111,7 +112,7 @@ describe('YesNo', () => {
 
   it('bursts on every draw, even when the same card and orientation repeat', async () => {
     const burst = vi.fn();
-    (window as unknown as { tarotBurst: unknown }).tarotBurst = burst;
+    setBurstSink(burst);
     const deps: YesNoDeps = { rng: fix(false) };
     render(<YesNo deps={deps} />);
     await draw();

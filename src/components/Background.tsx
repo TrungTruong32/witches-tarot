@@ -1,11 +1,10 @@
-// Nền động toàn màn hình: #bgAura + canvas#bgStars (bản cũ L834–835), chạy engine starfield, gắn window.tarotBurst.
+// Nền động toàn màn hình: #bgAura + canvas#bgStars (bản cũ L834–835), chạy engine starfield, đăng ký nơi vẽ hạt cho burstAt.
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useApp } from '../app/store';
+import { setBurstSink } from '../engines/burst';
 import { startStarfield, type Starfield } from '../engines/starfield';
 import { prefersReducedMotion } from '../lib/media';
 import { readColors } from '../lib/themeColors';
-
-type BurstWin = { tarotBurst?: (x: number, y: number, n: number) => void };
 
 export function Background() {
   const fx = useApp(s => s.prefs.fx);
@@ -16,18 +15,18 @@ export function Background() {
   const engineRef = useRef<Starfield | null>(null);
   const [reduce] = useState(prefersReducedMotion);   // như bản cũ: đọc một lần khi khởi động (lazy, không gọi lại mỗi lần render)
 
-  // Gắn engine một lần; gỡ thì dừng rAF + bỏ listener + xoá tarotBurst
+  // Gắn engine một lần; gỡ thì dừng rAF + bỏ listener + gỡ nơi vẽ hạt
   useLayoutEffect(() => {
     const cv = canvasRef.current;
     if (!cv) return;
     const s = useApp.getState().prefs;
     const engine = startStarfield(cv, { fx: s.fx, skyMode: s.skyMode, skyCity: s.skyCity, reduce, colors: readColors() });
     engineRef.current = engine;
-    (window as BurstWin).tarotBurst = (x, y, n) => engine.burst(x, y, n);
+    setBurstSink((x, y, n) => engine.burst(x, y, n));
     return () => {
       engine.stop();
       engineRef.current = null;
-      delete (window as BurstWin).tarotBurst;
+      setBurstSink(null);
     };
   }, [reduce]);
 
