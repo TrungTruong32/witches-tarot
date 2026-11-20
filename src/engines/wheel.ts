@@ -149,13 +149,7 @@ export function startWheel(fan: HTMLElement, o: WheelOpts): { cancel(): void } {
 
   // Tự động: đợi bánh xe lăn ra xong, rồi lần lượt rút n lá ở các vị trí ngẫu nhiên rải đều khắp bánh xe
   if (auto) {
-    const idx: number[] = [],
-      seg = N / n;
-    for (let j = 0; j < n; j++) idx.push(Math.min(N - 1, Math.floor(j * seg + Math.random() * seg)));
-    for (let j = idx.length - 1; j > 0; j--) {
-      const r = Math.floor(Math.random() * (j + 1));
-      [idx[j], idx[r]] = [idx[r]!, idx[j]!]; // thứ tự rút ngẫu nhiên
-    }
+    const idx = autoPickIndices(N, n);
     const startAt = reduce ? 0 : 1700,
       gap = reduce ? 0 : n > 6 ? 300 : 460;
     idx.forEach((i, j) =>
@@ -203,4 +197,20 @@ export function startWheel(fan: HTMLElement, o: WheelOpts): { cancel(): void } {
       sfx.stopTicks(); // stopAll là toàn cục: cũng dừng mọi nguồn sfx khác đang chạy (chỉ một lượt bốc tại một thời điểm)
     },
   };
+}
+
+/** Chỉ số n lá tự rút: mỗi lá một đoạn nguyên rời nhau của bánh xe (rải đều, KHÔNG trùng), thứ tự rút ngẫu nhiên.
+ *  Bản cũ lấy floor(j*seg + r*seg) nên hai đoạn kề nhau có thể ra cùng một lá → không bao giờ đủ n lá, bánh xe treo. */
+export function autoPickIndices(N: number, n: number, rng: () => number = Math.random): number[] {
+  const seg = N / n;
+  const idx: number[] = [];
+  for (let j = 0; j < n; j++) {
+    const lo = Math.floor(j * seg), hi = Math.max(lo + 1, Math.floor((j + 1) * seg));
+    idx.push(Math.min(N - 1, lo + Math.floor(rng() * (hi - lo))));
+  }
+  for (let j = idx.length - 1; j > 0; j--) {
+    const r = Math.floor(rng() * (j + 1));
+    [idx[j], idx[r]] = [idx[r]!, idx[j]!];
+  }
+  return idx;
 }
