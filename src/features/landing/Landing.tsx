@@ -49,7 +49,8 @@ export function Landing() {
   const [tip, setTip] = useState(0);
   const [pending, setPending] = useState<null | (() => void)>(null);
   const [showDbError, setShowDbError] = useState(false);
-  const [width, setWidth] = useState(() => window.innerWidth);
+  // Kích thước cửa sổ (cả cao): thanh địa chỉ di động / chia đôi màn hình chỉ đổi chiều cao nhưng vẫn phải tính lại độ hạ quạt
+  const [vp, setVp] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
   const [drop, setDrop] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -92,24 +93,25 @@ export function Landing() {
   // Quạt bài: tính lại khi đổi kích thước (debounce 150 ms) và khi font đã tải
   useEffect(() => {
     let tm = 0;
+    const measure = () => setVp({ w: window.innerWidth, h: window.innerHeight });
     const onResize = () => {
       clearTimeout(tm);
-      tm = window.setTimeout(() => setWidth(window.innerWidth), 150);
+      tm = window.setTimeout(measure, 150);
     };
     window.addEventListener('resize', onResize);
     let alive = true;
-    void document.fonts?.ready.then(() => alive && setWidth(window.innerWidth));
+    void document.fonts?.ready.then(() => alive && measure());
     return () => {
       alive = false;
       clearTimeout(tm);
       window.removeEventListener('resize', onResize);
     };
   }, []);
-  const fan = useMemo(() => layoutFan(width), [width]);
+  const fan = useMemo(() => layoutFan(vp.w), [vp.w]);
   useLayoutEffect(() => {
     const r = skipRef.current?.getBoundingClientRect();
-    setDrop(fanDrop(fan.cw, window.innerHeight, r && r.height ? r.bottom : null));
-  }, [fan]);
+    setDrop(fanDrop(fan.cw, vp.h, r && r.height ? r.bottom : null));
+  }, [fan, vp]);
 
   // Lắc ô nhập: gỡ class rồi gắn lại để animation chạy lại mỗi lần
   useLayoutEffect(() => {

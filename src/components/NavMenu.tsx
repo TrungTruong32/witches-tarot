@@ -7,7 +7,8 @@ import { useApp } from '../app/store';
 import type { I18nKey } from '../i18n/vi';
 import { useT } from '../i18n/useT';
 import { IconLabel, type IconName } from './Icon';
-import { media, prefersReducedMotion, useOverlay } from './useOverlay';
+import { media, prefersReducedMotion } from '../lib/media';
+import { useOverlay } from './useOverlay';
 
 const STAR = '<svg viewBox="0 0 16 16"><path fill="currentColor" d="M8 0Q9 6 16 8Q9 10 8 16Q7 10 0 8Q7 6 8 0Z"/></svg>';
 /** Trang trí vòm trời (chép nguyên văn initNavDecor của bản cũ). */

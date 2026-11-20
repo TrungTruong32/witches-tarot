@@ -22,10 +22,3 @@ export function useOverlay(open: boolean, onClose: () => void): void {
   }, [open]);
 }
 
-/** matchMedia an toàn (môi trường không có matchMedia → coi như không khớp). */
-export function media(query: string): Pick<MediaQueryList, 'matches' | 'addEventListener' | 'removeEventListener'> {
-  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') return window.matchMedia(query);
-  return { matches: false, addEventListener: () => {}, removeEventListener: () => {} };
-}
-
-export const prefersReducedMotion = () => media('(prefers-reduced-motion: reduce)').matches;

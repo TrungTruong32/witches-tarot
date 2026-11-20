@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../app/store';
 import { DeckSelect } from '../../components/DeckSelect';
-import { media } from '../../components/useOverlay';
+import { media } from '../../lib/media';
 import { createCardSearch } from '../../core/search';
 import { SEO_DECK_SLUG } from '../../core/suits';
 import type { Card } from '../../core/types';

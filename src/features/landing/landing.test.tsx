@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initialState, useApp } from '../../app/store';
-import { layoutFan } from './fan';
+import { fanDrop, layoutFan } from './fan';
 import { Landing } from './Landing';
 
 const legacyHtml = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'tests', 'legacy', 'witches_tarot.legacy.html'), 'utf8');
@@ -41,6 +41,25 @@ describe('layoutFan (legacy layoutLandingFan maths)', () => {
     expect(desk.cards[0]).toEqual({ a: '-28.14', dl: '0.00' });
     expect(desk.cards[28]).toEqual({ a: '28.14', dl: '-10.36' });
     expect(layoutFan(4000).cards.length).toBeLessThanOrEqual(41);
+  });
+});
+
+describe('Landing fan drop', () => {
+  it('is recomputed when only the viewport height changes (mobile URL bar, split screen)', () => {
+    vi.useFakeTimers();
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return { bottom: this.id === 'askSkip' ? 700 : 0, height: this.id === 'askSkip' ? 20 : 0 } as DOMRect;
+    });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 });
+    renderLanding();
+    const fanEl = () => document.getElementById('landingFan')!;
+    const cw = layoutFan(window.innerWidth).cw;
+    expect(fanEl().style.getPropertyValue('--drop')).toBe(fanDrop(cw, 844, 700).toFixed(0) + 'px');
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 760 });
+    act(() => { window.dispatchEvent(new Event('resize')); vi.advanceTimersByTime(200); });
+    expect(fanEl().style.getPropertyValue('--drop')).toBe(fanDrop(cw, 760, 700).toFixed(0) + 'px');
+    expect(fanDrop(cw, 760, 700)).not.toBe(fanDrop(cw, 844, 700));
+    vi.restoreAllMocks();
   });
 });
 
@@ -82,7 +101,7 @@ describe('Landing', () => {
     expect(where()).toBe('/trai-bai|{"question":"","autoPick":true}');
   });
 
-  it('top nav buttons go to their screens; the brand button enters on Today', () => {
+  it('top nav buttons go to their screens', () => {
     renderLanding();
     fireEvent.click(document.querySelector('.lt-nav [data-go="browse"]')!);
     expect(where()).toBe('/tra-cuu|null');
@@ -95,7 +114,7 @@ describe('Landing', () => {
     expect(b.querySelector('.lbl')!.textContent).toBe('Witches Tarot');
   });
 
-  it('the brand button enters on Today; the burger enters with the menu open', () => {
+  it('the brand button enters on Today (the burger is covered in routes.test: needs the full app shell)', () => {
     renderLanding();
     fireEvent.click(document.getElementById('landingEnter')!);
     expect(where()).toBe('/hom-nay|null');
@@ -132,6 +151,10 @@ describe('Landing', () => {
     act(() => vi.advanceTimersByTime(3800));
     expect(input().placeholder).toBe('Tôi nên tập trung vào điều gì lúc này?');
     fireEvent.change(input(), { target: { value: '' } });
+    act(() => input().focus());
+    act(() => vi.advanceTimersByTime(3800));
+    expect(input().placeholder).toBe('Tôi nên tập trung vào điều gì lúc này?');
+    act(() => input().blur());
     act(() => useApp.setState({ lang: 'en' }));
     expect(input().placeholder).toBe('What should I focus on right now?');
   });

@@ -12,6 +12,13 @@ const CITY_EN: Record<string, string> = { hanoi: 'Hanoi', danang: 'Da Nang', hcm
 const pct = (v: number) => Math.round(v * 100);
 const fromPct = (s: string) => Math.min(1, Math.max(0, Number(s) / 100));
 
+
+/** Ảnh thu nhỏ mặt lưng: nền nhiều lớp url(...) gán thẳng vào thuộc tính style như bản cũ.
+ *  Ref callback ổn định theo từng mặt lưng → chỉ gán một lần khi gắn vào DOM, không gán lại mỗi lần render. */
+const THUMB_REF: Record<string, (el: HTMLSpanElement | null) => void> = Object.fromEntries(
+  CARD_BACK_KEYS.map(k => [k, (el: HTMLSpanElement | null) => el?.setAttribute('style', 'background:' + cardBackCss(k))]),
+);
+
 export function SiteSettings() {
   const { t, lang, pick } = useT();
   const open = useApp(s => s.overlay === 'site');
@@ -60,7 +67,7 @@ export function SiteSettings() {
         <div className="cb-grid" id="cardBackGrid">
           {CARD_BACK_KEYS.map(k => (
             <button key={k} type="button" className={'cb-opt' + (prefs.cardBack === k ? ' on' : '')} data-k={k} title={cbName(k)} onClick={() => setPref('cardBack', k)}>
-              <span className="cb-thumb" ref={el => el?.setAttribute('style', 'background:' + cardBackCss(k))}></span>
+              <span className="cb-thumb" ref={THUMB_REF[k]}></span>
               <span className="cb-name">{cbName(k)}</span>
             </button>
           ))}
