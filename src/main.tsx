@@ -2,7 +2,7 @@ import './styles';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { boot, watchLangForCardEn } from './app/boot';
+import { scheduleBoot, shouldDeferBoot, watchLangForCardEn } from './app/boot';
 import { afterFirstPaint } from './app/idle';
 import { preloadLazyScreens } from './app/lazyScreens';
 import { initPwaInstall } from './app/pwaInstall';
@@ -21,7 +21,8 @@ if (root) {
     </StrictMode>,
   );
 }
-void boot();
+// Trang mở đầu: nạp tarot.db sau lần vẽ đầu (xem scheduleBoot); route khác nạp ngay.
+scheduleBoot(shouldDeferBoot(window.location));
 // Chunk của các màn hình tải lười (lazyScreens) được nạp hết lúc rảnh sau lần vẽ đầu — xem chú thích SW bên dưới.
 afterFirstPaint(() => void preloadLazyScreens());
 

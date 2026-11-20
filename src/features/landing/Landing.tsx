@@ -2,6 +2,7 @@
 // Markup theo bản cũ L852–907, hành vi theo initLanding L2019–2098.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { requestBoot } from '../../app/boot';
 import { PATH_BY_MODE, type Mode, type ReadingEntryState } from '../../app/modes';
 import { useApp } from '../../app/store';
 import { IconLabel } from '../../components/Icon';
@@ -54,7 +55,10 @@ export function Landing() {
   const whenReady = (fn: () => void) => {
     if (status === 'ready') fn();
     else if (status === 'error') setShowDbError(true);
-    else setPending(() => fn);
+    else {
+      requestBoot(); // DB đang hẹn nạp lúc rảnh → bắt đầu ngay
+      setPending(() => fn);
+    }
   };
   useEffect(() => {
     if (!pending) return;

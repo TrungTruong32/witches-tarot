@@ -4,6 +4,7 @@ import { loadCardsDb, type CardsDb } from '../services/cardsDb';
 import { clearOldDecks } from '../services/idb';
 import { cloudBackfill } from '../services/readingsApi';
 import { getStr, KEYS } from '../services/storage';
+import { afterFirstPaint } from './idle';
 import { useApp } from './store';
 
 export interface BootDeps {
@@ -64,4 +65,33 @@ export async function boot(deps: BootDeps = {}): Promise<void> {
   const deck = decks.includes(saved) ? saved : decks[0] ?? null;
   useApp.setState({ db, decks, deck, dbStatus: 'ready', dbError: '' });
   scheduleBackfill();
+}
+
+// ---- Hẹn giờ khởi động (main.tsx) ----
+// Trang mở đầu "/" không cần tarot.db để vẽ: nạp DB + sql.js wasm (tải + parse trên luồng chính) sau lần vẽ đầu, lúc rảnh.
+// Nút trên trang mở đầu vẫn chờ DB như cũ (whenReady) và gọi requestBoot() để bắt đầu nạp ngay nếu chưa tới lúc rảnh.
+// Route khác (kể cả link chia sẻ "/#r=…" → Trải bài) nạp ngay như trước.
+let bootRun: (() => Promise<void>) | null = null;
+let booting: Promise<void> | null = null;
+
+/** Chỉ "/" không kèm link chia sẻ (#r=) mới được hoãn nạp DB. */
+export function shouldDeferBoot(loc: { pathname: string; hash: string }): boolean {
+  return loc.pathname === '/' && !loc.hash.startsWith('#r=');
+}
+
+/** Bật khởi động: `defer` → hẹn bằng `schedule` (mặc định sau lần vẽ đầu, lúc rảnh), không thì chạy ngay. */
+export function scheduleBoot(
+  defer: boolean,
+  schedule: (fn: () => void) => void = afterFirstPaint,
+  run: () => Promise<void> = () => boot(),
+): void {
+  bootRun = run;
+  if (defer) schedule(requestBoot);
+  else requestBoot();
+}
+
+/** Cần DB ngay (bấm nút ở trang mở đầu, vào khung app): chạy boot nếu chưa chạy — đúng một lần.
+ *  Chưa scheduleBoot (vd. test render riêng một component) thì không làm gì. */
+export function requestBoot(): void {
+  if (bootRun && !booting) booting = bootRun();
 }

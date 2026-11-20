@@ -89,3 +89,54 @@ describe('ensureCardEn robustness', () => {
     off();
   });
 });
+
+describe('hẹn giờ khởi động (scheduleBoot / requestBoot)', () => {
+  // module mới mỗi test: trạng thái "đã chạy boot" nằm trong module
+  const fresh = async () => {
+    vi.resetModules();
+    return import('./boot');
+  };
+
+  it('chỉ "/" không có #r= mới được hoãn', async () => {
+    const { shouldDeferBoot } = await fresh();
+    expect(shouldDeferBoot({ pathname: '/', hash: '' })).toBe(true);
+    expect(shouldDeferBoot({ pathname: '/', hash: '#r=abc' })).toBe(false);
+    for (const p of ['/hom-nay', '/tra-cuu', '/trai-bai', '/index.html']) expect(shouldDeferBoot({ pathname: p, hash: '' })).toBe(false);
+  });
+
+  it('không hoãn → chạy ngay, đúng một lần dù requestBoot gọi thêm', async () => {
+    const { scheduleBoot, requestBoot } = await fresh();
+    const run = vi.fn(async () => {});
+    const schedule = vi.fn();
+    scheduleBoot(false, schedule, run);
+    requestBoot();
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it('hoãn → chưa chạy tới khi lịch hẹn tới; requestBoot (bấm nút) chạy sớm, lịch hẹn tới sau không chạy lại', async () => {
+    const { scheduleBoot, requestBoot } = await fresh();
+    const run = vi.fn(async () => {});
+    let fire = () => {};
+    scheduleBoot(true, fn => { fire = fn; }, run);
+    expect(run).not.toHaveBeenCalled();
+    requestBoot();
+    expect(run).toHaveBeenCalledTimes(1);
+    fire();
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('hoãn, không ai cần sớm → chạy khi lịch hẹn tới', async () => {
+    const { scheduleBoot } = await fresh();
+    const run = vi.fn(async () => {});
+    let fire = () => {};
+    scheduleBoot(true, fn => { fire = fn; }, run);
+    fire();
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('chưa scheduleBoot (test render riêng component) → requestBoot không làm gì', async () => {
+    const { requestBoot } = await fresh();
+    expect(() => requestBoot()).not.toThrow();
+  });
+});

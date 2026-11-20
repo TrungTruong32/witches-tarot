@@ -1,10 +1,11 @@
 // Khung app (#appPage) quanh mọi màn hình trừ trang mở đầu. Theo markup bản cũ L909–941.
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { DeckSelect } from '../components/DeckSelect';
 import { Logo } from '../components/Logo';
 import { NavMenu } from '../components/NavMenu';
 import { useT } from '../i18n/useT';
+import { requestBoot } from './boot';
 import { AiSettings, SiteSettings } from './lazyScreens';
 import { useApp } from './store';
 
@@ -35,6 +36,8 @@ export function AppLayout() {
   const ready = useApp(s => s.dbStatus === 'ready');
   const aiSeen = useOpenedOnce(useApp(s => s.overlay === 'ai'));
   const siteSeen = useOpenedOnce(useApp(s => s.overlay === 'site'));
+  // Màn hình app cần DB: nếu đi từ trang mở đầu sang trước lúc rảnh (DB đang hẹn) thì nạp ngay
+  useEffect(requestBoot, []);
   return (
     <>
       <button className="nav-toggle" id="navToggle" aria-label="Mở menu" onClick={() => openOverlay('nav')}>☰</button>
