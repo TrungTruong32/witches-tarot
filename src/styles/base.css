@@ -47,4 +47,4 @@
     .card-image-wrapper { text-align: center; margin-bottom: 12px; }
     .card-image { max-width: 100%; height: auto; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 15px 35px rgba(0,0,0,0.25); }
     .no-results { padding: 18px; text-align: center; color: #e1c1d8; }
-    a { color: #d6c6ff; }
+    a { color: var(--link, #d6c6ff); }   /* --link chỉ khai báo ở theme sáng; theme tối giữ tím nhạt cũ */

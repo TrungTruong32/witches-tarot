@@ -1,4 +1,4 @@
-    label { display: block; margin: 0 0 6px; color: #d1c7b3; font-size: .95rem; }
+    label { display: block; margin: 0 0 6px; color: var(--muted); font-size: .95rem; }
     .field { margin-bottom: 14px; }
     .field input, .field textarea, .field select { width: 100%; box-sizing: border-box; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 16px; }
     textarea { resize: vertical; min-height: 64px; }

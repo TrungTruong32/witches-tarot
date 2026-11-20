@@ -1,5 +1,5 @@
     .deckbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: center; margin: 6px 0 16px; }
-    .deckbar label { margin: 0; color: #d1c7b3; }
+    .deckbar label { margin: 0; color: var(--muted); }
     .deckbar select { padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 15px; }
     /* Tra nghĩa & Diễn giải đã có ô chọn bộ riêng → ẩn thanh chọn bộ chung cho đỡ trùng (mọi kích thước màn hình) */
     body[data-mode="browse"] #deckBar, body[data-mode="reading"] #deckBar { display: none !important; }

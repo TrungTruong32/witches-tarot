@@ -3,7 +3,7 @@
     .yesno-ask input { flex: 1; min-width: 220px; padding: 13px 16px; border-radius: 12px; border: 1px solid var(--border);
       background: var(--input); color: var(--text); font-size: 16px; transition: border-color .15s ease, box-shadow .15s ease; }
     .yesno-ask input::placeholder { color: var(--muted); opacity: .8; }
-    .yesno-ask input:focus { outline: none; border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(180,155,255,.2); }
+    .yesno-ask input:focus { outline: none; border-color: var(--accent2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent2) 22%, transparent); }
     .yesno-ask #yesnoBtn { white-space: nowrap; }
     /* Kết quả Yes/No */
     .yesno-result { margin-top: 18px; display: none; text-align: center; }
@@ -13,6 +13,12 @@
     .yn-verdict.yes { color: #6fe0a0; text-shadow: 0 0 18px rgba(111,224,160,.4); }
     .yn-verdict.no { color: #ff8fa0; text-shadow: 0 0 18px rgba(255,143,160,.4); }
     .yn-verdict.maybe { color: #ffd76a; text-shadow: 0 0 18px rgba(255,215,106,.4); }
+    /* Nền sáng: xanh/hồng/vàng nhạt gần như chìm vào nền trắng → đậm hơn, bỏ quầng sáng */
+    :root[data-theme="light"] .yn-verdict { text-shadow: none; }
+    :root[data-theme="light"] .yn-verdict.yes { color: #1f8a52; }
+    :root[data-theme="light"] .yn-verdict.no { color: #c23a55; }
+    :root[data-theme="light"] .yn-verdict.maybe { color: #a8730a; }
+    @media (prefers-reduced-motion: reduce) { .yesno-result.show { animation: none; } }
     .yesno-result img { max-width: 200px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 12px 30px rgba(0,0,0,.4); cursor: zoom-in; }
     .yesno-result img.rev { transform: rotate(180deg); }
     .yn-card-name { font-weight: 700; margin-top: 10px; color: var(--text); }

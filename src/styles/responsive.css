@@ -1,4 +1,4 @@
-    input[type="file"] { color: #d1c7b3; }
+    input[type="file"] { color: var(--muted); }
     @media (max-width: 980px) {
       .layout, .reading { grid-template-columns: 1fr; }
       /* nút Diễn giải luôn trong tầm tay khi cuộn trong cột các bước */

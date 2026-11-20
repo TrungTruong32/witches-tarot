@@ -24,6 +24,7 @@
       --input: #ffffff; --border: #c9c0e6; --border2: #d8d0ef; --border3: #e3ddf3;
       --btn: #e7e0fa; --accent: #6f5ac1; --accent2: #7a63d6;
       --aura1: rgba(150,120,235,.35); --aura2: rgba(255,175,205,.34); --star: rgba(140,110,205,.5); --spark: #c79a34;
+      --link: #5a44b0;
     }
     :root[data-theme="light"] .card-item, :root[data-theme="light"] .spread-item,
     :root[data-theme="light"] .hist-item { background: #efe9fb; }
@@ -35,3 +36,6 @@
     :root[data-theme="light"] .think-box summary { color: #4a3f7a; }
     :root[data-theme="light"] button { color: #2a2440; }
     :root[data-theme="light"] .tab-btn.active, :root[data-theme="light"] .btn-primary { color: #fff; }
+    /* Nền sáng: link dùng --link (khai báo trong khối light ở trên); nút thường khi rê chuột không đổi sang tím đậm (chữ tối sẽ không đọc được) */
+    :root[data-theme="light"] button:not(.btn-primary):not(:disabled):hover { background: color-mix(in srgb, var(--accent) 16%, var(--btn)); }
+    :root[data-theme="light"] .no-results { color: var(--muted); }
