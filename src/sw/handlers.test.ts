@@ -110,6 +110,40 @@ describe('service worker handlers', () => {
     expect(await ((await sw.handle(nav('/nhat-ky'))) as Response).text()).toBe('ok:/');
   });
 
+  it('install: tarot.db lỗi → install thất bại, SW + cache cũ giữ nguyên, cache mới dở dang bị xoá', async () => {
+    const env = fakeEnv([]);
+    await env.open('wtarot-app-old').put('/index.html', new Response('old-shell'));
+    await env.open('wtarot-data-old').put('/tarot.db', new Response('old-db'));
+    counting(env, p => (p === '/tarot.db' ? 500 : 200));
+    const sw = createSw(env.deps, cfg({ appAssets: ['/', '/index.html', '/assets/a.js'], dataAssets: ['/tarot.db', '/icon-192.png'] }));
+    await expect(sw.install()).rejects.toThrow(/tarot\.db/);
+    expect(env.deps.skipWaiting).not.toHaveBeenCalled();
+    expect([...env.map.keys()].sort()).toEqual(['wtarot-app-old', 'wtarot-data-old']);
+    expect(await ((await env.map.get('wtarot-data-old')?.match('/tarot.db')) as Response).text()).toBe('old-db');
+  });
+
+  it('install: /assets/* (kể cả wasm) lỗi → install thất bại', async () => {
+    const env = fakeEnv([]);
+    counting(env, p => (p.endsWith('.wasm') ? 404 : 200));
+    const sw = createSw(env.deps, cfg({ appAssets: ['/index.html', '/assets/sql-wasm-x.wasm'], dataAssets: ['/tarot.db'] }));
+    await expect(sw.install()).rejects.toThrow(/wasm/);
+  });
+
+  it('install: không có vỏ app nào ("/" lẫn /index.html đều lỗi) → install thất bại', async () => {
+    const env = fakeEnv([]);
+    counting(env, p => (p === '/' || p === '/index.html' ? 503 : 200));
+    const sw = createSw(env.deps, cfg({ appAssets: ['/', '/index.html'], dataAssets: ['/tarot.db'] }));
+    await expect(sw.install()).rejects.toThrow();
+  });
+
+  it('install: icon / mặt lưng / sky.json lỗi vẫn cài được (best-effort)', async () => {
+    const env = fakeEnv([]);
+    counting(env, p => (p === '/tarot.db' || p === '/index.html' ? 200 : 404));
+    const sw = createSw(env.deps, cfg({ appAssets: ['/', '/index.html'], dataAssets: ['/tarot.db', '/icon-192.png', '/cardback-witches.webp', '/sky.json'] }));
+    await sw.install();
+    expect(keys(env, DATA)).toEqual(['/tarot.db']);
+  });
+
   it('activate: giữ đúng cache app + data hiện tại, xoá mọi cache khác kể cả wtarot-v9', async () => {
     const env = fakeEnv(['wtarot-v9', 'wtarot-app-old', 'wtarot-data-old', APP, DATA]);
     const sw = createSw(env.deps, cfg());

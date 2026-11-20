@@ -24,6 +24,10 @@ export interface SwConfig {
 /** Khoá cache của vỏ app: mọi route của app dùng chung một bản HTML. */
 const SHELL_KEY = '/index.html';
 
+/** Precache bắt buộc: thiếu một cái là app không chạy được offline (JS/CSS/wasm sql.js trong /assets, tarot.db).
+ *  '/index.html' được kiểm riêng (chấp nhận '/' thay thế). */
+const REQUIRED = (u: string) => u.startsWith('/assets/') || u === '/tarot.db';
+
 export function createSw(deps: SwDeps, { appCache, dataCache, appAssets, dataAssets }: SwConfig) {
   const { caches } = deps;
 
@@ -44,15 +48,31 @@ export function createSw(deps: SwDeps, { appCache, dataCache, appAssets, dataAss
 
   async function install() {
     const reuse = (await caches.keys()).filter(k => k.startsWith('wtarot-') && k !== appCache && k !== dataCache);
+    const hadApp = await caches.has(appCache);
+    const hadData = await caches.has(dataCache);
     // Dữ liệu không đổi (cache data cùng tên đã có tarot.db) → khỏi tải lại tarot.db khi chỉ đổi code.
-    const dataReady = (await caches.has(dataCache)) && !!(await (await caches.open(dataCache)).match('/tarot.db'));
+    const dataReady = hadData && !!(await (await caches.open(dataCache)).match('/tarot.db'));
     const app = await caches.open(appCache);
     const data = await caches.open(dataCache);
-    // add từng cái, bỏ qua cái nào lỗi để không hỏng toàn bộ install.
-    await Promise.all([
-      ...appAssets.map(u => store(app, u, reuse).catch(() => {})),
-      ...(dataReady ? [] : dataAssets.map(u => store(data, u, []).catch(() => {}))),
-    ]);
+    // Phần bắt buộc lỗi → ném lỗi, install thất bại: SW cũ + cache cũ ở lại, lần sau trình duyệt thử lại.
+    // Phần phụ (icon, mặt lưng, card_en/sky.json, '/') lỗi thì bỏ qua để không hỏng toàn bộ install, như bản cũ.
+    const one = (c: Cache, u: string, from: readonly string[]) =>
+      store(c, u, from).catch(e => {
+        if (REQUIRED(u)) throw e;
+      });
+    try {
+      await Promise.all([
+        ...appAssets.map(u => one(app, u, reuse)),
+        ...(dataReady ? [] : dataAssets.map(u => one(data, u, []))),
+      ]);
+      // Vỏ app: cần ít nhất một trong '/index.html' / '/' (host có thể redirect /index.html → /).
+      if (!(await app.match(SHELL_KEY)) && !(await app.match('/'))) throw new Error('Không tải được vỏ app');
+    } catch (e) {
+      // Dọn cache mới dở dang (nếu do lần này tạo) để lần cài sau không tưởng dữ liệu đã đủ.
+      if (!hadApp) await caches.delete(appCache);
+      if (!hadData) await caches.delete(dataCache);
+      throw e;
+    }
     await deps.skipWaiting();
   }
 
