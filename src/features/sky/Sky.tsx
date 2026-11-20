@@ -5,7 +5,6 @@ import { useApp } from '../../app/store';
 import { DEFAULT_SKY_LAYERS, startSkyMap, type SkyLayers, type SkyMap } from '../../engines/skyMap';
 import { SKY_CITIES } from '../../engines/skyScene';
 import { pickLang, useT } from '../../i18n/useT';
-import { prefersReducedMotion } from '../../lib/media';
 import { readColors } from '../../lib/themeColors';
 import { getJson, getStr, KEYS, setStr } from '../../services/storage';
 
@@ -68,7 +67,7 @@ export function Sky() {
       : SKY_CITIES[locRef.current] ?? HCM;
     const engine = startSkyMap(
       cv,
-      { lat: c[0], lon: c[1], name: c[2], layers: layersRef.current, lang: lang0, reduce: prefersReducedMotion(), colors: readColors() },
+      { lat: c[0], lon: c[1], name: c[2], layers: layersRef.current, lang: lang0, colors: readColors() },
       { onInfo: text => { if (!ownStatus.current) setInfo(text); } },
     );
     engineRef.current = engine;

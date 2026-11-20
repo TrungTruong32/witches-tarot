@@ -36,7 +36,7 @@ function fakeCtx() {
 
 // Sao ở thiên đỉnh-ish của HCM để chắc chắn nằm trên chân trời
 const SKY: SkyData = { stars: [], lines: [], names: [], consts: [] };
-const OPTS: SkyMapOpts = { lat: 10.82, lon: 106.63, name: 'TP.HCM', layers: { lines: true, grid: false, bodies: true, starsOnly: false }, lang: 'vi', reduce: false, colors: { star: '#fff' } };
+const OPTS: SkyMapOpts = { lat: 10.82, lon: 106.63, name: 'TP.HCM', layers: { lines: true, grid: false, bodies: true, starsOnly: false }, lang: 'vi', colors: { star: '#fff' } };
 
 let fc: ReturnType<typeof fakeCtx>;
 beforeEach(() => {

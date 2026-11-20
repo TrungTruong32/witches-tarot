@@ -109,7 +109,7 @@ describe('starfield: bầu trời thật', () => {
 });
 
 describe('skyMap: khung hình', () => {
-  const OPTS = { lat: 10.82, lon: 106.63, name: 'TP.HCM', layers: { lines: true, grid: true, bodies: true, starsOnly: false }, lang: 'vi' as const, reduce: false, colors: { star: '#eee' } };
+  const OPTS = { lat: 10.82, lon: 106.63, name: 'TP.HCM', layers: { lines: true, grid: true, bodies: true, starsOnly: false }, lang: 'vi' as const, colors: { star: '#eee' } };
 
   it('lưới + chòm + thiên thể, rồi chạm chọn sao ở thiên đỉnh (nổi bật chòm + hộp thông tin) khớp snapshot', async () => {
     const cv = document.createElement('canvas');

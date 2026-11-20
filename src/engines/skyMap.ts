@@ -16,8 +16,6 @@ export interface SkyMapOpts {
   name: string;
   layers: SkyLayers;
   lang: Lang;
-  /** Như bản cũ: bản đồ sao vẫn lấp lánh khi giảm chuyển động (chỉ nhận để đồng bộ API với nền). */
-  reduce: boolean;
   colors: { star: string };
 }
 
