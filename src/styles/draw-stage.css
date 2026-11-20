@@ -1,0 +1,14 @@
+    /* Sân khấu bốc bài (§5.8) dùng chung cho Bốc bài (.draw-controls) và Trải bài AI (.draw-row):
+       hàng "Số lá" → hai lựa chọn bốc rộng bằng nhau (mỗi nút kèm dòng gợi ý) → hàng phụ (Dừng, âm thanh, Đưa sang Trải bài AI) */
+    .draw-stage { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+    .draw-count { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .draw-count > label:not(.count-field) { margin: 0; color: var(--muted); font-size: .9rem; }
+    .draw-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 640px; }
+    .draw-mode { display: flex; flex-direction: column; align-items: stretch; gap: 5px; min-width: 0; }
+    .draw-mode > button { width: 100%; }
+    .draw-mode .hint { font-size: .78rem; color: var(--muted); line-height: 1.35; text-align: center; text-wrap: balance; }
+    .draw-extra { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+    .draw-extra[hidden] { display: none; }
+    @media (max-width: 480px) {
+      .draw-modes { grid-template-columns: 1fr; max-width: none; }
+    }

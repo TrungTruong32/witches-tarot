@@ -45,9 +45,8 @@ const IDS = {
   reading: { row: 'draw-row', auto: 'spreadDrawBtn', pick: 'spreadPickBtn', stop: 'spreadStopShuffle', orbit: 'spreadOrbit', status: 'spreadPickStatus', fan: 'spreadFan' },
 } as const;
 
-// §5.8: mỗi nút bốc kèm một dòng gợi ý bên dưới. Chưa có CSS riêng (styles giữ nguyên bản cũ) → style nội tuyến tới đợt làm lại giao diện.
-const HINT_WRAP: CSSProperties = { display: 'inline-flex', flexDirection: 'column', gap: 2 };
-const HINT: CSSProperties = { fontSize: '.78rem', color: 'var(--muted)', lineHeight: 1.3, textAlign: 'center' };
+// §5.8: mỗi nút bốc kèm một dòng gợi ý bên dưới — bố cục ở styles/draw-stage.css.
+// Hai style dưới là trạng thái engine đọc/ghi trực tiếp (style.display) nên giữ nội tuyến.
 const STATUS_STYLE: CSSProperties = { display: 'none', marginTop: 10 };
 const HIDDEN: CSSProperties = { display: 'none' };
 
@@ -229,24 +228,29 @@ export const DrawStage = forwardRef<DrawStageHandle, DrawStageProps>(function Dr
 
   return (
     <>
-      <div className={ids.row}>
-        {leading}
-        <span style={HINT_WRAP}>
-          <button className="btn-primary" id={ids.auto} title={titles.auto} disabled={shuffling || !dbReady} onClick={() => beginDraw('draw')}>
-            {t('draw.auto')}
+      <div className={ids.row + ' draw-stage'}>
+        {leading ? <div className="draw-count">{leading}</div> : null}
+        <div className="draw-modes">
+          <div className="draw-mode">
+            <button className="btn-primary" id={ids.auto} title={titles.auto} disabled={shuffling || !dbReady} onClick={() => beginDraw('draw')}>
+              {t('draw.auto')}
+            </button>
+            <span className="hint">{t('draw.auto.hint')}</span>
+          </div>
+          <div className="draw-mode">
+            <button id={ids.pick} title={titles.pick} disabled={shuffling || !dbReady} onClick={() => beginDraw('pick')}>
+              {t('draw.manual')}
+            </button>
+            <span className="hint">{t('draw.manual.hint')}</span>
+          </div>
+        </div>
+        {/* Hàng phụ: nút Dừng (chỉ hiện khi đang xào) + phần thêm của màn (âm thanh, "Đưa sang Trải bài AI") */}
+        <div className="draw-extra" hidden={!shuffling && !trailing}>
+          <button id={ids.stop} style={{ display: shuffling ? 'inline-block' : 'none' }} onClick={stopOrbit}>
+            {t(ctx === 'draw' ? 'draw.stop' : 'reading.spreadStop')}
           </button>
-          <span className="hint" style={HINT}>{t('draw.auto.hint')}</span>
-        </span>
-        <span style={HINT_WRAP}>
-          <button id={ids.pick} title={titles.pick} disabled={shuffling || !dbReady} onClick={() => beginDraw('pick')}>
-            {t('draw.manual')}
-          </button>
-          <span className="hint" style={HINT}>{t('draw.manual.hint')}</span>
-        </span>
-        <button id={ids.stop} style={{ display: shuffling ? 'inline-block' : 'none' }} onClick={stopOrbit}>
-          {t(ctx === 'draw' ? 'draw.stop' : 'reading.spreadStop')}
-        </button>
-        {trailing}
+          {trailing}
+        </div>
       </div>
       <div id={ids.orbit} className="riffle" ref={orbitRef}></div>
       <div className="ai-hint" id={ids.status} style={STATUS_STYLE} ref={statusRef}></div>

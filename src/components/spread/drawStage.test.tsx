@@ -291,7 +291,8 @@ describe('DrawStage labels and scroll (§5.8)', () => {
   it('renders leading/trailing slots inside the row', () => {
     render(stage('draw', { leading: <label id="lead">x</label>, trailing: <button id="trail">y</button> }));
     const row = document.querySelector('.draw-controls')!;
-    const kids = Array.from(row.children).map(e => e.id || e.querySelector('button')?.id);
-    expect(kids).toEqual(['lead', 'drawBtn', 'pickBtn', 'stopShuffle', 'trail']);
+    // Bố cục chia hàng (số lá / hai nút bốc / hàng phụ): kiểm thứ tự trong cả hàng thay vì con trực tiếp
+    const ids = Array.from(row.querySelectorAll('[id]')).map(e => e.id);
+    expect(ids).toEqual(['lead', 'drawBtn', 'pickBtn', 'stopShuffle', 'trail']);
   });
 });

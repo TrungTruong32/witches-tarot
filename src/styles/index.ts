@@ -1,4 +1,4 @@
-// CSS của app: nguyên văn bản cũ, chia theo phần, nạp đúng thứ tự (xem order.ts).
+// CSS của app: tách từ bản cũ theo phần, nạp đúng thứ tự (order.ts ghi thứ tự gốc lúc tách); từ nay được chỉnh trực tiếp.
 import './tokens.css';
 import './base.css';
 import './nav-drawer.css';
@@ -35,3 +35,5 @@ import './icons.css';
 import './nav-desktop.css';
 import './wheel.css';
 import './responsive.css';
+// Các đợt chỉnh giao diện sau khi bỏ bản cũ (nạp sau cùng để đè lên CSS gốc)
+import './draw-stage.css';

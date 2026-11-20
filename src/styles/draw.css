@@ -7,3 +7,5 @@
     .orient-badge { font-size: .78rem; padding: 2px 8px; border-radius: 999px; margin-left: 6px; white-space: nowrap; }
     .orient-badge.xuoi { background: rgba(111,90,193,.4); }
     .orient-badge.nguoc { background: rgba(176,87,127,.45); }
+    /* Đoạn giới thiệu "Bốc từ bộ: …" ở màn Bốc bài: nhẹ hơn — chữ nhỏ, mờ, giãn dòng */
+    #drawInfo { font-size: .86rem; line-height: 1.65; color: var(--muted); opacity: .9; text-wrap: pretty; }
