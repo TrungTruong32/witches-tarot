@@ -1,6 +1,7 @@
 // Bánh xe bài úp: người dùng chạm để chọn N lá (manual) hoặc "bàn tay vô hình" tự rút (auto). Bản cũ L5353–5478 (startManualPick).
 // Mọi setTimeout/rAF đăng ký vào một tập; cancel() xoá hết → không còn timer mồ côi (thay cho live()/session của bản cũ).
 import { escapeHtml } from '../core/markdown';
+import { createTimers } from '../lib/timers';
 import type { SpreadCard } from '../core/types';
 import type { Lang } from '../core/types';
 import { getAudioCtx, sfx } from './audio';
@@ -31,15 +32,11 @@ export function startWheel(fan: HTMLElement, o: WheelOpts): { cancel(): void } {
   const picks: { card: SpreadCard; el: HTMLElement }[] = [];
 
   let dead = false;
-  const timeouts = new Set<ReturnType<typeof setTimeout>>();
+  const timeouts = createTimers();
   const rafs = new Set<number>();
-  const later = (fn: () => void, ms: number) => {
-    const id = setTimeout(() => {
-      timeouts.delete(id);
-      if (!dead) fn();
-    }, ms);
-    timeouts.add(id);
-  };
+  const later = (fn: () => void, ms: number) => timeouts.later(() => {
+    if (!dead) fn();
+  }, ms);
   // Giảm chuyển động: bước trong finishPick chạy ngay (không hẹn giờ 0 lồng nhau) → onDone trong cùng lượt xử lý.
   const at = (fn: () => void, ms: number) => (reduce ? fn() : later(fn, ms));
   const frame = (fn: () => void) => {
@@ -190,7 +187,6 @@ export function startWheel(fan: HTMLElement, o: WheelOpts): { cancel(): void } {
     cancel() {
       if (dead) return;
       dead = true;
-      timeouts.forEach(clearTimeout);
       timeouts.clear();
       rafs.forEach(cancelAnimationFrame);
       rafs.clear();

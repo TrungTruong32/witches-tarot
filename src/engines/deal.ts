@@ -1,3 +1,4 @@
+import { createTimers } from '../lib/timers';
 import { burstAt, haptic } from './burst';
 
 /**
@@ -16,14 +17,8 @@ export function dealBoard(board: HTMLElement, reduce: boolean, done: () => void)
     done();
     return () => {};
   }
-  const timers = new Set<ReturnType<typeof setTimeout>>();
-  const later = (fn: () => void, ms: number) => {
-    const id = setTimeout(() => {
-      timers.delete(id);
-      fn();
-    }, ms);
-    timers.add(id);
-  };
+  const timers = createTimers();
+  const later = timers.later;
   const anims: Animation[] = [];
   const br = board.getBoundingClientRect();
   const ox = br.left + br.width / 2, oy = br.top - 40;
@@ -50,7 +45,6 @@ export function dealBoard(board: HTMLElement, reduce: boolean, done: () => void)
   });
   later(done, (cards.length - 1) * STEP + FLY + 700);
   return () => {
-    timers.forEach(clearTimeout);
     timers.clear();
     anims.forEach(a => {
       try {

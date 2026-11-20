@@ -1,12 +1,13 @@
 // Màn "Bốc bài" (/boc-bai) — CỐ Ý KHÁC bản cũ theo spec §5.8: dùng chung ô chọn kiểu trải + bàn trải đánh số với Trải bài AI,
 // rút xong thì cuộn tới bàn rồi chia lá theo thứ tự, ý nghĩa từng lá hiện bên dưới kèm tên vị trí.
 // Giữ markup/lớp CSS cũ (L964–982, drawCardInner L4582, DRAW_CTX.draw L4763), không thêm CSS mới.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { PATH_BY_MODE } from '../../app/modes';
 import { useApp } from '../../app/store';
 import { IconLabel } from '../../components/Icon';
+import { boardOr, dealAfterPick } from '../../components/spread/dealAfterPick';
 import { DrawStage, type DrawStageHandle } from '../../components/spread/DrawStage';
 import { SpreadBoard, type SpreadBoardHandle } from '../../components/spread/SpreadBoard';
 import { SpreadPicker } from '../../components/spread/SpreadPicker';
@@ -19,6 +20,7 @@ import type { CardEnMap, Lang, SpreadCard } from '../../core/types';
 import { ensureAudio } from '../../engines/audio';
 import { useT } from '../../i18n/useT';
 import { prefersReducedMotion } from '../../lib/media';
+import { useTimers } from '../../lib/useTimers';
 import { useReading } from '../reading/readingStore';
 
 /** 'deal' = lá đã rút, đang chờ/đang chia vào bàn; 'done' = chia xong, hiện ý nghĩa. */
@@ -75,15 +77,7 @@ export function Draw() {
   const boardRef = useRef<SpreadBoardHandle>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const clearTimers = () => {
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
-  };
-  useEffect(() => () => {
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
-  }, []);
+  const timers = useTimers();
 
   // renderMoon (L5092): chữ chỉ có tiếng Việt như bản cũ; nội dung do code sinh, không có dữ liệu người dùng
   const moonHtml = useMemo(() => {
@@ -96,7 +90,7 @@ export function Draw() {
   /** Đổi kiểu trải: kết quả cũ gắn với vị trí của kiểu trước → bỏ, bàn hiện ô trống của kiểu mới. */
   const onSpread = (k: string) => {
     if (k === spreadKey) return;
-    clearTimers();
+    timers.clear();
     const st = useReading.getState();
     st.setDrawSpreadKey(k);
     if (st.drawResult.length) st.setDrawResult([]);
@@ -105,7 +99,7 @@ export function Draw() {
 
   // onStart của DRAW_CTX.draw: xoá kết quả, khoá nút "Đưa sang Trải bài AI"
   const onStart = () => {
-    clearTimers();
+    timers.clear();
     useReading.getState().setDrawResult([]);
     setPhase('idle');
   };
@@ -117,26 +111,16 @@ export function Draw() {
       useReading.getState().setDrawResult(next);
       setPhase('deal');
     });
-    const reduce = prefersReducedMotion();
-    const later = (fn: () => void, ms: number) => {
-      const id = setTimeout(() => {
-        timers.current = timers.current.filter(x => x !== id);
-        fn();
-      }, ms);
-      timers.current.push(id);
-    };
-    later(() => {
-      if (!live()) return;
-      stageRef.current?.hideFan();
-      const board = panelRef.current?.querySelector<HTMLElement>('#drawBoard');
-      (board && !board.hidden ? board : resultsRef.current)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
-      later(() => {
-        if (!live()) return;
-        void boardRef.current?.deal().then(() => {
-          if (live() && useReading.getState().drawResult === next) setPhase('done');
-        });
-      }, reduce ? 0 : 450);
-    }, reduce ? 0 : 1600);
+    dealAfterPick({
+      timers,
+      live,
+      hideFan: () => stageRef.current?.hideFan(),
+      scrollTarget: () => boardOr(panelRef.current, 'drawBoard', resultsRef.current),
+      deal: () => boardRef.current?.deal(),
+      onDealt: () => {
+        if (live() && useReading.getState().drawResult === next) setPhase('done');
+      },
+    });
   };
 
   // setSoundOn (L4745): nút ♫︎ mờ + gạch ngang khi tắt

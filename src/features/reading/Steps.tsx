@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../app/store';
 import { DeckSelect } from '../../components/DeckSelect';
 import { IconLabel } from '../../components/Icon';
+import { boardOr, dealAfterPick } from '../../components/spread/dealAfterPick';
 import { DrawStage, type DrawStageHandle } from '../../components/spread/DrawStage';
 import { SpreadBoard, type SpreadBoardHandle } from '../../components/spread/SpreadBoard';
 import { SpreadPicker } from '../../components/spread/SpreadPicker';
@@ -16,6 +17,7 @@ import { SPREADS, posDesc, spreadByKey } from '../../core/spreads';
 import type { Card, SpreadCard } from '../../core/types';
 import { useT } from '../../i18n/useT';
 import { prefersReducedMotion } from '../../lib/media';
+import { useTimers } from '../../lib/useTimers';
 import type { ReadingEntryState } from '../landing/Landing';
 import { runInterpret, useInterpret } from './interpret';
 import { majorNameLookup, positionsFor, useReading } from './readingStore';
@@ -198,11 +200,7 @@ export function Steps() {
   const boardRef = useRef<SpreadBoardHandle>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const stepRef = useRef<HTMLDivElement>(null);
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const clearTimers = () => {
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
-  };
+  const timers = useTimers();
 
   const autoPickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = useRef(false);
@@ -216,8 +214,6 @@ export function Steps() {
     if (st.reveal === 'deal') st.setReveal('none');
     return () => {
       mounted.current = false;
-      timers.current.forEach(clearTimeout);
-      timers.current = [];
       if (autoPickTimer.current) clearTimeout(autoPickTimer.current);
       autoPickTimer.current = null;
       queueMicrotask(() => {
@@ -253,27 +249,17 @@ export function Steps() {
   const onPicked = (picked: SpreadCard[], live: () => boolean) => {
     const next = picked.map(toSpreadCard);
     flushSync(() => useReading.getState().setCards(next, 'deal'));
-    const reduce = prefersReducedMotion();
-    const later = (fn: () => void, ms: number) => {
-      const id = setTimeout(() => {
-        timers.current = timers.current.filter(x => x !== id);
-        fn();
-      }, ms);
-      timers.current.push(id);
-    };
-    later(() => {
-      if (!live()) return;
-      stageRef.current?.hideFan();
-      const board = stepRef.current?.querySelector<HTMLElement>('#spreadBoard');
-      (board && !board.hidden ? board : listRef.current)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
-      later(() => {
-        if (!live()) return;
-        void boardRef.current?.deal().then(() => {
-          const s = useReading.getState();
-          if (s.cards === next && s.reveal === 'deal') s.setReveal('none');
-        });
-      }, reduce ? 0 : 450);
-    }, reduce ? 0 : 1600);
+    dealAfterPick({
+      timers,
+      live,
+      hideFan: () => stageRef.current?.hideFan(),
+      scrollTarget: () => boardOr(stepRef.current, 'spreadBoard', listRef.current),
+      deal: () => boardRef.current?.deal(),
+      onDealt: () => {
+        const s = useReading.getState();
+        if (s.cards === next && s.reveal === 'deal') s.setReveal('none');
+      },
+    });
   };
 
   const facts = useMemo(() => {
@@ -330,7 +316,7 @@ export function Steps() {
           ctx="reading"
           count={positions ? positions.length : readDrawCount(countRaw)}
           question={question}
-          onStart={clearTimers}
+          onStart={timers.clear}
           onPicked={onPicked}
           doneMsg={k => en
             ? '✓ Drew ' + k + ' card' + (k > 1 ? 's' : '') + ' into the spread. Set Upright/Reversed if needed, then tap “Interpret”.'
