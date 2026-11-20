@@ -10,6 +10,7 @@ import { ComingSoon } from '../features/ComingSoon';
 import { Daily } from '../features/daily/Daily';
 import { Draw } from '../features/draw/Draw';
 import { History } from '../features/history/History';
+import { YesNo } from '../features/yesno/YesNo';
 import { Landing } from '../features/landing/Landing';
 import { Reading } from '../features/reading/Reading';
 import { AppLayout } from './AppLayout';
@@ -88,7 +89,7 @@ const SCREENS: Record<Mode, ReactNode> = {
   draw: <Draw />,
   reading: <Reading />,
   history: <History />,
-  yesno: <ComingSoon />,
+  yesno: <YesNo />,
   sky: <ComingSoon />,
 };
 
