@@ -28,7 +28,12 @@ export function createSw(deps: SwDeps, { cacheName, assets }: SwConfig) {
     const c = await caches.open(cacheName);
     // add từng cái, bỏ qua cái nào lỗi để không hỏng toàn bộ install.
     // cache: 'reload' → bỏ qua HTTP cache của trình duyệt, không nhét bản tarot.db cũ vào cache mới.
-    await Promise.all(assets.map(u => c.add(new Request(new URL(u, deps.base), { cache: 'reload' })).catch(() => {})));
+    // Bỏ response bị redirect (vd. host đổi /index.html → /): Chrome từ chối trả nó cho điều hướng.
+    const one = async (u: string) => {
+      const res = await deps.fetch(new Request(new URL(u, deps.base), { cache: 'reload' }));
+      if (res.ok && !res.redirected) await c.put(u, res);
+    };
+    await Promise.all(assets.map(u => one(u).catch(() => {})));
     await deps.skipWaiting();
   }
 

@@ -63,6 +63,20 @@ describe('service worker handlers', () => {
     expect(env.deps.skipWaiting).toHaveBeenCalled();
   });
 
+  it('install: bỏ response bị redirect; offline app khi đó rơi về "/"', async () => {
+    const env = fakeEnv([]);
+    env.setFetch((async (r: RequestInfo) => {
+      const res = new Response('ok:' + keyOf(r));
+      if (keyOf(r) === '/index.html') Object.defineProperty(res, 'redirected', { value: true });
+      return res;
+    }) as unknown as typeof fetch);
+    const sw = createSw(env.deps, { cacheName: 'wtarot-abc', assets: ['/', '/index.html'] });
+    await sw.install();
+    expect([...(env.map.get('wtarot-abc') as FakeCache).store.keys()]).toEqual(['/']);
+    env.setFetch(offline);
+    expect(await ((await sw.handle(nav('/nhat-ky'))) as Response).text()).toBe('ok:/');
+  });
+
   it('activate: xoá wtarot-v9 và mọi cache khác, giữ cache hiện tại', async () => {
     const env = fakeEnv(['wtarot-v9', 'wtarot-old', 'wtarot-abc']);
     const sw = createSw(env.deps, { cacheName: 'wtarot-abc', assets: [] });
