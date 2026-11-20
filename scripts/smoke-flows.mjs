@@ -1,5 +1,5 @@
 // Kiểm tra nhanh các luồng chính trên trình duyệt thật (Chrome qua Playwright) với dữ liệu bài thật ở gốc repo.
-// AI miễn phí (/api/ai) được giả lập bằng page.route nên không tốn lượt, không cần mạng.
+// AI miễn phí (/api/ai) và lưu trải bài (/api/readings) LUÔN được giả lập bằng page.route (kể cả với bản preview) → không tốn lượt, không ghi dữ liệu.
 // Mọi vi phạm CSP (securitypolicyviolation) trên mọi trang/mọi lần điều hướng đều được gom về Node và làm hỏng bước cuối.
 // Chạy: node scripts/smoke-flows.mjs        → dev server Vite (cổng 5312), in từng bước PASS/FAIL, thoát mã 1 nếu có bước lỗi.
 //       node scripts/smoke-flows.mjs <BASE> → chạy với máy chủ có sẵn (vd. dist/ qua serve-dist, hoặc bản preview), không bật Vite.
@@ -43,8 +43,10 @@ await ctx.route('**/api/readings', route => route.fulfill({ status: 200, body: '
 // proxy ảnh tarot.vn (dùng khi vẽ ảnh chia sẻ) → ảnh PNG 1×1 cùng nguồn, không đi mạng
 const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 await ctx.route('**/api/img?*', route => route.fulfill({ status: 200, contentType: 'image/png', body: PNG_1PX }));
-// Speed Insights / Web Analytics của Vercel (/_vercel/*): dev server và máy chủ thử không có → script rỗng
-const stubVercel = c => c.route(/\/_vercel\//, route => route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }));
+// Speed Insights / Web Analytics của Vercel (/_vercel/*): dev server và máy chủ thử ở máy không có → script rỗng.
+// BASE ở xa (bản preview trên Vercel) có thật → không giả lập, để kiểm cả CSP lẫn script thật.
+const IS_LOCAL = ['localhost', '127.0.0.1', '[::1]'].includes(new URL(BASE).hostname);
+const stubVercel = c => (IS_LOCAL ? c.route(/\/_vercel\//, route => route.fulfill({ status: 200, contentType: 'text/javascript', body: '' })) : Promise.resolve());
 await stubVercel(ctx);
 
 const errors = [];

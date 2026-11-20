@@ -36,7 +36,13 @@ function appVersionMeta(): Plugin {
     name: 'app-version-meta',
     transformIndexHtml: {
       order: 'pre',
-      handler: (html, ctx) => html.replace('%APP_VERSION%', ctx.server ? 'dev' : computeAppVersion()),
+      handler: (html, ctx) => {
+        if (ctx.server) return html.replace('%APP_VERSION%', 'dev');
+        const v = computeAppVersion();
+        // bản build không có git → 'dev': deploy-*.mjs sẽ từ chối bản này
+        if (v === 'dev') console.warn("⚠ app-version = 'dev' (không đọc được git) — bản build này không deploy được");
+        return html.replace('%APP_VERSION%', v);
+      },
     },
   };
 }

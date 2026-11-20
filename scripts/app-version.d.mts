@@ -1,1 +1,1 @@
-export function computeAppVersion(now?: Date): string;
+export function computeAppVersion(now?: Date, cwd?: string): string;

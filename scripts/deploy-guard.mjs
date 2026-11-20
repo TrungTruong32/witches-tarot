@@ -9,3 +9,14 @@ export function deployBranchError(branch, argv) {
   if (branch === 'main' || argv.includes('--allow-branch')) return null;
   return `✗ Đang ở nhánh "${branch || '(không rõ)'}" — chỉ deploy Production từ main (hoặc thêm --allow-branch nếu thật sự muốn).`;
 }
+
+/**
+ * Luật nhánh theo script: prod chỉ từ main (như trên); preview từ nhánh nào cũng được — Preview chính là để thử trước khi merge.
+ * @param {'prod' | 'preview'} target
+ * @param {string} branch
+ * @param {string[]} argv
+ * @returns {string | null}
+ */
+export function deployBranchErrorFor(target, branch, argv) {
+  return target === 'preview' ? null : deployBranchError(branch, argv);
+}
