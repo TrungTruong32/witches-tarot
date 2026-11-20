@@ -170,11 +170,11 @@ describe('app shell', () => {
       const rem = target.removeEventListener.bind(target);
       vi.spyOn(target, 'addEventListener').mockImplementation((type: string, h: EventListenerOrEventListenerObject | null, o?: boolean | AddEventListenerOptions) => {
         if (h) live.set(h, type);
-        add(type, h, o);
+        if (h) add(type, h, o);
       });
       vi.spyOn(target, 'removeEventListener').mockImplementation((type: string, h: EventListenerOrEventListenerObject | null, o?: boolean | EventListenerOptions) => {
         if (h && live.get(h) === type) live.delete(h);
-        rem(type, h, o);
+        if (h) rem(type, h, o);
       });
     }
     const { unmount } = renderAt('/hom-nay');
