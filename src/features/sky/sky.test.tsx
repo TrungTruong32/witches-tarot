@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SkyData } from '../../services/skyData';
 
 const loadSky = vi.fn<() => Promise<SkyData>>();
-vi.mock('../../services/skyData', () => ({ loadSky: () => loadSky() }));
+vi.mock('../../services/skyData', () => ({ loadSky: () => loadSky(), onSkyLoaded: () => () => {} }));
 // bọc engine thật để theo dõi setLocation
 const engines = vi.hoisted(() => [] as { setLocation: ReturnType<typeof vi.fn> }[]);
 vi.mock('../../engines/skyMap', async importOriginal => {

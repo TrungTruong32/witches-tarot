@@ -1,6 +1,6 @@
 // Nền động toàn màn hình (bản cũ L5718–5892): sao trang trí hoặc bầu trời thật, hạt lấp lánh theo chuột, sao băng, tarotBurst.
 // Khác bản cũ (phán quyết): fx tắt → xoá canvas và DỪNG vòng rAF; tab ẩn cũng dừng; lines của sky.json đọc dạng [abbr, poly].
-import { loadSky, type SkyData } from '../services/skyData';
+import { loadSky, onSkyLoaded, type SkyData } from '../services/skyData';
 import { drawBody, projectSky, SKY_CITIES, type SkyScene } from './skyScene';
 
 export interface StarfieldOpts {
@@ -50,12 +50,17 @@ export function startStarfield(cv: HTMLCanvasElement, initial: StarfieldOpts): S
     const n = Math.min(120, Math.round(W * H / 13000));
     for (let i = 0; i < n; i++) stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.3 + .3, tw: Math.random() * 6.28, sp: .5 + Math.random() * 1.3 });
   }
+  /** Nhận dữ liệu — từ lượt nạp của mình hoặc của bản đồ sao (onSkyLoaded); đang lỗi thì thôi về sao trang trí. */
+  function accept(d: SkyData) {
+    if (stopped || sky) return;
+    sky = d; skyFailed = false; skyComputedAt = 0;
+  }
   // Tải sky.json khi vào chế độ thật (không gọi mỗi khung như bản cũ). Lỗi → quay về sao trang trí, cảnh báo một lần.
   function ensureSky() {
     if (sky || skyLoading || skyFailed) return;
     skyLoading = true;
     loadSky().then(
-      d => { if (stopped) return; sky = d; skyComputedAt = 0; },
+      accept,
       (e: unknown) => { if (stopped) return; skyFailed = true; if (!warned) { warned = true; console.warn('Không tải được sky.json — dùng sao trang trí', e); } },
     ).finally(() => { skyLoading = false; });
   }
@@ -169,6 +174,7 @@ export function startStarfield(cv: HTMLCanvasElement, initial: StarfieldOpts): S
   window.addEventListener('resize', onResize);
   if (!o.reduce) window.addEventListener('mousemove', onMove);
   document.addEventListener('visibilitychange', onVisibility);
+  const unsubscribe = onSkyLoaded(accept);
   if (o.skyMode === 'real') ensureSky();
   start();
 
@@ -189,6 +195,7 @@ export function startStarfield(cv: HTMLCanvasElement, initial: StarfieldOpts): S
     stop() {
       stopped = true;
       halt();
+      unsubscribe();
       window.removeEventListener('resize', onResize);
       window.removeEventListener('mousemove', onMove);
       document.removeEventListener('visibilitychange', onVisibility);

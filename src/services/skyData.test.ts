@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { loadSky, resetSkyForTests } from './skyData';
+import { loadSky, onSkyLoaded, resetSkyForTests } from './skyData';
 
 const DATA = { stars: [[1, 2, 3]], lines: [['And', [[1, 2], [3, 4]]]], names: [[1, 2, 'X']], consts: [[1, 2, 'Andromeda', 'And']] };
 const ok = () => ({ ok: true, json: async () => DATA }) as unknown as Response;
@@ -20,6 +20,25 @@ describe('loadSky', () => {
     await expect(loadSky(f as unknown as typeof fetch)).rejects.toThrow('net');
     await expect(loadSky(f as unknown as typeof fetch)).resolves.toEqual(DATA);
     expect(f).toHaveBeenCalledTimes(2);
+  });
+  it('onSkyLoaded: notified on a successful load (not on failure); unsubscribe stops it; a throwing listener does not break the load', async () => {
+    resetSkyForTests();
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const a = vi.fn(), b = vi.fn(() => { throw new Error('x'); });
+    const offA = onSkyLoaded(a);
+    onSkyLoaded(b);
+    const f = vi.fn().mockRejectedValueOnce(new Error('net')).mockResolvedValue(ok());
+    await expect(loadSky(f as unknown as typeof fetch)).rejects.toThrow('net');
+    expect(a).not.toHaveBeenCalled();
+    await expect(loadSky(f as unknown as typeof fetch)).resolves.toEqual(DATA);
+    expect(a).toHaveBeenCalledWith(DATA);
+    expect(err).toHaveBeenCalledTimes(1);
+    offA();
+    resetSkyForTests();   // cũng xoá mọi bên nghe
+    await loadSky(f as unknown as typeof fetch);
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(b).toHaveBeenCalledTimes(1);
+    err.mockRestore();
   });
   it('rejects on non-ok response', async () => {
     resetSkyForTests();

@@ -1,7 +1,7 @@
 // Bản đồ sao tương tác của màn "Bầu trời" (bản cũ L5124–5325): kéo để xoay, chụm/lăn để phóng, chạm để chọn sao.
 // Dựng cảnh + vẽ thiên thể dùng chung engines/skyScene với nền (khác nhau chỉ ở R, cỡ/độ sáng sao, có nhãn chòm).
 // Khác bản cũ (phán quyết): sky.json lỗi → báo chữ lỗi qua onInfo (bản cũ im lặng); đổi nơi khi đang lỗi thì tải lại.
-import { loadSky, type SkyData } from '../services/skyData';
+import { loadSky, onSkyLoaded, type SkyData } from '../services/skyData';
 import { drawBody, projectSky, type SkyScene } from './skyScene';
 
 /** Lớp hiển thị — đúng thứ tự khoá của JSON `tarotSkyLayers` bản cũ. */
@@ -70,12 +70,19 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
   const ctx = cv.getContext('2d');   // lấy một lần; null (môi trường không có canvas) → engine không vẽ
   const info = () => cb.onInfo(failed ? text.fail : text.info(locName));
 
+  /** Nhận dữ liệu — từ lượt nạp của mình hoặc của nền (onSkyLoaded); đang hiện chữ lỗi thì đổi lại chữ hướng dẫn. */
+  function accept(d: SkyData) {
+    if (stopped || data) return;
+    const wasFailed = failed;
+    data = d; failed = false; computedAt = 0; resize(); compute();
+    if (wasFailed) info();
+  }
   function load() {
     if (data || loading) return;
     loading = true;
     loadSky().then(
-      d => { loading = false; if (stopped) return; data = d; failed = false; computedAt = 0; resize(); compute(); },
-      () => { loading = false; if (stopped) return; failed = true; info(); },
+      d => { loading = false; accept(d); },
+      () => { loading = false; if (stopped || data) return; failed = true; info(); },
     );
   }
   const dpr = () => Math.min(window.devicePixelRatio || 1, 2);
@@ -244,6 +251,7 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
   document.addEventListener('fullscreenchange', onFs);
   document.addEventListener('webkitfullscreenchange', onFs);
 
+  const unsubscribe = onSkyLoaded(accept);
   // skyStart của bản cũ
   load(); resize(); compute(); info(); loop();
 
@@ -264,6 +272,7 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
     stop() {
       stopped = true;
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      unsubscribe();
       cv.removeEventListener('pointerdown', onDown);
       cv.removeEventListener('pointermove', onMove);
       cv.removeEventListener('pointerup', onEnd);

@@ -3,7 +3,10 @@ import { julianDay, localSiderealDeg } from '../core/astro';
 import type { SkyData } from '../services/skyData';
 
 const loadSky = vi.fn<() => Promise<SkyData>>();
-vi.mock('../services/skyData', () => ({ loadSky: () => loadSky() }));
+// onSkyLoaded giả: emitSky(d) đóng vai lượt nạp thành công của engine kia
+const skyListeners = vi.hoisted(() => new Set<(d: SkyData) => void>());
+const emitSky = (d: SkyData) => { for (const cb of skyListeners) cb(d); };
+vi.mock('../services/skyData', () => ({ loadSky: () => loadSky(), onSkyLoaded: (cb: (d: SkyData) => void) => { skyListeners.add(cb); return () => skyListeners.delete(cb); } }));
 
 import { startSkyMap, type SkyMapOpts } from './skyMap';
 import { SKY_CITIES } from './skyScene';
@@ -54,6 +57,7 @@ beforeEach(() => {
   fc = fakeCtx();
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => fc.ctx as unknown as CanvasRenderingContext2D);
   loadSky.mockReset();
+  skyListeners.clear();
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -94,6 +98,21 @@ describe('startSkyMap', () => {
     expect(loadSky).toHaveBeenCalledTimes(2);
     await vi.waitFor(() => expect(onInfo).toHaveBeenLastCalledWith('Real stars & constellations above Hà Nội right now. Zenith at centre, horizon at the edge. Drag to rotate, scroll/pinch to zoom.'));
     e.stop();
+  });
+
+  it('sky.json lỗi → chữ lỗi; nền nạp được (onSkyLoaded) → chữ hướng dẫn và vẽ bầu trời', async () => {
+    loadSky.mockRejectedValue(new Error('net'));
+    const onInfo = vi.fn();
+    const e = startSkyMap(document.createElement('canvas'), OPTS, { onInfo });
+    await vi.waitFor(() => expect(onInfo).toHaveBeenLastCalledWith(VI.fail));
+    frame();
+    expect(horizonR()).toBeNull();   // chưa có dữ liệu: chỉ chữ lỗi
+    emitSky(SKY);
+    expect(onInfo).toHaveBeenLastCalledWith(VI.info('TP.HCM'));
+    frame();
+    expect(horizonR()).toBeCloseTo(147.2, 6);
+    e.stop();
+    expect(skyListeners.size).toBe(0);
   });
 
   it('zoomBy kẹp trong 0.6–2.6; reset về xoay 0, zoom 1', async () => {

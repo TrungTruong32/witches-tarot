@@ -3,7 +3,10 @@ import { localSiderealDeg, julianDay } from '../core/astro';
 import type { SkyData } from '../services/skyData';
 
 const loadSky = vi.fn<() => Promise<SkyData>>();
-vi.mock('../services/skyData', () => ({ loadSky: () => loadSky() }));
+// onSkyLoaded giả: emitSky(d) đóng vai lượt nạp thành công của engine kia
+const skyListeners = vi.hoisted(() => new Set<(d: SkyData) => void>());
+const emitSky = (d: SkyData) => { for (const cb of skyListeners) cb(d); };
+vi.mock('../services/skyData', () => ({ loadSky: () => loadSky(), onSkyLoaded: (cb: (d: SkyData) => void) => { skyListeners.add(cb); return () => skyListeners.delete(cb); } }));
 
 import { computeSkyScene, startStarfield } from './starfield';
 
@@ -47,6 +50,7 @@ beforeEach(() => {
   fc = fakeCtx();
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => fc.ctx as unknown as CanvasRenderingContext2D);
   loadSky.mockReset();
+  skyListeners.clear();
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -129,6 +133,24 @@ describe('startStarfield', () => {
     flush();
     expect(fc.calls.filter(c => c === 'arc(5)').length).toBeGreaterThan(0); // sao trang trí
     e.stop();
+  });
+
+  it('sky.json lỗi → sao trang trí; bản đồ sao nạp lại được (onSkyLoaded) → chuyển sang bầu trời thật', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    loadSky.mockReturnValue(Promise.reject(new Error('net')));
+    const e = startStarfield(document.createElement('canvas'), { ...OPTS, skyMode: 'real' });
+    await Promise.resolve();
+    await Promise.resolve();
+    flush();
+    fc.calls.length = 0;
+    flush();
+    expect(fc.calls).not.toContain('fillText(3)');   // sao trang trí: không có la bàn
+    emitSky({ stars: [], lines: [], names: [], consts: [] });
+    fc.calls.length = 0;
+    flush();
+    expect(fc.calls.filter(c => c === 'fillText(3)').length).toBeGreaterThanOrEqual(4);   // vòm thật: la bàn B/N/Đ/T (+ tên thiên thể)
+    e.stop();
+    expect(skyListeners.size).toBe(0);   // stop() huỷ đăng ký
   });
 
   it('stop() gỡ mọi listener đã gắn (cùng handler)', () => {
