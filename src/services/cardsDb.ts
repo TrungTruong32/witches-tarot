@@ -1,5 +1,6 @@
 // Dữ liệu bộ bài: tarot.db (SQLite) chạy ngay trong trình duyệt bằng sql.js (WASM).
 import type { Database, SqlJsStatic, SqlValue } from 'sql.js';
+import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
 import { romanToInt } from '../core/cards';
 import type { Card } from '../core/types';
 
@@ -93,13 +94,62 @@ export function openCardsDb(bytes: Uint8Array, SQL: SqlJsStatic): CardsDb {
   };
 }
 
+// ---- Tải sớm (startCardsDbDownload) ----
+// Ba thứ cần cho DB: chunk sql.js, file wasm (URL có hash, nhập tĩnh chỉ là một chuỗi) và tarot.db.
+// Trước đây tarot.db chỉ bắt đầu tải sau khi chunk sql.js về, và wasm sau khi sql.js khởi động → thác nước nhiều chặng.
+// Giờ cả ba bắt đầu cùng lúc, ngay khi module vào (src/app/earlyDb.ts), và loadCardsDb dùng lại đúng các lượt tải đó.
+const importSqlJs = () => import('sql.js');
+interface Started {
+  url: string;
+  mod: ReturnType<typeof importSqlJs>;
+  res: Promise<Response>;
+}
+let started: Started | null = null;
+
+/** Gắn <link rel=preload> cho wasm: sql.js tự fetch wasm với credentials 'same-origin', mode cors (mặc định của fetch)
+ *  → preload phải là as="fetch" + crossorigin (anonymous = same-origin) mới khớp, không thì wasm bị tải hai lần. */
+function preloadWasm(doc: Document): void {
+  if (doc.querySelector(`link[rel="preload"][href="${wasmUrl}"]`)) return;
+  const l = doc.createElement('link');
+  l.rel = 'preload';
+  l.setAttribute('as', 'fetch');
+  l.setAttribute('crossorigin', 'anonymous');
+  l.href = wasmUrl;
+  doc.head.appendChild(l);
+}
+
+/** Bắt đầu tải chunk sql.js + wasm + tarot.db ngay (idempotent). Lỗi mạng để loadCardsDb báo như cũ. */
+export function startCardsDbDownload(url = '/tarot.db', doc: Document = document): void {
+  if (started) return;
+  preloadWasm(doc);
+  const res = fetch(url);
+  const mod = importSqlJs();
+  // chưa ai chờ → nuốt lỗi ở đây để offline không hiện "unhandled rejection"; loadCardsDb vẫn nhận lỗi qua promise gốc
+  res.catch(() => {});
+  mod.catch(() => {});
+  started = { url, mod, res };
+}
+
+/** Lấy lượt tải đã bắt đầu (một lần) — lần nạp sau (vd. thử lại) tự tải mới. */
+function takeStarted(url: string): Started | null {
+  const s = started && started.url === url ? started : null;
+  if (s) started = null;
+  return s;
+}
+
 /** Tải tarot.db và khởi động sql.js (WASM lấy từ gói npm, không từ CDN). */
 export async function loadCardsDb(url = '/tarot.db'): Promise<CardsDb> {
-  const [{ default: initSqlJs }, { default: wasmUrl }] = await Promise.all([
-    import('sql.js'),
-    import('sql.js/dist/sql-wasm.wasm?url'),
-  ]);
-  const [SQL, res] = await Promise.all([initSqlJs({ locateFile: () => wasmUrl }), fetch(url)]);
+  // tarot.db tải song song với chunk sql.js (không chờ chunk về mới fetch)
+  const s = takeStarted(url) ?? { url, mod: importSqlJs(), res: fetch(url) };
+  s.res.catch(() => {}); // lỗi được ném lại ở `await s.res` bên dưới, sau khi sql.js đã khởi động
+  const { default: initSqlJs } = await s.mod;
+  const SQL = await initSqlJs({ locateFile: () => wasmUrl });
+  const res = await s.res;
   if (!res.ok) throw new Error('HTTP ' + res.status + ' khi tải tarot.db'); // đúng thông báo của bản cũ
   return openCardsDb(new Uint8Array(await res.arrayBuffer()), SQL);
+}
+
+/** Chỉ cho test: quên lượt tải sớm. */
+export function resetCardsDbDownload(): void {
+  started = null;
 }

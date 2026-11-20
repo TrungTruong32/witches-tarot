@@ -1,3 +1,4 @@
+import './app/earlyDb'; // phải đứng đầu: bắt đầu tải DB sớm nhất có thể (xem file)
 import './styles';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
