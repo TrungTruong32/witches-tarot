@@ -7,16 +7,17 @@ import type { Card, Lang } from '../../core/types';
 import { firstSentence, localVerdict, parseVerdict, ynClass, yesNoMessages, type YnClass } from '../../core/yesno';
 import { ensureAudio, sfx } from '../../engines/audio';
 import { burstAt, haptic } from '../../engines/burst';
+import { IconLabel } from '../../components/Icon';
 import { useT } from '../../i18n/useT';
 import { providerChain, providerReady } from '../../services/ai/chat';
 import { yesNoDeps } from './yesnoDeps';
 
 const CHIPS = [
-  { k: 'ynchip.opp', q: 'Tôi có nên nhận cơ hội / lời đề nghị này không?', qen: 'Should I take this opportunity / offer?' },
-  { k: 'ynchip.rel', q: 'Mối quan hệ này có tương lai không?', qen: 'Does this relationship have a future?' },
-  { k: 'ynchip.time', q: 'Bây giờ có phải thời điểm tốt để bắt đầu không?', qen: 'Is now a good time to begin?' },
-  { k: 'ynchip.gut', q: 'Tôi có nên tin vào linh cảm của mình lúc này không?', qen: 'Should I trust my intuition right now?' },
-  { k: 'ynchip.them', q: 'Người ấy có đang nghĩ về tôi không?', qen: 'Are they thinking about me?' },
+  { k: 'ynchip.opp', ico: 'wand', q: 'Tôi có nên nhận cơ hội / lời đề nghị này không?', qen: 'Should I take this opportunity / offer?' },
+  { k: 'ynchip.rel', ico: 'rings', q: 'Mối quan hệ này có tương lai không?', qen: 'Does this relationship have a future?' },
+  { k: 'ynchip.time', ico: 'hourglass', q: 'Bây giờ có phải thời điểm tốt để bắt đầu không?', qen: 'Is now a good time to begin?' },
+  { k: 'ynchip.gut', ico: 'moon', q: 'Tôi có nên tin vào linh cảm của mình lúc này không?', qen: 'Should I trust my intuition right now?' },
+  { k: 'ynchip.them', ico: 'eye', q: 'Người ấy có đang nghĩ về tôi không?', qen: 'Are they thinking about me?' },
 ] as const;
 
 
@@ -104,12 +105,12 @@ export function YesNo() {
       <div className="yesno-ask">
         <input id="yesnoQ" type="text" ref={qRef} placeholder={t('yesno.ph')} value={q}
           onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void draw(); }} />
-        <button className="btn-primary" id="yesnoBtn" onClick={() => void draw()}>{t('yesno.btn')}</button>
+        <button className="btn-primary" id="yesnoBtn" data-ico="card" onClick={() => void draw()}><IconLabel icon="card" text={t('yesno.btn')} /></button>
       </div>
       <div className="q-chips" id="ynChips">
         {CHIPS.map(c => (
-          <button key={c.k} type="button" className="qchip" data-q={c.q} data-qen={c.qen}
-            onClick={() => { setQ(lang === 'en' ? c.qen : c.q); qRef.current?.focus(); }}>{t(c.k)}</button>
+          <button key={c.k} type="button" className="qchip" data-ico={c.ico} data-q={c.q} data-qen={c.qen}
+            onClick={() => { setQ(lang === 'en' ? c.qen : c.q); qRef.current?.focus(); }}><IconLabel icon={c.ico} text={t(c.k)} /></button>
         ))}
       </div>
       <div id="yesnoResult" className={'yesno-result' + (r ? ' show' : '')}>

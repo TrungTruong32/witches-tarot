@@ -65,11 +65,14 @@ describe('Steps markup matches legacy', () => {
     expect(idCls(ours)).toEqual(idCls(legacySteps));
     const texts = (root: Element, sel: string) =>
       [...root.querySelectorAll(sel)].filter(e => !skip(e) && !['spreadDrawBtn', 'spreadPickBtn'].includes(e.id)).map(e => e.textContent!.replace(/\s+/g, ' ').trim());
-    for (const sel of ['label', 'h3', '.step-desc', '.step-no', '.manual-add summary', '.qchip', '.picker-nav', '#spreadStopShuffle, #clearSpreadBtn', '.step-sub'])
+    for (const sel of ['label', 'h3', '.step-desc', '.step-no', '.manual-add summary', '.picker-nav', '#spreadStopShuffle, #clearSpreadBtn', '.step-sub'])
       expect(texts(ours, sel), sel).toEqual(texts(legacySteps, sel));
     const attrs = (root: Element) => [...root.querySelectorAll('input, textarea, select')].map(i =>
       ['id', 'type', 'min', 'max', 'rows', 'placeholder', 'hidden', 'tabindex', 'aria-hidden', 'aria-label', 'title', 'inputmode'].map(a => i.getAttribute(a)).join('|'));
     expect(attrs(ours)).toEqual(attrs(legacySteps));
+    // chip có icon (initIcons: data-ico + nhãn bỏ ký hiệu đầu)
+    expect(texts(ours, '.qchip')).toEqual(texts(legacySteps, '.qchip').map(stripGlyph));
+    expect([...ours.querySelectorAll('.qchip')].map(b => b.getAttribute('data-ico'))).toEqual(['heart', 'wand', 'coin', 'compass', 'eye']);
     expect([...ours.querySelectorAll('.qchip')].map(b => b.getAttribute('data-q'))).toEqual([...legacySteps.querySelectorAll('.qchip')].map(b => b.getAttribute('data-q')));
     // #interpretBtn có icon (initIcons của bản cũ) → nhãn bỏ ký hiệu đầu như setLabel
     expect($('interpretBtn').textContent).toBe(stripGlyph(legacySteps.querySelector('#interpretBtn')!.textContent!));

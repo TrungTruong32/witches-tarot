@@ -193,7 +193,7 @@ export function Draw() {
             >
               ♫︎
             </button>
-            <button id="drawToReading" disabled={!done} onClick={toReading}>
+            <button id="drawToReading" data-ico="ball" disabled={!done} onClick={toReading}>
               <IconLabel icon="ball" text={t('draw.toReading')} />
             </button>
           </>

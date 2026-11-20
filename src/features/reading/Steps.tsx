@@ -22,11 +22,11 @@ import { majorNameLookup, positionsFor, useReading } from './readingStore';
 import { SpreadList } from './SpreadList';
 
 const CHIPS = [
-  { k: 'chip.love', q: 'Tình cảm của tôi thời gian tới sẽ thế nào?', qen: 'How will my love life unfold in the near future?' },
-  { k: 'chip.work', q: 'Công việc / sự nghiệp của tôi hiện tại ra sao?', qen: 'How is my work / career doing right now?' },
-  { k: 'chip.money', q: 'Tài chính của tôi thời gian tới thế nào?', qen: 'How will my finances be in the near future?' },
-  { k: 'chip.focus', q: 'Tôi nên tập trung vào điều gì lúc này?', qen: 'What should I focus on right now?' },
-  { k: 'chip.msg', q: 'Thông điệp mà vũ trụ muốn nhắn nhủ tôi hôm nay là gì?', qen: 'What message does the universe have for me today?' },
+  { k: 'chip.love', ico: 'heart', q: 'Tình cảm của tôi thời gian tới sẽ thế nào?', qen: 'How will my love life unfold in the near future?' },
+  { k: 'chip.work', ico: 'wand', q: 'Công việc / sự nghiệp của tôi hiện tại ra sao?', qen: 'How is my work / career doing right now?' },
+  { k: 'chip.money', ico: 'coin', q: 'Tài chính của tôi thời gian tới thế nào?', qen: 'How will my finances be in the near future?' },
+  { k: 'chip.focus', ico: 'compass', q: 'Tôi nên tập trung vào điều gì lúc này?', qen: 'What should I focus on right now?' },
+  { k: 'chip.msg', ico: 'eye', q: 'Thông điệp mà vũ trụ muốn nhắn nhủ tôi hôm nay là gì?', qen: 'What message does the universe have for me today?' },
 ] as const;
 
 /** updateSpreadHint: tự do → một dòng; có vị trí → câu "dùng khi" + từng vị trí kèm mô tả. */
@@ -301,11 +301,12 @@ export function Steps() {
               key={c.k}
               type="button"
               className="qchip"
+              data-ico={c.ico}
               data-q={en ? c.qen : c.q}
               data-qen={c.qen}
               onClick={() => { setQuestion(en ? c.qen : c.q); questionRef.current?.focus(); }}
             >
-              {t(c.k)}
+              <IconLabel icon={c.ico} text={t(c.k)} />
             </button>
           ))}
         </div>
@@ -360,7 +361,7 @@ export function Steps() {
           <div className="facts-body">{facts.map((l, i) => <div key={i}>• {l}</div>)}</div>
         </details>
         <div className="reading-actions">
-          <button className="btn-primary" id="interpretBtn" disabled={!has || interpreting} onClick={() => void runInterpret()}>
+          <button className="btn-primary" id="interpretBtn" data-ico="ball" disabled={!has || interpreting} onClick={() => void runInterpret()}>
             <IconLabel icon="ball" text={t('reading.interpret')} />
           </button>
           <button id="clearSpreadBtn" className="btn-ghost" disabled={!has} onClick={clear}>{t('reading.clear')}</button>
