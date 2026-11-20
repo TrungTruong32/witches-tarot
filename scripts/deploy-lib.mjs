@@ -2,6 +2,7 @@
 // kiểm tra bản deploy. Import file này KHÔNG có tác dụng phụ (không đọc .env, không chạy lệnh) — test gọi được các hàm thuần.
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { APP_VERSION_RE, computeAppVersion } from './app-version.mjs';
 
 export const SITE = 'https://tt-witches-tarot.vercel.app';
 export const SCOPE = 'trung-truong';
@@ -37,9 +38,8 @@ export function tokenError(token) {
 }
 
 /**
- * Đối số cho `npx vercel <cmd>`: build và deploy PHẢI cùng đích (--prod hay không), nếu không Vercel từ chối bản prebuilt.
- * Không có --token: token đi qua biến môi trường (xem npx).
- * @param {string[]} cmd  vd. ['build'] hoặc ['deploy', '--prebuilt']
+ * Đối số cho `npx vercel <cmd>`. Không có --token: token đi qua biến môi trường (xem npx).
+ * @param {string[]} cmd  vd. ['deploy', ...buildEnvArgs(v)]
  * @param {{ prod: boolean }} o
  */
 export function vercelArgs(cmd, { prod }) {
@@ -133,11 +133,14 @@ export async function checkDeployment(site, expectedVersion, fetchFn, { preview 
   return out;
 }
 
-/** index.html của bản vừa tạo bởi `vercel build` — đúng thứ `deploy --prebuilt` tải lên. KHÔNG dự phòng dist/
- *  (dist/ có thể là bản build khác, cũ hơn). Thiếu → null. */
-export const BUILT_INDEX = '.vercel/output/static/index.html';
-export function builtIndexHtml() {
-  return fs.existsSync(BUILT_INDEX) ? { file: BUILT_INDEX, html: fs.readFileSync(BUILT_INDEX, 'utf8') } : null;
+/**
+ * `--build-env APP_VERSION="<hash> <giờ>"` cho `vercel deploy`: Vercel build trên máy chủ (không có .git), phiên bản
+ * tính ở máy được truyền vào để thẻ meta khớp với bản vừa commit. Lệnh đi qua shell → chỉ nhận đúng dạng APP_VERSION_RE.
+ * @param {string} version
+ */
+export function buildEnvArgs(version) {
+  if (!APP_VERSION_RE.test(version)) throw new Error(`app-version không hợp lệ: ${JSON.stringify(version)}`);
+  return ['--build-env', `"APP_VERSION=${version}"`];
 }
 
 /**
@@ -152,7 +155,7 @@ export function previewExitCode(results) {
 }
 
 /**
- * Toàn bộ quy trình deploy prebuilt. Trả về { url, version, results } hoặc thoát với mã 1 khi có bước lỗi.
+ * Toàn bộ quy trình deploy (tải lên, Vercel build). Trả về { url, version, results } hoặc thoát với mã 1 khi có bước lỗi.
  * @param {{ prod: boolean, argv: string[], branchError: (branch: string, argv: string[]) => string | null }} o
  */
 export async function runDeploy({ prod, argv, branchError }) {
@@ -175,21 +178,16 @@ export async function runDeploy({ prod, argv, branchError }) {
   const token = env.VERCEL_TOKEN;
   const tErr = tokenError(token);
   if (tErr) fail(tErr);
-  console.log(`… ${VERCEL_CLI} build ${prod ? '--prod ' : ''}(${head})`);
-  const b = npx(vercelArgs(['build'], { prod }), token);
-  if (b.status !== 0) fail('✗ vercel build lỗi:\n' + tail(mask((b.stdout || '') + (b.stderr || '')), 40));
-
-  const built = builtIndexHtml();
-  if (!built) fail(`✗ Không thấy ${BUILT_INDEX} — vercel build không tạo output tĩnh như mong đợi (không dùng dist/ thay thế)`);
-  const version = readBuiltVersion(built.html);
+  // Vì sao không `vercel build` + `--prebuilt`: trên Windows (không bật Developer Mode) `vercel build` hỏng khi cài
+  // builder (EPERM symlink). Nên tải thư mục làm việc lên (đã lọc bằng .vercelignore, có dữ liệu bài ở máy) và để
+  // Vercel chạy `npm run build` — giống cách deploy của bản cũ; deploy vẫn chỉ đi từ máy này.
+  const version = computeAppVersion();
   const vErr = versionError(version);
-  if (vErr) fail(vErr + ` (${built.file})`);
-  console.log(`✓ Bản build ${version} (${built.file})`);
-
-  console.log(`… vercel deploy --prebuilt lên ${target} (vài chục giây)…`);
-  const d = npx(vercelArgs(['deploy', '--prebuilt'], { prod }), token);
+  if (vErr) fail(vErr);
+  console.log(`… ${VERCEL_CLI} deploy lên ${target}, Vercel build ${version} (${head}) — vài phút…`);
+  const d = npx(vercelArgs(['deploy', ...buildEnvArgs(version)], { prod }), token);
   const out = mask((d.stdout || '') + (d.stderr || ''));
-  if (d.status !== 0) fail('✗ Deploy lỗi:\n' + tail(out, 30));
+  if (d.status !== 0) fail('✗ Deploy lỗi:\n' + tail(out, 40));
   const deployed = parseDeployUrl(d.stdout || '') || parseDeployUrl(out);
   console.log('✓ Deploy xong: ' + (deployed || '(không đọc được URL)'));
   const url = prod ? SITE : deployed;

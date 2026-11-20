@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Deploy bản đang commit (HEAD) lên Vercel Preview (prebuilt), kiểm tra, rồi chạy smoke-flows trên URL preview.
+// Deploy bản đang commit (HEAD) lên Vercel Preview (Vercel build trên máy chủ), kiểm tra, rồi chạy smoke-flows trên URL preview.
 //   node scripts/deploy-preview.mjs
 // Được chạy từ nhánh bất kỳ (Preview là để thử trước khi merge). Từ chối nếu còn thay đổi chưa commit.
 // Mã thoát: 0 = ổn; 1 = có bước hỏng; 2 = UNVERIFIED (Deployment Protection chặn 401/403, không kiểm tra được gì).

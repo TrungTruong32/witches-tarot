@@ -1,7 +1,6 @@
 export declare const SITE: string;
 export declare const SCOPE: string;
 export declare const VERCEL_CLI: string;
-export declare const BUILT_INDEX: string;
 export interface CheckResult { ok: boolean; msg: string; protected?: boolean; warn?: boolean }
 export function tokenError(token: string | undefined): string | null;
 export function previewExitCode(results: CheckResult[]): 0 | 1 | 2;
@@ -17,7 +16,7 @@ export function checkDeployment(
   fetchFn: (url: string, init?: RequestInit) => Promise<Response>,
   opts?: { preview?: boolean },
 ): Promise<CheckResult[]>;
-export function builtIndexHtml(): { file: string; html: string } | null;
+export function buildEnvArgs(version: string): string[];
 export function runDeploy(o: {
   prod: boolean;
   argv: string[];

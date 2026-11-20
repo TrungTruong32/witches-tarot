@@ -14,11 +14,11 @@ Chạy trên Vercel (project `tarot`, scope `trung-truong`); trải bài và lư
 | `la-bai/` | Trang tĩnh cho SEO, build bằng `scripts/build_seo_pages.py` (chạy lại khi `tarot.db` đổi) |
 | `api/` | API chạy trên Vercel: `ai.js` (AI miễn phí), `readings.js` (lưu trải bài), `llm.js` / `img.js` (proxy), `_guard.js` (hàng rào dùng chung) |
 | `supabase/migrations/` | Cấu trúc database (chạy lại an toàn) |
-| `scripts/` | Script chạy trên máy: build (copy-static, build-sw), kiểm tra trên Chrome thật (smoke, CSP, offline, nâng cấp từ bản cũ), deploy prebuilt, cài Supabase, đẩy biến môi trường, Firewall |
+| `scripts/` | Script chạy trên máy: build (copy-static, build-sw), kiểm tra trên Chrome thật (smoke, CSP, offline, nâng cấp từ bản cũ), deploy, cài Supabase, đẩy biến môi trường, Firewall |
 | `vercel.json` | Route app (rewrite → `index.html`, `/x/` → 308 `/x`), cache `/assets` immutable, header bảo mật (CSP…) |
 | `local/` | Trang xem lịch sử trải bài ở máy (không commit, xem `local/README.md`) |
 
-**Dữ liệu bài không nằm trong git** (`tarot.db`, `card_en.json`, `la-bai/`, `Data/*.json|xlsx|db` — xem `.gitignore`): repo công khai chỉ có code. Deploy vẫn kèm dữ liệu vì build chạy ở máy (`vercel build` → `npm run build` chép dữ liệu vào `dist/`) rồi `vercel deploy --prebuilt` chỉ tải `.vercel/output` lên. Bản duy nhất nằm ở máy này → **sao lưu** thư mục dự án.
+**Dữ liệu bài không nằm trong git** (`tarot.db`, `card_en.json`, `la-bai/`, `Data/*.json|xlsx|db` — xem `.gitignore`): repo công khai chỉ có code. Deploy vẫn kèm dữ liệu vì `vercel deploy` tải thư mục làm việc ở máy lên (lọc bằng `.vercelignore`, có dữ liệu bài) và Vercel chạy `npm run build` (chép dữ liệu vào `dist/`). Bản duy nhất nằm ở máy này → **sao lưu** thư mục dự án.
 
 `.env` chứa mọi khoá bí mật — **không bao giờ commit** (đã có trong `.gitignore` và `.vercelignore`). `test.ipynb` cũng chứa key, không commit.
 
@@ -26,11 +26,11 @@ Chạy trên Vercel (project `tarot`, scope `trung-truong`); trải bài và lư
 
 ```bash
 git add … && git commit -m "…"     # hai script deploy từ chối chạy nếu còn thay đổi chưa commit
-node scripts/deploy-preview.mjs     # nhánh bất kỳ: check → vercel build → deploy --prebuilt (Preview) → kiểm tra → smoke-flows trên URL preview
-node scripts/deploy-prod.mjs        # chỉ từ main: check → vercel build --prod → deploy --prebuilt --prod → kiểm tra trang + API
+node scripts/deploy-preview.mjs     # nhánh bất kỳ: check → vercel deploy (Preview, Vercel build) → kiểm tra → smoke-flows trên URL preview
+node scripts/deploy-prod.mjs        # chỉ từ main: check → vercel deploy --prod → kiểm tra trang + API
 ```
 
-Deploy là **prebuilt từ máy** (không nối Git với Vercel): `vercel build` chạy `npm run build` ở máy (có dữ liệu bài), rồi `vercel deploy --prebuilt` chỉ tải `.vercel/output/` lên. Phiên bản Vercel CLI được ghim trong `scripts/deploy-lib.mjs` (`VERCEL_CLI`), nâng thì sửa ở đó.
+Deploy **chỉ từ máy này** (không nối Git với Vercel): `vercel deploy` tải thư mục làm việc (đã lọc bằng `.vercelignore`, có dữ liệu bài) lên và Vercel chạy `npm run build`; phiên bản (git hash ở máy) đi qua `--build-env APP_VERSION` vì máy chủ không có `.git`. Không dùng `vercel build` + `--prebuilt` vì trên Windows `vercel build` hỏng khi cài builder (EPERM symlink, cần Developer Mode). Phiên bản Vercel CLI được ghim trong `scripts/deploy-lib.mjs` (`VERCEL_CLI`), nâng thì sửa ở đó.
 
 Script dùng `VERCEL_TOKEN` trong `.env`: kiểm tra định dạng (`[A-Za-z0-9_-]+`), truyền cho Vercel CLI qua **biến môi trường** của tiến trình con (không đặt trên dòng lệnh), output luôn được che token. Phiên bản đọc **chỉ** từ `.vercel/output/static/index.html` (thiếu file → dừng, không dùng `dist/` thay).
 

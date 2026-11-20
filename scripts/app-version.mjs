@@ -5,7 +5,12 @@ import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
-export function computeAppVersion(now = new Date(), cwd = REPO_ROOT) {
+/** Dạng phiên bản hợp lệ: "<git short hash> <YYYY-MM-DDTHH:MMZ>". */
+export const APP_VERSION_RE = /^[0-9a-f]{7,40} \d{4}-\d\d-\d\dT\d\d:\d\dZ$/;
+
+export function computeAppVersion(now = new Date(), cwd = REPO_ROOT, env = process.env) {
+  // Build trên máy chủ Vercel không có .git: deploy-lib truyền phiên bản tính ở máy qua --build-env APP_VERSION
+  if (env.APP_VERSION && APP_VERSION_RE.test(env.APP_VERSION)) return env.APP_VERSION;
   try {
     const hash = execSync('git rev-parse --short HEAD', { cwd, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
     if (!hash) return 'dev';

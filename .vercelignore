@@ -1,7 +1,6 @@
-# Deploy giờ là prebuilt: `vercel build` (ở máy) → `vercel deploy --prebuilt` chỉ tải .vercel/output/ lên — file này
-# KHÔNG áp cho output đó. Nó chỉ còn là lưới an toàn nếu lỡ chạy `vercel deploy` không --prebuilt (tải mã nguồn lên).
-# Vì `vercel build` có thể đọc file này khi chuẩn bị mã nguồn, KHÔNG liệt kê thứ build cần: src/, scripts/ (copy-static,
-# build-sw, app-version), index.html, vite.config.ts, tsconfig*, package*.json, api/, shared/ và dữ liệu bài ở gốc.
+# `vercel deploy` (từ máy) tải thư mục làm việc lên theo file này, rồi Vercel chạy `npm run build` trên máy chủ.
+# KHÔNG liệt kê thứ build cần: src/, tests/ (tsc -b), scripts/ (copy-static, build-sw, app-version), index.html,
+# vite.config.ts, tsconfig*, package*.json, api/, shared/ và dữ liệu bài ở gốc (tarot.db, card_en.json, sky.json, la-bai/…).
 
 # Bí mật — Vercel KHÔNG dùng .gitignore khi có file này, nên phải liệt kê lại
 .env
@@ -15,6 +14,7 @@ local
 .codegraph
 .superpowers
 node_modules
+dist
 
 # Migration SQL — không cần trên web
 supabase

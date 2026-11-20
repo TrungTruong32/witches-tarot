@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Deploy bản đang commit (HEAD) lên Vercel Production theo kiểu prebuilt:
-//   npm run check → vercel build --prod (build ở máy, có dữ liệu bài) → vercel deploy --prebuilt --prod → kiểm tra bản thật.
+// Deploy bản đang commit (HEAD) lên Vercel Production từ máy này:
+//   npm run check → vercel deploy --prod (tải thư mục làm việc có dữ liệu bài lên; Vercel chạy npm run build, phiên bản qua --build-env) → kiểm tra bản thật.
 //   node scripts/deploy-prod.mjs [--allow-branch]
 // Dùng VERCEL_TOKEN trong .env (không in ra). Từ chối nếu còn thay đổi chưa commit hoặc không ở nhánh main.
 import { deployBranchErrorFor } from './deploy-guard.mjs';

@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { computeAppVersion } from '../../scripts/app-version.mjs';
-import { checkDeployment, makeMask, parseDeployUrl, previewExitCode, readBuiltVersion, SCOPE, SITE, tokenError, VERCEL_CLI, vercelArgs, versionError } from '../../scripts/deploy-lib.mjs';
+import { buildEnvArgs, checkDeployment, makeMask, parseDeployUrl, previewExitCode, readBuiltVersion, SCOPE, SITE, tokenError, VERCEL_CLI, vercelArgs, versionError } from '../../scripts/deploy-lib.mjs';
 import { deployBranchError, deployBranchErrorFor } from '../../scripts/deploy-guard.mjs';
 
 const VER = 'abc1234 2026-11-20T10:00Z';
@@ -27,18 +27,17 @@ describe('readBuiltVersion / versionError', () => {
 });
 
 describe('vercelArgs', () => {
-  it('build và deploy cùng đích (prod/preview), luôn có scope + --yes', () => {
+  it('deploy đúng đích (prod/preview), luôn có scope + --yes', () => {
     for (const prod of [true, false]) {
-      const b = vercelArgs(['build'], { prod });
-      const d = vercelArgs(['deploy', '--prebuilt'], { prod });
-      for (const a of [b, d]) {
+      const d = vercelArgs(['deploy', ...buildEnvArgs('abc1234 2026-11-20T10:00Z')], { prod });
+      for (const a of [d]) {
         expect(a.slice(0, 2)).toEqual(['-y', VERCEL_CLI]);
         expect(a.includes('--prod')).toBe(prod);
         expect(a.join(' ')).toContain(`--scope ${SCOPE}`);
         expect(a).toContain('--yes');
         expect(a).not.toContain('--token'); // token đi qua biến môi trường, không lên dòng lệnh
       }
-      expect(d.slice(2, 4)).toEqual(['deploy', '--prebuilt']);
+      expect(d.slice(2, 5)).toEqual(['deploy', '--build-env', '"APP_VERSION=abc1234 2026-11-20T10:00Z"']);
     }
     expect(SCOPE).toBe('trung-truong');
     expect(SITE).toBe('https://tt-witches-tarot.vercel.app');
@@ -168,5 +167,19 @@ describe('computeAppVersion', () => {
   it("ngoài repo git → 'dev'", () => {
     const dir = mkdtempSync(join(tmpdir(), 'tarot-nogit-'));
     try { expect(computeAppVersion(now, dir)).toBe('dev'); } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('phiên bản cho build trên máy chủ Vercel', () => {
+  it('buildEnvArgs chỉ nhận đúng dạng "<hash> <giờ>" và bọc trong ngoặc kép cho shell', () => {
+    expect(buildEnvArgs('abc1234 2026-11-20T10:00Z')).toEqual(['--build-env', '"APP_VERSION=abc1234 2026-11-20T10:00Z"']);
+    for (const bad of ['dev', 'abc1234 2026-11-20T10:00Z" & calc', '', 'abc1234']) expect(() => buildEnvArgs(bad)).toThrow();
+  });
+  it('computeAppVersion dùng APP_VERSION hợp lệ từ môi trường (máy chủ không có .git), bỏ qua giá trị lạ', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'nogit-'));
+    try {
+      expect(computeAppVersion(new Date(), dir, { APP_VERSION: 'abc1234 2026-11-20T10:00Z' })).toBe('abc1234 2026-11-20T10:00Z');
+      expect(computeAppVersion(new Date(), dir, { APP_VERSION: 'evil; rm' })).toBe('dev');
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });

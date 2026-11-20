@@ -143,9 +143,9 @@ api/               ai.js (AI miễn phí), readings.js (lưu trải bài), llm.j
 | `node scripts/csp-check.mjs` · `node scripts/offline-check.mjs` | Kiểm tra CSP / offline trên `dist/` |
 | `node scripts/upgrade-check.mjs` | Nâng cấp thật bản cũ → bản React trên cùng origin + link chia sẻ cũ (cần `dist/`) |
 | `node scripts/parity-screens.mjs [màn]` | So ảnh bản cũ ↔ bản React |
-| `node scripts/deploy-preview.mjs` · `node scripts/deploy-prod.mjs` | Deploy prebuilt từ máy lên Vercel Preview / Production (prod chỉ từ `main`) |
+| `node scripts/deploy-preview.mjs` · `node scripts/deploy-prod.mjs` | Deploy từ máy lên Vercel Preview / Production (prod chỉ từ `main`) |
 
-**Dữ liệu bài là riêng tư, không có trong repo** (`tarot.db`, `card_en.json`, `la-bai/`, `Data/*`). Vì vậy CI chỉ chạy `npm run check`, còn build và deploy chạy ở máy: `vercel build` rồi `vercel deploy --prebuilt`. Hướng dẫn vận hành (key AI, Supabase, chống spam, CSP): **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
+**Dữ liệu bài là riêng tư, không có trong repo** (`tarot.db`, `card_en.json`, `la-bai/`, `Data/*`). Vì vậy CI chỉ chạy `npm run check`, còn deploy chỉ chạy từ máy chủ dự án: `vercel deploy` tải thư mục làm việc (có dữ liệu bài, lọc bằng `.vercelignore`) lên và Vercel chạy `npm run build`. Hướng dẫn vận hành (key AI, Supabase, chống spam, CSP): **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
 
 ## 🙏 Ghi công
 

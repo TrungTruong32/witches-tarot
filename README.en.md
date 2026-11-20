@@ -152,9 +152,9 @@ api/               ai.js (free AI), readings.js (saved readings), llm.js / img.j
 | `node scripts/csp-check.mjs` · `node scripts/offline-check.mjs` | CSP / offline checks on `dist/` |
 | `node scripts/upgrade-check.mjs` | Real legacy → React upgrade on the same origin + legacy share links (needs `dist/`) |
 | `node scripts/parity-screens.mjs [screen]` | Legacy ↔ React screenshot diff |
-| `node scripts/deploy-preview.mjs` · `node scripts/deploy-prod.mjs` | Local prebuilt deploy to Vercel Preview / Production (prod only from `main`) |
+| `node scripts/deploy-preview.mjs` · `node scripts/deploy-prod.mjs` | Local deploy to Vercel Preview / Production (prod only from `main`) |
 
-**Card data is private and not in this repository** (`tarot.db`, `card_en.json`, `la-bai/`, `Data/*`). For that reason CI runs only `npm run check`, while build and deploy happen locally: `vercel build`, then `vercel deploy --prebuilt`. Operations notes (AI keys, Supabase, anti-spam, CSP; in Vietnamese): **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
+**Card data is private and not in this repository** (`tarot.db`, `card_en.json`, `la-bai/`, `Data/*`). For that reason CI runs only `npm run check`, while deploys run only from the owner's machine: `vercel deploy` uploads the working tree (card data included, filtered by `.vercelignore`) and Vercel runs `npm run build`. Operations notes (AI keys, Supabase, anti-spam, CSP; in Vietnamese): **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
 
 ## 🙏 Credits
 
