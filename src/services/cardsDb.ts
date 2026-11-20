@@ -82,6 +82,6 @@ export async function loadCardsDb(url = '/tarot.db'): Promise<CardsDb> {
     import('sql.js/dist/sql-wasm.wasm?url'),
   ]);
   const [SQL, res] = await Promise.all([initSqlJs({ locateFile: () => wasmUrl }), fetch(url)]);
-  if (!res.ok) throw new Error('tarot.db HTTP ' + res.status);
+  if (!res.ok) throw new Error('HTTP ' + res.status + ' khi tải tarot.db'); // đúng thông báo của bản cũ
   return openCardsDb(new Uint8Array(await res.arrayBuffer()), SQL);
 }
