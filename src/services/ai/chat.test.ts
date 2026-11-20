@@ -49,7 +49,7 @@ describe('chatComplete fallback', () => {
       },
       free: async (_m, onToken) => onToken('từ free'),
     }));
-    expect(used).toBe('free');
+    expect(used.provider).toBe('free');
     expect(tokens).toEqual(['từ free']);
     expect(onSwitch).toHaveBeenCalledWith('gemini', 'free', expect.any(Error));
   });
@@ -59,12 +59,12 @@ describe('chatComplete fallback', () => {
       gemini: async () => {},
       free: async (_m, onToken) => onToken('ok'),
     }));
-    expect(used).toBe('free');
+    expect(used.provider).toBe('free');
   });
 
   it('accepts an empty answer from the last provider', async () => {
     const noFree = { ...ctx, settings: { ...ctx.settings, freeAi: false } };
-    expect(await chatComplete([], { onToken: () => {} }, noFree, calls({ gemini: async () => {} }))).toBe('gemini');
+    expect(await chatComplete([], { onToken: () => {} }, noFree, calls({ gemini: async () => {} }))).toEqual({ provider: 'gemini' });
   });
 
   it('does NOT fall back once tokens have streamed (no spliced answers)', async () => {
@@ -96,5 +96,22 @@ describe('chatComplete fallback', () => {
         },
       })),
     ).rejects.toBe(err);
+  });
+});
+
+describe('chatComplete free-AI info', () => {
+  it('returns the FreeAiInfo resolved by the free provider', async () => {
+    const solo = { ...ctx, settings: { ...ctx.settings, geminiKey: '', provider: 'gemini' as const } };
+    const r = await chatComplete([], { onToken: () => {} }, solo, calls({
+      free: async (_m, onToken) => {
+        onToken('x');
+        return { model: 'm', remaining: 3 };
+      },
+    }));
+    expect(r).toEqual({ provider: 'free', free: { model: 'm', remaining: 3 } });
+  });
+  it('has no free field for other providers', async () => {
+    const r = await chatComplete([], { onToken: () => {} }, ctx, calls({ gemini: async (_m, onToken) => { onToken('x'); return { model: 'nope', remaining: 1 }; } }));
+    expect(r).toEqual({ provider: 'gemini' });
   });
 });

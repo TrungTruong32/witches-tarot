@@ -1,6 +1,6 @@
 // Chọn provider và tự chuyển sang provider kế khi lỗi.
 import { DEFAULT_AI_SETTINGS, type AiSettings, type BYOKProvider } from '../storage';
-import { PROVIDERS, type ChatMessage, type OnReasoning, type OnToken, type ProviderCall, type ProviderCtx, type ProviderId } from './providers';
+import { PROVIDERS, type ChatMessage, type FreeAiInfo, type OnReasoning, type OnToken, type ProviderCall, type ProviderCtx, type ProviderId } from './providers';
 
 export const PROVIDER_ORDER: readonly BYOKProvider[] = ['gemini', 'zenmux', 'beeknoee', 'ollama'];
 
@@ -30,6 +30,10 @@ export function providerChain(s: AiSettings): ProviderId[] {
   return chain.length ? chain : [main];
 }
 
+function isFreeInfo(r: unknown): r is FreeAiInfo {
+  return !!r && typeof r === 'object' && typeof (r as FreeAiInfo).model === 'string';
+}
+
 export interface ChatCallbacks {
   onToken: OnToken;
   onReasoning?: OnReasoning;
@@ -37,16 +41,22 @@ export interface ChatCallbacks {
   onSwitch?: (from: ProviderId, to: ProviderId, err: unknown) => void;
 }
 
+/** Kết quả một lượt chat: provider đã trả lời (+ thông tin model/lượt còn lại nếu là AI miễn phí). */
+export interface ChatResult {
+  provider: ProviderId;
+  free?: FreeAiInfo;
+}
+
 /**
  * Gửi một lượt chat. Nếu provider lỗi (hoặc trả về rỗng) TRƯỚC khi có chữ nào được stream, tự chuyển sang provider kế.
- * Đã stream được một phần thì KHÔNG chuyển (tránh ghép 2 câu trả lời) mà báo lỗi luôn. Trả về provider đã trả lời.
+ * Đã stream được một phần thì KHÔNG chuyển (tránh ghép 2 câu trả lời) mà báo lỗi luôn. Trả về provider đã trả lời (kèm FreeAiInfo khi là AI miễn phí).
  */
 export async function chatComplete(
   messages: ChatMessage[],
   cb: ChatCallbacks,
   ctx: ProviderCtx,
   calls: Record<ProviderId, ProviderCall> = PROVIDERS,
-): Promise<ProviderId> {
+): Promise<ChatResult> {
   const chain = providerChain(ctx.settings);
   let lastErr: unknown = new Error('no provider');
   for (let i = 0; i < chain.length; i++) {
@@ -54,9 +64,9 @@ export async function chatComplete(
     const next = chain[i + 1];
     let got = false;
     try {
-      await calls[p](messages, t => { got = true; cb.onToken(t); }, cb.onReasoning, ctx);
+      const r = await calls[p](messages, t => { got = true; cb.onToken(t); }, cb.onReasoning, ctx);
       if (!got && next) throw new Error(ctx.lang === 'en' ? 'empty response' : 'không trả về nội dung');
-      return p;
+      return p === 'free' && isFreeInfo(r) ? { provider: p, free: r } : { provider: p };
     } catch (e) {
       if (got || !next) throw e;
       lastErr = e;
