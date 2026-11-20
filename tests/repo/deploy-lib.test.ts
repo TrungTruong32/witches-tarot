@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { computeAppVersion } from '../../scripts/app-version.mjs';
-import { checkDeployment, makeMask, parseDeployUrl, readBuiltVersion, SCOPE, SITE, vercelArgs, versionError } from '../../scripts/deploy-lib.mjs';
+import { checkDeployment, makeMask, parseDeployUrl, previewExitCode, readBuiltVersion, SCOPE, SITE, tokenError, VERCEL_CLI, vercelArgs, versionError } from '../../scripts/deploy-lib.mjs';
 import { deployBranchError, deployBranchErrorFor } from '../../scripts/deploy-guard.mjs';
 
 const VER = 'abc1234 2026-11-20T10:00Z';
@@ -29,22 +29,28 @@ describe('readBuiltVersion / versionError', () => {
 describe('vercelArgs', () => {
   it('build và deploy cùng đích (prod/preview), luôn có scope + --yes', () => {
     for (const prod of [true, false]) {
-      const b = vercelArgs(['build'], { prod, token: 'TOK' });
-      const d = vercelArgs(['deploy', '--prebuilt'], { prod, token: 'TOK' });
+      const b = vercelArgs(['build'], { prod });
+      const d = vercelArgs(['deploy', '--prebuilt'], { prod });
       for (const a of [b, d]) {
-        expect(a.slice(0, 2)).toEqual(['-y', 'vercel@latest']);
+        expect(a.slice(0, 2)).toEqual(['-y', VERCEL_CLI]);
         expect(a.includes('--prod')).toBe(prod);
         expect(a.join(' ')).toContain(`--scope ${SCOPE}`);
         expect(a).toContain('--yes');
-        expect(a.join(' ')).toContain('--token TOK');
+        expect(a).not.toContain('--token'); // token đi qua biến môi trường, không lên dòng lệnh
       }
       expect(d.slice(2, 4)).toEqual(['deploy', '--prebuilt']);
     }
     expect(SCOPE).toBe('trung-truong');
     expect(SITE).toBe('https://tt-witches-tarot.vercel.app');
   });
-  it('không có token → không có --token', () => {
-    expect(vercelArgs(['build'], { prod: false })).not.toContain('--token');
+  it('ghim một phiên bản Vercel CLI cụ thể (không @latest)', () => {
+    expect(VERCEL_CLI).toMatch(/^vercel@\d+\.\d+\.\d+$/);
+  });
+  it('tokenError: chỉ nhận [A-Za-z0-9_-]+, không có token thì cho qua', () => {
+    expect(tokenError('abcXYZ_09-z')).toBeNull();
+    expect(tokenError(undefined)).toBeNull();
+    expect(tokenError('')).toBeNull();
+    for (const bad of ['a b', 'a;rm', 'a&b', 'tok"', 'x\ny', '$(id)']) expect(tokenError(bad), bad).toMatch(/VERCEL_TOKEN/);
   });
 });
 
@@ -120,6 +126,24 @@ describe('checkDeployment', () => {
     const res = await checkDeployment(site, VER, fakeFetch(all401), { preview: true });
     expect(res.every(r => r.ok && r.protected)).toBe(true);
     expect(res[0]?.msg).toMatch(/protected/);
+  });
+  it('preview bị protected → previewExitCode 2 (UNVERIFIED), không phải 0', async () => {
+    const all401 = Object.fromEntries(Object.keys(healthy(site)).map(k => [k, { status: 401 }]));
+    expect(previewExitCode(await checkDeployment(site, VER, fakeFetch(all401), { preview: true }))).toBe(2);
+    expect(previewExitCode(await checkDeployment(site, VER, fakeFetch(healthy(site)), { preview: true }))).toBe(0);
+    expect(previewExitCode([{ ok: false, msg: 'x' }, { ok: true, protected: true, msg: 'y' }])).toBe(1);
+  });
+  it('preview: /api/* 503 → cảnh báo (API env vars not set for Preview), không hỏng; prod: 503 vẫn hỏng', async () => {
+    const down = { 'POST /api/readings': { status: 503 }, 'POST /api/ai': { status: 503 } };
+    const pv = await checkDeployment(site, VER, fakeFetch({ ...healthy(site), ...down }), { preview: true });
+    expect(pv.filter(r => !r.ok)).toEqual([]);
+    const warns = pv.filter(r => r.warn);
+    expect(warns).toHaveLength(2);
+    for (const w of warns) expect(w.msg).toMatch(/API env vars not set for Preview/);
+    expect(previewExitCode(pv)).toBe(0);
+    const prod = await checkDeployment(SITE, VER, fakeFetch({ ...healthy(SITE), ...down }));
+    expect(prod.filter(r => !r.ok)).toHaveLength(2);
+    expect(prod.some(r => r.warn)).toBe(false);
   });
   it('prod: 401 là lỗi thật', async () => {
     const res = await checkDeployment(SITE, VER, fakeFetch({ ...healthy(SITE), 'GET /': { status: 401 } }));

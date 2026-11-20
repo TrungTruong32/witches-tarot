@@ -5,6 +5,7 @@
 // Giá trị được truyền qua stdin cho Vercel CLI — KHÔNG in ra màn hình. Cần Vercel CLI đã đăng nhập (npx vercel login).
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { tokenError, VERCEL_CLI } from './deploy-lib.mjs';
 
 const REQUIRED = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
 // AI miễn phí (/api/ai): biến nào có trong .env thì đẩy, thiếu thì bỏ qua
@@ -18,8 +19,11 @@ for (const line of fs.readFileSync('.env', 'utf8').split(/\r?\n/)) {
 const NAMES = REQUIRED.concat(OPTIONAL.filter(n => env[n]));
 const pass = process.argv.slice(2);                         // vd: --scope my-team
 if (!pass.includes('--scope')) pass.push('--scope', 'trung-truong');   // team đang chứa project "tarot"
-const auth = env.VERCEL_TOKEN ? ['--token', env.VERCEL_TOKEN] : [];
-const run = (args, input) => spawnSync('npx', ['-y', 'vercel@latest', ...args, ...pass, ...auth], { input, encoding: 'utf8', shell: process.platform === 'win32' });
+const tErr = tokenError(env.VERCEL_TOKEN);
+if (tErr) { console.error(tErr); process.exit(1); }
+// token qua biến môi trường VERCEL_TOKEN của tiến trình con, không đặt trên dòng lệnh
+const childEnv = env.VERCEL_TOKEN ? { ...process.env, VERCEL_TOKEN: env.VERCEL_TOKEN } : process.env;
+const run = (args, input) => spawnSync('npx', ['-y', VERCEL_CLI, ...args, ...pass], { input, encoding: 'utf8', shell: process.platform === 'win32', env: childEnv });
 const mask = t => [env.VERCEL_TOKEN, ...NAMES.map(n => env[n])].filter(Boolean).reduce((s, v) => s.split(v).join('***'), t);
 let failed = false;
 for (const name of NAMES) {

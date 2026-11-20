@@ -14,6 +14,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { tokenError, VERCEL_CLI } from './deploy-lib.mjs';
 
 const env = {};
 if (fs.existsSync('.env')) for (const line of fs.readFileSync('.env', 'utf8').split(/\r?\n/)) {
@@ -21,17 +22,20 @@ if (fs.existsSync('.env')) for (const line of fs.readFileSync('.env', 'utf8').sp
   if (m) env[m[1]] = m[2].replace(/^['"]|['"]$/g, '').split(/\s+#/)[0].trim();
 }
 const token = process.env.VERCEL_TOKEN || env.VERCEL_TOKEN;
+if (tokenError(token)) { console.error(tokenError(token)); process.exit(1); }
 const mask = t => (token ? String(t).split(token).join('***') : String(t));
 const ENFORCE = process.argv.includes('--enforce');
 const ACTION = ENFORCE ? 'rate_limit' : 'log';
 
 // Gọi Vercel CLI qua node + npx-cli.js (không qua shell → JSON trong đối số không bị vỡ dấu ngoặc kép trên Windows)
 const npxCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npx-cli.js');
+// token qua biến môi trường VERCEL_TOKEN của tiến trình con, không đặt trên dòng lệnh
+const childEnv = token ? { ...process.env, VERCEL_TOKEN: token } : process.env;
 function vercel(args) {
-  const all = ['-y', 'vercel@latest', ...args, '--scope', 'trung-truong', ...(token ? ['--token', token] : [])];
+  const all = ['-y', VERCEL_CLI, ...args, '--scope', 'trung-truong'];
   const r = fs.existsSync(npxCli)
-    ? spawnSync(process.execPath, [npxCli, ...all], { encoding: 'utf8' })
-    : spawnSync('npx ' + all.map(a => `"${a.replace(/"/g, '\\"')}"`).join(' '), { encoding: 'utf8', shell: true });
+    ? spawnSync(process.execPath, [npxCli, ...all], { encoding: 'utf8', env: childEnv })
+    : spawnSync('npx ' + all.map(a => `"${a.replace(/"/g, '\\"')}"`).join(' '), { encoding: 'utf8', shell: true, env: childEnv });
   return { ok: r.status === 0, out: mask((r.stdout || '') + (r.stderr || '')).trim() };
 }
 

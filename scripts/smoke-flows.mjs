@@ -50,9 +50,12 @@ const stubVercel = c => (IS_LOCAL ? c.route(/\/_vercel\//, route => route.fulfil
 await stubVercel(ctx);
 
 const errors = [];
+// BASE ở xa: /_vercel/* (Speed Insights / Analytics) trả 404 khi project chưa bật tính năng đó — nhiễu đã biết, không tính.
+// Chỉ bỏ đúng lỗi 404 của /_vercel/; mọi lỗi console khác vẫn tính.
+const knownNoise = m => !IS_LOCAL && / 404\b/.test(m.text()) && /^https?:\/\/[^/]+\/_vercel\//.test(m.location().url || '');
 const watchErrors = (p, tag) => {
   p.on('pageerror', e => errors.push(`pageerror${tag}: ` + e.message));
-  p.on('console', m => { if (m.type() === 'error') errors.push(`console${tag}: ` + m.text() + ' @ ' + (m.location().url || '')); });
+  p.on('console', m => { if (m.type() === 'error' && !knownNoise(m)) errors.push(`console${tag}: ` + m.text() + ' @ ' + (m.location().url || '')); });
 };
 const page = await ctx.newPage();
 watchErrors(page, '');

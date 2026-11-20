@@ -5,6 +5,8 @@ import { spawnSync } from 'node:child_process';
 
 export const SITE = 'https://tt-witches-tarot.vercel.app';
 export const SCOPE = 'trung-truong';
+/** Ghim phiên bản Vercel CLI: bản build/deploy không đổi theo bản CLI mới phát hành. Nâng thì sửa ở đây. */
+export const VERCEL_CLI = 'vercel@66.5.0';
 
 /** Đọc .env dạng KEY=value (không in ra). Không có file → {}. */
 export function loadEnv(file = '.env') {
@@ -21,16 +23,27 @@ export function loadEnv(file = '.env') {
 export const makeMask = secrets => t => secrets.filter(Boolean).reduce((s, v) => s.split(v).join('***'), t);
 
 export const git = args => spawnSync('git', args, { encoding: 'utf8' });                 // git là .exe → không cần shell
-// npx trên Windows là .cmd → phải qua shell; truyền MỘT chuỗi lệnh (đối số đều là chữ cố định/token không có dấu cách)
-export const npx = args => spawnSync(['npx', ...args].join(' '), { encoding: 'utf8', shell: true, maxBuffer: 64 * 1024 * 1024 });
+// npx trên Windows là .cmd → phải qua shell; truyền MỘT chuỗi lệnh (đối số đều là chữ cố định, không có dấu cách).
+// Token KHÔNG nằm trên dòng lệnh (lộ qua danh sách tiến trình): truyền qua biến môi trường VERCEL_TOKEN của tiến trình con.
+export const npx = (args, token) => spawnSync(['npx', ...args].join(' '), {
+  encoding: 'utf8', shell: true, maxBuffer: 64 * 1024 * 1024,
+  env: token ? { ...process.env, VERCEL_TOKEN: token } : process.env,
+});
+
+/** Lý do token không dùng được, hoặc null. Không có token → null (dùng phiên đăng nhập của Vercel CLI). */
+export function tokenError(token) {
+  if (token == null || token === '') return null;
+  return /^[A-Za-z0-9_-]+$/.test(token) ? null : '✗ VERCEL_TOKEN trong .env có ký tự lạ (chỉ cho phép A-Z a-z 0-9 _ -) — kiểm tra lại .env';
+}
 
 /**
  * Đối số cho `npx vercel <cmd>`: build và deploy PHẢI cùng đích (--prod hay không), nếu không Vercel từ chối bản prebuilt.
+ * Không có --token: token đi qua biến môi trường (xem npx).
  * @param {string[]} cmd  vd. ['build'] hoặc ['deploy', '--prebuilt']
- * @param {{ prod: boolean, token?: string }} o
+ * @param {{ prod: boolean }} o
  */
-export function vercelArgs(cmd, { prod, token }) {
-  return ['-y', 'vercel@latest', ...cmd, ...(prod ? ['--prod'] : []), '--yes', '--scope', SCOPE, ...(token ? ['--token', token] : [])];
+export function vercelArgs(cmd, { prod }) {
+  return ['-y', VERCEL_CLI, ...cmd, ...(prod ? ['--prod'] : []), '--yes', '--scope', SCOPE];
 }
 
 /** URL bản deploy trong output của `vercel deploy` (URL *.vercel.app cuối cùng; dòng Inspect là vercel.com nên bị bỏ). */
@@ -55,12 +68,13 @@ export function versionError(v) {
 
 /**
  * Kiểm tra nhanh một bản deploy (không ghi gì vào DB: body rỗng → API phải trả 400).
- * Preview có thể nằm sau Deployment Protection: 401/403 → báo "protected", không tính là hỏng.
+ * Preview có thể nằm sau Deployment Protection: 401/403 → báo "protected" (không kiểm tra được; previewExitCode → 2).
+ * Preview chưa có biến môi trường của API: 503 ở /api/readings, /api/ai → cảnh báo (warn), không tính là hỏng; Prod thì hỏng.
  * @param {string} site  gốc bản deploy (SITE hoặc URL preview)
  * @param {string} expectedVersion  app-version của bản build ở máy
  * @param {(url: string, init?: RequestInit) => Promise<Response>} fetchFn
  * @param {{ preview?: boolean }} [opts]
- * @returns {Promise<{ ok: boolean, msg: string, protected?: boolean }[]>}
+ * @returns {Promise<{ ok: boolean, msg: string, protected?: boolean, warn?: boolean }[]>}
  */
 export async function checkDeployment(site, expectedVersion, fetchFn, { preview = false } = {}) {
   const out = [];
@@ -99,22 +113,42 @@ export async function checkDeployment(site, expectedVersion, fetchFn, { preview 
   for (const p of ['/la-bai/', '/sitemap.xml', '/robots.txt', '/sw.js']) {
     await step(p, () => get(p), async r => (r.status === 200 ? { ok: true, msg: `✓ ${p} 200` } : { ok: false, msg: `✗ ${p} trả về ${r.status}` }));
   }
+  /** Preview: 503 = API chạy nhưng project chưa có biến môi trường cho Preview → chỉ cảnh báo */
+  const previewEnvWarn = (r, label) => (preview && r.status === 503
+    ? { ok: true, warn: true, msg: `⚠ ${label} trả 503 — API env vars not set for Preview (biến môi trường của API chưa đặt cho Preview; Prod vẫn bắt buộc)` }
+    : null);
   await step('/api/readings', () => post('/api/readings'), async r => {
+    const w = previewEnvWarn(r, '/api/readings');
+    if (w) return w;
     const m = { 400: '✓ API /api/readings chạy và đã đọc được khoá Supabase', 503: '✗ API /api/readings chạy nhưng THIẾU biến SUPABASE_* trên Vercel', 404: '✗ /api/readings chưa có trên bản deploy', 403: '✗ /api/readings chặn origin — báo Claude kiểm tra' }[r.status];
     return { ok: r.status === 400, msg: m || `✗ /api/readings trả về ${r.status}` };
   });
   // AI miễn phí: body rỗng → 400 nếu đã đủ key + Supabase (không tốn lượt), 503 nếu thiếu
   await step('/api/ai', () => post('/api/ai'), async r => {
+    const w = previewEnvWarn(r, '/api/ai');
+    if (w) return w;
     const m = { 400: '✓ API /api/ai (AI miễn phí) đã có key', 503: '✗ /api/ai THIẾU key AI (GEMINI/OLLAMA/OPENROUTER_API_KEY) hoặc biến Supabase', 404: '✗ /api/ai chưa có trên bản deploy' }[r.status];
     return { ok: r.status === 400, msg: m || `✗ /api/ai trả về ${r.status}` };
   });
   return out;
 }
 
-/** Đọc phiên bản bản build vừa tạo bởi `vercel build` (output tĩnh), dự phòng dist/. */
+/** index.html của bản vừa tạo bởi `vercel build` — đúng thứ `deploy --prebuilt` tải lên. KHÔNG dự phòng dist/
+ *  (dist/ có thể là bản build khác, cũ hơn). Thiếu → null. */
+export const BUILT_INDEX = '.vercel/output/static/index.html';
 export function builtIndexHtml() {
-  for (const f of ['.vercel/output/static/index.html', 'dist/index.html']) if (fs.existsSync(f)) return { file: f, html: fs.readFileSync(f, 'utf8') };
-  return null;
+  return fs.existsSync(BUILT_INDEX) ? { file: BUILT_INDEX, html: fs.readFileSync(BUILT_INDEX, 'utf8') } : null;
+}
+
+/**
+ * Mã thoát của deploy-preview sau checkDeployment: 1 = có bước hỏng; 2 = bị Deployment Protection, CHƯA kiểm chứng được gì;
+ * 0 = kiểm tra được và ổn (có thể kèm cảnh báo) → chạy tiếp smoke.
+ * @param {{ ok: boolean, protected?: boolean }[]} results
+ */
+export function previewExitCode(results) {
+  if (results.some(r => !r.ok)) return 1;
+  if (results.some(r => r.protected)) return 2;
+  return 0;
 }
 
 /**
@@ -137,19 +171,21 @@ export async function runDeploy({ prod, argv, branchError }) {
   if (chk.status !== 0) fail('✗ npm run check lỗi:\n' + ((chk.stdout || '') + (chk.stderr || '')).trim().split('\n').slice(-20).join('\n'));
 
   const token = env.VERCEL_TOKEN;
-  console.log(`… vercel build ${prod ? '--prod ' : ''}(${head})`);
-  const b = npx(vercelArgs(['build'], { prod, token }));
+  const tErr = tokenError(token);
+  if (tErr) fail(tErr);
+  console.log(`… ${VERCEL_CLI} build ${prod ? '--prod ' : ''}(${head})`);
+  const b = npx(vercelArgs(['build'], { prod }), token);
   if (b.status !== 0) fail('✗ vercel build lỗi:\n' + mask((b.stdout || '') + (b.stderr || '')).trim().split('\n').slice(-15).join('\n'));
 
   const built = builtIndexHtml();
-  if (!built) fail('✗ Không thấy index.html của bản build (.vercel/output/static/ hoặc dist/)');
+  if (!built) fail(`✗ Không thấy ${BUILT_INDEX} — vercel build không tạo output tĩnh như mong đợi (không dùng dist/ thay thế)`);
   const version = readBuiltVersion(built.html);
   const vErr = versionError(version);
   if (vErr) fail(vErr + ` (${built.file})`);
   console.log(`✓ Bản build ${version} (${built.file})`);
 
   console.log(`… vercel deploy --prebuilt lên ${target} (vài chục giây)…`);
-  const d = npx(vercelArgs(['deploy', '--prebuilt'], { prod, token }));
+  const d = npx(vercelArgs(['deploy', '--prebuilt'], { prod }), token);
   const out = mask((d.stdout || '') + (d.stderr || ''));
   if (d.status !== 0) fail('✗ Deploy lỗi:\n' + out.trim().split('\n').slice(-10).join('\n'));
   const deployed = parseDeployUrl(d.stdout || '') || parseDeployUrl(out);
