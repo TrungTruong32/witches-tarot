@@ -51,10 +51,13 @@ export interface AiStreamProps {
   lang: Lang;
   className: string;
   id?: string;
+  /** Chữ cố định chèn ở đầu khung (ghi chú .shared-note của link chia sẻ) — được escape. */
+  note?: string;
 }
 
 /** Một khung trả lời (lời giải chính #aiOutput hoặc một .chat-a hỏi tiếp). */
-export const AiStream = forwardRef<HTMLDivElement, AiStreamProps>(function AiStream({ view, lang, className, id }, ref) {
-  const { html, hint } = streamHtml(view, lang);
+export const AiStream = forwardRef<HTMLDivElement, AiStreamProps>(function AiStream({ view, lang, className, id, note }, ref) {
+  const { html: body, hint } = streamHtml(view, lang);
+  const html = (note ? '<div class="shared-note">' + escapeHtml(note) + '</div>' : '') + body;
   return <div ref={ref} id={id} className={className + (hint ? ' ai-hint' : '')} dangerouslySetInnerHTML={{ __html: html }} />;
 });

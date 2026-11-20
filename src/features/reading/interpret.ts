@@ -59,6 +59,8 @@ export interface InterpretState {
   /** freeAiInfo của bản cũ: model + lượt còn lại của AI miễn phí ở lượt gần nhất. */
   free: FreeAiInfo;
   noteStatus: NoteStatus;
+  /** Lời giải mở từ link chia sẻ → hiện .shared-note ở đầu #aiOutput (loadSharedFromHash L4097). */
+  sharedNote: boolean;
 }
 
 export function initialInterpret(): InterpretState {
@@ -73,6 +75,7 @@ export function initialInterpret(): InterpretState {
     quotaFrom: null,
     free: { model: '', remaining: null },
     noteStatus: { kind: 'idle' },
+    sharedNote: false,
   };
 }
 
@@ -279,7 +282,7 @@ export async function runInterpret(deps: InterpretDeps = {}): Promise<void> {
     },
   ];
 
-  patch({ running: true, chatOpen: false, follows: [], chatBusy: false, tts: false, quotaFrom: null, main: connectingView(), noteStatus: { kind: 'idle' } });
+  patch({ running: true, chatOpen: false, follows: [], chatBusy: false, tts: false, quotaFrom: null, main: connectingView(), noteStatus: { kind: 'idle' }, sharedNote: false });
   r.setCurrent(null);
   r.setFollowups([]);
   r.setMessages(messages);
@@ -434,7 +437,7 @@ export function showLoadedAnswer(text: string, record: Reading | null): void {
   const r = useReading.getState();
   patch({
     main: { status: 'done', text, reasoning: '', switched: false },
-    follows: [], chatOpen: false, chatBusy: false, share: true, noteStatus: { kind: 'idle' },
+    follows: [], chatOpen: false, chatBusy: false, share: true, noteStatus: { kind: 'idle' }, sharedNote: false,
   });
   r.setAnswer(text);
   r.setMessages([]);

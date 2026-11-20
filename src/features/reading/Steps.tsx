@@ -181,6 +181,12 @@ export function Steps() {
 
   // Ô số lá: kiểu trải cố định khoá theo số vị trí (applySpreadType); về Tự do vẫn giữ số vừa khoá như bản cũ.
   const [countRaw, setCountRaw] = useState(() => (positions ? String(positions.length) : '3'));
+  // Kiểu trải đổi từ ngoài (loadReading: link chia sẻ / Lịch sử) cũng khoá số lá như applySpreadType
+  const [countKey, setCountKey] = useState(spreadKey);
+  if (countKey !== spreadKey) {
+    setCountKey(spreadKey);
+    if (positions) setCountRaw(String(positions.length));
+  }
   const onSpread = (k: string) => {
     const pos = positionsFor({ spreadKey: k }, lang);
     if (pos) setCountRaw(String(pos.length));

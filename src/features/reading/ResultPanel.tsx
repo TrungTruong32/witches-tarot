@@ -8,6 +8,11 @@ import { aiBgKey, startAiCardsBg, type AiCardsBg } from './aiCardsBg';
 import { AiStream } from './AiStream';
 import { noteStatusText, quotaText, runFollowUp, saveNoteDebounced, useInterpret } from './interpret';
 import { useReading } from './readingStore';
+import { exportReadingImage, shareReadingLink } from './share';
+
+// Ghi chú khi mở lời giải từ link chia sẻ (loadSharedFromHash L4100–4103): nội dung do người gửi tạo
+const SHARED_NOTE_EN = '🔗 Shared via link — this text was created by the sender and may have been edited. Witches Tarot never asks for money or personal details.';
+const SHARED_NOTE_VI = '🔗 Trải bài được chia sẻ qua link — nội dung do người gửi tạo và có thể đã bị chỉnh sửa. Witches Tarot không bao giờ yêu cầu chuyển tiền hay thông tin cá nhân.';
 
 const show = (on: boolean, display = 'inline-block') => ({ display: on ? display : 'none' });
 
@@ -132,6 +137,54 @@ function ChatFollow() {
   );
 }
 
+/** Nút 🔗 Link: "✅ Đã copy link" trong 2 s sau khi chép (chữ nút là state, không sửa DOM). */
+function ShareLinkButton({ visible }: { visible: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+  const onClick = async () => {
+    if ((await shareReadingLink()) !== 'copied') return;
+    setCopied(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      setCopied(false);
+    }, 2000);
+  };
+  return (
+    <button id="shareLinkBtn" title="Sao chép link chia sẻ trải bài" style={show(visible)} onClick={() => void onClick()}>
+      {copied ? '✅ Đã copy link' : '🔗 Link'}
+    </button>
+  );
+}
+
+/** Nút 📸 Tải ảnh: khoá và hiện "⏳ Đang tạo…" trong lúc vẽ ảnh. */
+function ShareImgButton({ visible }: { visible: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const onClick = async () => {
+    setBusy(true);
+    try {
+      await exportReadingImage();
+    } finally {
+      if (alive.current) setBusy(false);
+    }
+  };
+  return (
+    <button id="shareImgBtn" title="Tải ảnh trải bài để chia sẻ" style={show(visible)} disabled={busy} onClick={() => void onClick()}>
+      {busy ? '⏳ Đang tạo…' : '📸 Tải ảnh'}
+    </button>
+  );
+}
+
 export function ResultPanel() {
   const { lang, pick } = useT();
   const main = useInterpret(s => s.main);
@@ -140,6 +193,7 @@ export function ResultPanel() {
   const share = useInterpret(s => s.share);
   const quotaFrom = useInterpret(s => s.quotaFrom);
   const free = useInterpret(s => s.free);
+  const sharedNote = useInterpret(s => s.sharedNote);
   const settings = useApp(s => s.aiSettings);
   const quota = quotaText({ quotaFrom, free }, settings, lang);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -165,12 +219,19 @@ export function ResultPanel() {
           <span id="aiQuota" className="ai-quota" hidden={quota == null}>{quota ?? ''}</span>
           <div className="reading-tools">
             <button id="ttsBtn" title="Đọc bài giải" style={show(tts)} onClick={() => speak(outRef.current?.textContent || '')}>🔊 Đọc</button>
-            <button id="shareImgBtn" title="Tải ảnh trải bài để chia sẻ" style={show(share)}>📸 Tải ảnh</button>
-            <button id="shareLinkBtn" title="Sao chép link chia sẻ trải bài" style={show(share)}>🔗 Link</button>
+            <ShareImgButton visible={share} />
+            <ShareLinkButton visible={share} />
           </div>
         </div>
         {main ? (
-          <AiStream ref={outRef} id="aiOutput" view={main} lang={lang} className="ai-output" />
+          <AiStream
+            ref={outRef}
+            id="aiOutput"
+            view={main}
+            lang={lang}
+            className="ai-output"
+            note={sharedNote ? pick({ vi: SHARED_NOTE_VI, en: SHARED_NOTE_EN }) : undefined}
+          />
         ) : (
           <div id="aiOutput" className="ai-output ai-hint" ref={outRef}>
             {pick({
