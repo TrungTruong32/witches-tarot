@@ -6,3 +6,10 @@
     .deck-inline { flex: 0 0 auto; max-width: 46%; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 15px; }
     .picker-row { display: flex; gap: 8px; align-items: center; }
     .picker-row .field-input { flex: 1 1 auto; min-width: 0; }
+    /* Dòng trạng thái lúc nạp DB đè lên chỗ (đã giữ sẵn) của thanh bộ bài: DB về thì chữ ẩn, thanh hiện đúng chỗ đó → không xô trang.
+       Tra cứu không có thanh bộ bài (display:none ở trên) → khe cao 0: chữ ẩn ở đây, Tra cứu tự báo trong khung danh sách lá.
+       Trải bài (cũng không có thanh bộ bài) giữ dòng trạng thái trong luồng như cũ. */
+    .deckbar-slot { position: relative; }
+    .deckbar-slot > #bootStatus { position: absolute; inset: 0; padding: 0 18px; display: flex; align-items: center; justify-content: center; }
+    body[data-mode="browse"] .deckbar-slot > #bootStatus { visibility: hidden; }
+    body[data-mode="reading"] .deckbar-slot > #bootStatus { position: static; padding: 40px 18px; display: block; }

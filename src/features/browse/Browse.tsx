@@ -13,6 +13,7 @@ import { SuitTiles } from './SuitTiles';
 export function Browse() {
   const { t } = useT();
   const db = useApp(s => s.db);
+  const loading = useApp(s => s.dbStatus === 'loading');
   // DB đang nạp: bộ boot() sẽ chọn → bấm ô chất bài trước khi DB về vẫn được giữ (browse.deck khớp bộ thật)
   const deck = useDeckOrGuess();
   // Bộ lọc/ô tìm/lá đang chọn nằm trong store → rời Tra cứu rồi quay lại vẫn đúng chỗ cũ
@@ -82,8 +83,12 @@ export function Browse() {
             ))}
           </div>
           <div id="noResults" className="no-results" style={{ display: rows.length || !db ? 'none' : 'block' }}>{t('browse.noResults')}</div>
+          {/* Tra cứu không có thanh bộ bài nên dòng "Đang tải…" của khung app bị ẩn (deckbar.css) — báo ngay trong khung
+              danh sách lá, chỗ danh sách sẽ hiện ra (thay cho dòng trạng thái chiếm chỗ rồi biến mất → xô trang). */}
+          {loading && <div className="no-results">Đang tải cơ sở dữ liệu SQLite…</div>}
         </div>
-        <div className="panel">
+        {/* Chưa có DB thì chưa có ô chi tiết: danh sách lá về sẽ đẩy nó xuống (CLS); hiện cùng danh sách thì là phần tử mới */}
+        <div className="panel" style={loading ? { display: 'none' } : undefined}>
           <CardDetails ref={detailsRef} card={selected} />
         </div>
       </div>

@@ -170,6 +170,20 @@ describe('app shell', () => {
     expect([...sel.options].map(o => o.value)).toEqual(['Witches Tarot', 'Rider-Waite']);
   });
 
+  it('boot status đè lên chỗ giữ sẵn của thanh bộ bài (không xô trang khi DB về); lỗi DB thì nằm trong luồng', () => {
+    useApp.setState({ dbStatus: 'loading' });
+    renderAt('/hom-nay');
+    const slot = document.querySelector('.deckbar-slot')!;
+    expect(slot.contains(document.getElementById('bootStatus'))).toBe(true);
+    expect(document.getElementById('deckBar')!.style.visibility).toBe('hidden'); // giữ chỗ, không display:none
+    act(() => useApp.setState({ dbStatus: 'ready' }));
+    expect(document.getElementById('deckBar')!.style.visibility).toBe('');
+    expect(document.getElementById('deckBar')!.style.display).toBe('flex');
+    act(() => useApp.setState({ dbStatus: 'error', dbError: 'x' }));
+    expect(slot.contains(document.getElementById('bootStatus'))).toBe(false);
+    expect(document.getElementById('deckBar')!.style.display).toBe('none');
+  });
+
   it('boot error shows the error with the status error class', () => {
     useApp.setState({ dbStatus: 'error', dbError: 'Không thể tải cơ sở dữ liệu: HTTP 404 khi tải tarot.db' });
     renderAt('/hom-nay');

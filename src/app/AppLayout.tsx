@@ -35,6 +35,7 @@ export function AppLayout() {
   const openOverlay = useApp(s => s.openOverlay);
   const closeOverlay = useApp(s => s.closeOverlay);
   const ready = useApp(s => s.dbStatus === 'ready');
+  const failed = useApp(s => s.dbStatus === 'error');
   const aiSeen = useOpenedOnce(useApp(s => s.overlay === 'ai'));
   const siteSeen = useOpenedOnce(useApp(s => s.overlay === 'site'));
   // Màn hình app cần DB: nếu đi từ trang mở đầu sang trước lúc rảnh (DB đang hẹn) thì nạp ngay
@@ -52,11 +53,16 @@ export function AppLayout() {
           <p>{t('tagline')}</p>
         </header>
         <NavMenu />
-        <div className="deckbar" id="deckBar" style={ready ? { display: 'flex' } : { display: 'none' }}>
-          <label htmlFor="deckSelect">Bộ bài:</label>
-          <DeckSelect id="deckSelect" />
+        {/* Dòng "Đang tải cơ sở dữ liệu…" nằm ĐÈ lên chỗ của thanh bộ bài (giữ chỗ bằng visibility:hidden) thay vì chiếm
+            chỗ riêng rồi biến mất → DB về không xô trang (CLS). Lỗi DB thì vẫn hiện trong luồng như cũ. Xem deckbar.css. */}
+        <div className="deckbar-slot">
+          <div className="deckbar" id="deckBar" style={ready ? { display: 'flex' } : failed ? { display: 'none' } : { visibility: 'hidden' }}>
+            <label htmlFor="deckSelect">Bộ bài:</label>
+            <DeckSelect id="deckSelect" />
+          </div>
+          {!failed && <BootStatus />}
         </div>
-        <BootStatus />
+        {failed && <BootStatus />}
         <Outlet />
       </div>
       {/* mỗi hộp một Suspense: hộp này đang tải không làm ẩn hộp kia */}

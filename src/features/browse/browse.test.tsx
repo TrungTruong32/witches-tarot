@@ -215,6 +215,17 @@ describe('Tra cứu vẽ trước khi tarot.db nạp xong (LCP / không xô tran
     expect(listNames().length).toBeGreaterThan(0);
   });
 
+  it('DB đang nạp: báo "Đang tải…" trong khung danh sách, ô chi tiết chưa hiện (tránh bị đẩy xuống)', () => {
+    useApp.setState({ ...initialState() });
+    renderBrowse();
+    const details = document.querySelectorAll<HTMLElement>('.layout > .panel')[1]!;
+    expect(document.querySelector('.layout .no-results:not(#noResults)')!.textContent).toBe('Đang tải cơ sở dữ liệu SQLite…');
+    expect(details.style.display).toBe('none');
+    act(() => useApp.setState({ db: full, decks: full.decks(), deck: 'Witches Tarot', dbStatus: 'ready' }));
+    expect(document.querySelector('.layout .no-results:not(#noResults)')).toBeNull();
+    expect(details.style.display).toBe('');
+  });
+
   it('DB lỗi → không đoán bộ, không vẽ ô (như cũ)', () => {
     useApp.setState({ ...initialState(), dbStatus: 'error' });
     renderBrowse();
