@@ -52,7 +52,11 @@ beforeEach(() => {
   loadSky.mockReset();
   skyListeners.clear();
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  delete (document as unknown as { fullscreenElement?: unknown }).fullscreenElement;
+  delete (document as unknown as { webkitFullscreenElement?: unknown }).webkitFullscreenElement;
+});
 
 describe('startStarfield', () => {
   it('fx off dừng vòng rAF; bật lại chạy đúng một vòng', () => {
@@ -81,6 +85,22 @@ describe('startStarfield', () => {
     hidden.mockReturnValue(false);
     document.dispatchEvent(new Event('visibilitychange'));
     expect(pending.size).toBe(1);
+    e.stop();
+  });
+
+  it('toàn màn hình (chuẩn + webkit) tạm dừng, kể cả khi cài đặt đổi; thoát thì chạy lại đúng một vòng', () => {
+    const e = startStarfield(document.createElement('canvas'), OPTS);
+    for (const [prop, ev] of [['fullscreenElement', 'fullscreenchange'], ['webkitFullscreenElement', 'webkitfullscreenchange']] as const) {
+      Object.defineProperty(document, prop, { value: document.body, configurable: true });
+      document.dispatchEvent(new Event(ev));
+      expect(pending.size, prop).toBe(0);
+      e.update(OPTS);
+      expect(pending.size, prop).toBe(0);
+      delete (document as unknown as Record<string, unknown>)[prop];
+      document.dispatchEvent(new Event(ev));
+      document.dispatchEvent(new Event(ev));
+      expect(pending.size, prop).toBe(1);
+    }
     e.stop();
   });
 

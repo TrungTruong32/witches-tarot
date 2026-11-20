@@ -1,6 +1,7 @@
 // Bản đồ sao tương tác của màn "Bầu trời" (bản cũ L5124–5325): kéo để xoay, chụm/lăn để phóng, chạm để chọn sao.
 // Dựng cảnh + vẽ thiên thể dùng chung engines/skyScene với nền (khác nhau chỉ ở R, cỡ/độ sáng sao, có nhãn chòm).
-// Khác bản cũ (phán quyết): sky.json lỗi → báo chữ lỗi qua onInfo (bản cũ im lặng); đổi nơi khi đang lỗi thì tải lại.
+// Khác bản cũ (phán quyết): sky.json lỗi → báo chữ lỗi qua onInfo (bản cũ im lặng); đổi nơi khi đang lỗi thì tải lại;
+// tab ẩn → dừng vòng rAF (như nền), hiện lại thì chạy tiếp.
 import { loadSky, onSkyLoaded, type SkyData } from '../services/skyData';
 import { drawBody, projectSky, type SkyScene } from './skyScene';
 
@@ -189,8 +190,11 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
     t += 0.016;
     if (Date.now() - computedAt > 30000) compute();   // thiên thể xoay ~15°/giờ → tính lại mỗi 30s là đủ
     draw();
-    raf = requestAnimationFrame(loop);
+    schedule();
   }
+  /** Xếp khung tiếp theo — trừ khi đã dừng hoặc tab đang ẩn. */
+  function schedule() { if (!raf && !stopped && !document.hidden) raf = requestAnimationFrame(loop); }
+  function halt() { if (raf) { cancelAnimationFrame(raf); raf = 0; } }
 
   // Chạm chọn sao/thiên thể gần nhất; hiện tên + độ sáng + chòm sao
   function pick(clientX: number, clientY: number) {
@@ -241,6 +245,7 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
   const onWheel = (e: WheelEvent) => { e.preventDefault(); zoom = clampZoom(zoom * (e.deltaY < 0 ? 1.1 : 0.9)); sel = null; computedAt = 0; };
   const onResize = () => resize();
   const onFs = () => { resize(); compute(); };
+  const onVisibility = () => { if (document.hidden) halt(); else schedule(); };
 
   cv.addEventListener('pointerdown', onDown);
   cv.addEventListener('pointermove', onMove);
@@ -250,6 +255,7 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
   window.addEventListener('resize', onResize);
   document.addEventListener('fullscreenchange', onFs);
   document.addEventListener('webkitfullscreenchange', onFs);
+  document.addEventListener('visibilitychange', onVisibility);
 
   const unsubscribe = onSkyLoaded(accept);
   // skyStart của bản cũ
@@ -271,7 +277,7 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
     clearSelection() { sel = null; selConst = null; },
     stop() {
       stopped = true;
-      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      halt();
       unsubscribe();
       cv.removeEventListener('pointerdown', onDown);
       cv.removeEventListener('pointermove', onMove);
@@ -281,6 +287,7 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
       window.removeEventListener('resize', onResize);
       document.removeEventListener('fullscreenchange', onFs);
       document.removeEventListener('webkitfullscreenchange', onFs);
+      document.removeEventListener('visibilitychange', onVisibility);
     },
   };
 }

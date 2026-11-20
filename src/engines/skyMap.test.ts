@@ -226,6 +226,23 @@ describe('startSkyMap', () => {
     e.stop();
   });
 
+  it('tab ẩn dừng vòng rAF, hiện lại chạy tiếp đúng một vòng (như nền)', () => {
+    loadSky.mockReturnValue(new Promise(() => {}));
+    const e = startSkyMap(document.createElement('canvas'), OPTS, { onInfo: () => {} });
+    expect(pending.size).toBe(1);
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(pending.size).toBe(0);
+    hidden.mockReturnValue(false);
+    document.dispatchEvent(new Event('visibilitychange'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(pending.size).toBe(1);
+    flush();
+    expect(pending.size).toBe(1);
+    e.stop();
+    expect(pending.size).toBe(0);
+  });
+
   it('lấy ctx 2D đúng một lần; DPR transform đặt lại sau mỗi lần resize, không phải mỗi khung', async () => {
     loadSky.mockResolvedValue(SKY);
     const e = startSkyMap(document.createElement('canvas'), OPTS, { onInfo: () => {} });
@@ -241,7 +258,7 @@ describe('startSkyMap', () => {
     e.stop();
   });
 
-  it('stop() gỡ mọi listener (window resize, fullscreenchange, canvas) và huỷ rAF', () => {
+  it('stop() gỡ mọi listener (window resize, fullscreenchange, visibilitychange, canvas) và huỷ rAF', () => {
     loadSky.mockReturnValue(new Promise(() => {}));
     const cv = document.createElement('canvas');
     const wAdd = vi.spyOn(window, 'addEventListener'), wRem = vi.spyOn(window, 'removeEventListener');
@@ -261,6 +278,7 @@ describe('startSkyMap', () => {
     same(wAdd, wRem, 'resize');
     same(dAdd, dRem, 'fullscreenchange');
     same(dAdd, dRem, 'webkitfullscreenchange');
+    same(dAdd, dRem, 'visibilitychange');
     for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'wheel']) same(cAdd, cRem, t);
   });
 });

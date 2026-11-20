@@ -1,5 +1,6 @@
 // Nền động toàn màn hình (bản cũ L5718–5892): sao trang trí hoặc bầu trời thật, hạt lấp lánh theo chuột, sao băng, tarotBurst.
-// Khác bản cũ (phán quyết): fx tắt → xoá canvas và DỪNG vòng rAF; tab ẩn cũng dừng; lines của sky.json đọc dạng [abbr, poly].
+// Khác bản cũ (phán quyết): fx tắt → xoá canvas và DỪNG vòng rAF; tab ẩn hoặc đang toàn màn hình (bản đồ sao che nền) cũng dừng;
+// lines của sky.json đọc dạng [abbr, poly].
 import { loadSky, onSkyLoaded, type SkyData } from '../services/skyData';
 import { drawBody, projectSky, SKY_CITIES, type SkyScene } from './skyScene';
 
@@ -70,9 +71,13 @@ export function startStarfield(cv: HTMLCanvasElement, initial: StarfieldOpts): S
     if (o.reduce || o.fx === 'off') return;
     if (sparks.length < 36 && Math.random() < .45) sparks.push({ x: e.clientX, y: e.clientY, life: 1, vx: (Math.random() - .5) * .6, vy: (Math.random() - .5) * .6 - .25 });
   };
-  const onVisibility = () => { if (document.hidden) halt(); else start(); };
+  /** Có phần tử nào đang toàn màn hình (chuẩn hoặc tiền tố webkit của Safari cũ). */
+  const inFullscreen = () => !!(document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element | null }).webkitFullscreenElement);
+  const paused = () => document.hidden || inFullscreen();
+  // tab ẩn / vào–ra toàn màn hình → dừng / chạy lại
+  const onPauseChange = () => { if (paused()) halt(); else start(); };
 
-  const shouldRun = () => !!ctx && !stopped && o.fx === 'on' && !document.hidden;
+  const shouldRun = () => !!ctx && !stopped && o.fx === 'on' && !paused();
   function start() { if (raf === null && shouldRun()) raf = requestAnimationFrame(frame); }
   function halt() { if (raf !== null) { cancelAnimationFrame(raf); raf = null; } }
 
@@ -173,7 +178,9 @@ export function startStarfield(cv: HTMLCanvasElement, initial: StarfieldOpts): S
   resize(); initStars();
   window.addEventListener('resize', onResize);
   if (!o.reduce) window.addEventListener('mousemove', onMove);
-  document.addEventListener('visibilitychange', onVisibility);
+  document.addEventListener('visibilitychange', onPauseChange);
+  document.addEventListener('fullscreenchange', onPauseChange);
+  document.addEventListener('webkitfullscreenchange', onPauseChange);
   const unsubscribe = onSkyLoaded(accept);
   if (o.skyMode === 'real') ensureSky();
   start();
@@ -198,7 +205,9 @@ export function startStarfield(cv: HTMLCanvasElement, initial: StarfieldOpts): S
       unsubscribe();
       window.removeEventListener('resize', onResize);
       window.removeEventListener('mousemove', onMove);
-      document.removeEventListener('visibilitychange', onVisibility);
+      document.removeEventListener('visibilitychange', onPauseChange);
+      document.removeEventListener('fullscreenchange', onPauseChange);
+      document.removeEventListener('webkitfullscreenchange', onPauseChange);
     },
   };
 }
