@@ -33,7 +33,12 @@ async function step(name, fn) {
   catch (e) { failed++; console.log('FAIL  ' + name + '\n      ' + String(e.message || e).split('\n')[0]); }
 }
 const expectEq = (a, b, what) => { if (a !== b) throw new Error(`${what}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); };
-const waitDb = p => p.waitForFunction(() => !document.querySelector('#drawBtn, #spreadDrawBtn, #yesnoBtn')?.disabled, null, { timeout: 30000 });
+// DB sẵn sàng = #bootStatus (AppLayout) đã có và đã ẩn. Không dựa vào nút bị khoá: #yesnoBtn không bao giờ disabled.
+// Hết giờ thì ném lỗi (bước hỏng rõ ràng), khác parity-screens vốn bỏ qua.
+const waitDb = p => p.waitForFunction(() => {
+  const st = document.getElementById('bootStatus');
+  return !!st && getComputedStyle(st).display === 'none';
+}, null, { timeout: 30000 });
 
 try {
   await step('Bốc bài: chọn trải 3 lá, tự tay chọn, lá vào bàn + ý nghĩa có tên vị trí', async () => {
