@@ -11,13 +11,15 @@ const MIME = {
   '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.webmanifest': 'application/manifest+json',
 };
 
-/** Máy chủ tĩnh cho bản cũ: chỉ "/" (witches_tarot.html) + danh sách trắng, chỉ lắng nghe trên 127.0.0.1. */
+/** Bản cũ đóng băng (tham chiếu parity) — witches_tarot.html ở gốc đã bỏ khi chuyển sang bản React. */
+export const LEGACY_HTML = 'tests/legacy/witches_tarot.legacy.html';
+
+/** Máy chủ tĩnh cho bản cũ: chỉ "/" (bản sao đóng băng) + danh sách trắng, chỉ lắng nghe trên 127.0.0.1. */
 export function serveLegacy(root, port) {
   const server = createServer((req, res) => {
-    let p = decodeURIComponent((req.url || '/').split('?')[0]);
-    if (p === '/') p = '/witches_tarot.html';
-    const f = join(root, p);
-    if ((p !== '/witches_tarot.html' && !ROOT_STATIC.test(p)) || !existsSync(f) || statSync(f).isDirectory()) {
+    const p = decodeURIComponent((req.url || '/').split('?')[0]);
+    const f = p === '/' ? join(root, LEGACY_HTML) : join(root, p);
+    if ((p !== '/' && !ROOT_STATIC.test(p)) || !existsSync(f) || statSync(f).isDirectory()) {
       res.statusCode = 404;
       return res.end();
     }

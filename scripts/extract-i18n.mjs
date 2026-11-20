@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { loadLegacy } from '../tests/legacy/harness.ts';
 
-const html = readFileSync('witches_tarot.html', 'utf8');
+const html = readFileSync('tests/legacy/witches_tarot.legacy.html', 'utf8');
 const doc = new JSDOM(html).window.document;
 const { I18N, T_IDS, T_PH } = loadLegacy(['I18N', 'T_IDS', 'T_PH']);
 

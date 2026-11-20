@@ -12,7 +12,7 @@ supabase/.temp/
 local/
 
 # Dữ liệu bài (ý nghĩa lá, ảnh/biểu tượng) — KHÔNG đưa lên repo công khai.
-# Vẫn được deploy: scripts/deploy-prod.mjs tải file trong máy lên Vercel (Vercel dùng .vercelignore, không dùng .gitignore).
+# Vẫn được deploy: build chạy ở máy (vercel build → npm run build chép dữ liệu vào dist/), rồi vercel deploy --prebuilt chỉ tải .vercel/output.
 # Chỉ có bản ở máy → nhớ sao lưu.
 /tarot.db
 /card_en.json

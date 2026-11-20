@@ -1,7 +1,7 @@
 // Một lần: chép nguyên văn bộ sinh mặt lưng lá bài từ witches_tarot.html sang src/core/cardBacks.js (chạy lại nếu bản cũ đổi — hiện bản cũ đã đóng băng).
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const s = readFileSync('witches_tarot.html', 'utf8');
+const s = readFileSync('tests/legacy/witches_tarot.legacy.html', 'utf8');
 const grab = (start, end) => {
   const a = s.indexOf(start);
   if (a < 0) throw new Error('not found: ' + start);

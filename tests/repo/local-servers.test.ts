@@ -19,7 +19,10 @@ describe('legacy server used by the parity script', () => {
   let base = '';
   let close = () => {};
   beforeAll(async () => {
-    writeFileSync(join(root, 'witches_tarot.html'), '<!doctype html>legacy');
+    // bản cũ chỉ còn là bản sao đóng băng trong tests/legacy/ (witches_tarot.html ở gốc đã bỏ khi chuyển sang React)
+    mkdirSync(join(root, 'tests', 'legacy'), { recursive: true });
+    writeFileSync(join(root, 'tests', 'legacy', 'witches_tarot.legacy.html'), '<!doctype html>legacy');
+    writeFileSync(join(root, 'witches_tarot.html'), 'stale root copy');
     writeFileSync(join(root, 'tarot.db'), 'db');
     writeFileSync(join(root, '.env'), 'SECRET=1');
     writeFileSync(join(root, 'test.ipynb'), '{"key":"sk-"}');
@@ -42,7 +45,7 @@ describe('legacy server used by the parity script', () => {
   });
 
   it('refuses secrets, private data and path tricks', async () => {
-    for (const p of ['/.env', '/test.ipynb', '/Data/cards.json', '/%2e%2e/%2e%2e/etc/hosts', '/Data'])
+    for (const p of ['/.env', '/test.ipynb', '/Data/cards.json', '/%2e%2e/%2e%2e/etc/hosts', '/Data', '/witches_tarot.html', '/tests/legacy/witches_tarot.legacy.html'])
       expect((await fetch(base + p)).status, p).toBe(404);
   });
 });

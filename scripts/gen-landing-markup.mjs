@@ -1,7 +1,7 @@
 // Một lần: chép nguyên văn các khối tĩnh của trang mở đầu (SVG trang trí + khối SEO/FAQ) từ witches_tarot.html.
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const html = readFileSync('witches_tarot.html', 'utf8');
+const html = readFileSync('tests/legacy/witches_tarot.legacy.html', 'utf8');
 const between = (start, end, from = 0) => {
   const a = html.indexOf(start, from);
   if (a < 0) throw new Error('not found: ' + start);

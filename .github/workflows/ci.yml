@@ -12,5 +12,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run check
-      - run: npm run build
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      # Không build: dữ liệu bài (tarot.db, card_en.json, la-bai/…) không có trong git — build + deploy chạy ở máy (scripts/deploy-*.mjs).

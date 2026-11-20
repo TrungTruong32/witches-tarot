@@ -1,4 +1,7 @@
-Data
+# Deploy giờ là prebuilt: `vercel build` (ở máy) → `vercel deploy --prebuilt` chỉ tải .vercel/output/ lên — file này
+# KHÔNG áp cho output đó. Nó chỉ còn là lưới an toàn nếu lỡ chạy `vercel deploy` không --prebuilt (tải mã nguồn lên).
+# Vì `vercel build` có thể đọc file này khi chuẩn bị mã nguồn, KHÔNG liệt kê thứ build cần: src/, scripts/ (copy-static,
+# build-sw, app-version), index.html, vite.config.ts, tsconfig*, package*.json, api/, shared/ và dữ liệu bài ở gốc.
 
 # Bí mật — Vercel KHÔNG dùng .gitignore khi có file này, nên phải liệt kê lại
 .env
@@ -6,14 +9,15 @@ Data
 *.env
 *.ipynb
 
-# Công cụ / dữ liệu cục bộ, không cần trên web
+# Dữ liệu gốc / công cụ cục bộ, không cần trên web
+Data
+local
 .codegraph
+.superpowers
 node_modules
 
 # Migration SQL — không cần trên web
 supabase
-scripts
-local
 
 # Tài liệu nội bộ — không cần public trên web
 README.md

@@ -2,7 +2,7 @@
 // giữ NGUYÊN từng byte. Test src/styles/styles.test.ts ghép lại và so với bản cũ.
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const html = readFileSync('witches_tarot.html', 'utf8');
+const html = readFileSync('tests/legacy/witches_tarot.legacy.html', 'utf8');
 const a = html.indexOf('<style>') + '<style>'.length;
 const b = html.indexOf('</style>', a);
 const css = html.slice(a, b);

@@ -8,7 +8,7 @@ Tạo ra (đều được commit và deploy như file tĩnh, KHÔNG sửa tay):
   la-bai/<bo-bai>/index.html           — danh sách 78 lá của một bộ
   la-bai/<bo-bai>/<la-bai>/index.html  — ý nghĩa từng lá (xuôi, ngược, từ khóa…)
   sitemap.xml, robots.txt
-App chính (witches_tarot.html) không phụ thuộc vào các file này.
+App chính (bản React, src/) không phụ thuộc vào các file này; vite build chép chúng vào dist/ (scripts/copy-static.mjs).
 """
 import html
 import json

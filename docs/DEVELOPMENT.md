@@ -7,9 +7,10 @@ Chạy trên Vercel (project `tarot`, scope `trung-truong`); trải bài và lư
 
 | Đường dẫn | Là gì |
 |---|---|
-| `witches_tarot.html` | Toàn bộ app (HTML + CSS + JS trong một file) — sửa trực tiếp file này |
+| `src/`, `index.html`, `vite.config.ts` | App React + TypeScript (Vite) — cấu trúc xem [README](../README.md), mục "Kỹ thuật" |
+| `tests/legacy/witches_tarot.legacy.html` | Bản cũ (một file HTML) **đóng băng** — chỉ làm tham chiếu cho test so khớp và `parity-screens`; không sửa |
 | `tarot.db` | Dữ liệu bộ bài (SQLite), build từ `Data/` bằng `Data/build_db.py` |
-| `sw.js` | Service worker — **tăng `CACHE`** (v8 → v9…) mỗi khi đổi `tarot.db`, icon, mặt lưng bài |
+| `src/sw/` | Service worker — sinh lúc build (`scripts/build-sw.mjs`); tên cache là hash nội dung nên tự đổi khi `tarot.db`, icon, mặt lưng bài đổi (không còn phải tăng `CACHE` bằng tay) |
 | `la-bai/` | Trang tĩnh cho SEO, build bằng `scripts/build_seo_pages.py` (chạy lại khi `tarot.db` đổi) |
 | `api/` | API chạy trên Vercel: `ai.js` (AI miễn phí), `readings.js` (lưu trải bài), `llm.js` / `img.js` (proxy), `_guard.js` (hàng rào dùng chung) |
 | `supabase/migrations/` | Cấu trúc database (chạy lại an toàn) |
@@ -17,18 +18,19 @@ Chạy trên Vercel (project `tarot`, scope `trung-truong`); trải bài và lư
 | `vercel.json` | Rewrite `/` → app, header bảo mật (CSP…) |
 | `local/` | Trang xem lịch sử trải bài ở máy (không commit, xem `local/README.md`) |
 
-**Dữ liệu bài không nằm trong git** (`tarot.db`, `card_en.json`, `la-bai/`, `Data/*.json|xlsx|db` — xem `.gitignore`): repo công khai chỉ có code. Deploy vẫn kèm dữ liệu vì `deploy-prod.mjs` tải file trong máy lên Vercel. Bản duy nhất nằm ở máy này → **sao lưu** thư mục dự án.
+**Dữ liệu bài không nằm trong git** (`tarot.db`, `card_en.json`, `la-bai/`, `Data/*.json|xlsx|db` — xem `.gitignore`): repo công khai chỉ có code. Deploy vẫn kèm dữ liệu vì build chạy ở máy (`vercel build` → `npm run build` chép dữ liệu vào `dist/`) rồi `vercel deploy --prebuilt` chỉ tải `.vercel/output` lên. Bản duy nhất nằm ở máy này → **sao lưu** thư mục dự án.
 
 `.env` chứa mọi khoá bí mật — **không bao giờ commit** (đã có trong `.gitignore` và `.vercelignore`). `test.ipynb` cũng chứa key, không commit.
 
 ## Deploy
 
 ```bash
-git add … && git commit -m "…"     # deploy-prod từ chối chạy nếu còn thay đổi chưa commit
-node scripts/deploy-prod.mjs        # deploy bản HEAD lên Production rồi tự kiểm tra trang + API
+git add … && git commit -m "…"     # hai script deploy từ chối chạy nếu còn thay đổi chưa commit
+node scripts/deploy-preview.mjs     # nhánh bất kỳ: check → vercel build → deploy --prebuilt (Preview) → kiểm tra → smoke-flows trên URL preview
+node scripts/deploy-prod.mjs        # chỉ từ main: check → vercel build --prod → deploy --prebuilt --prod → kiểm tra trang + API
 ```
 
-Script dùng `VERCEL_TOKEN` trong `.env` (không in ra).
+Script dùng `VERCEL_TOKEN` trong `.env` (không in ra). Kiểm tra sau deploy: `app-version` trên `/` phải khớp bản build ở máy (từ chối bản `'dev'`), `/trai-bai` 200 + có app, `/trai-bai/` → 308, `/la-bai/`, `/sitemap.xml`, `/robots.txt`, `/sw.js` 200, `/api/readings` + `/api/ai` body rỗng → 400 (không ghi gì). Preview bị Deployment Protection (401/403) thì báo "protected" và bỏ qua smoke.
 
 ## Đổi key AI, model, hạn mức
 

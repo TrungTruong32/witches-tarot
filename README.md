@@ -64,7 +64,7 @@ Tra cứu ý nghĩa 78 lá bài **Witches Tarot** và **Rider-Waite**: xuôi, ng
 | **Lịch sử** | Lưu lại các lần trải bài để xem lại |
 | **Chia sẻ** | Gửi trải bài qua link, tải lời giải thành ảnh, nghe đọc to |
 | **Tuỳ biến** | Giao diện Xanh đêm · Hồng huyền · Sáng, nhạc nền, hiệu ứng, tiếng Việt / English |
-| **Bộ bài riêng** | Import thêm bộ bài của bạn từ file JSON |
+| **Sao lưu** | Xuất / nhập lịch sử trải bài thành file JSON |
 
 ## 🔐 Riêng tư
 
@@ -72,11 +72,73 @@ Tra cứu ý nghĩa 78 lá bài **Witches Tarot** và **Rider-Waite**: xuôi, ng
 - Key AI của riêng bạn chỉ nằm trong trình duyệt và chỉ gửi tới nhà cung cấp AI bạn chọn.
 - Tarot và lời diễn giải của AI chỉ mang tính **tham khảo, gợi mở và giải trí**, không thay thế lời khuyên chuyên môn về sức khỏe, pháp lý hay tài chính.
 
-## 🛠️ Công nghệ
+## 🛠️ Kỹ thuật (dành cho người đọc code)
 
-Một file HTML duy nhất (HTML + CSS + JS thuần) · dữ liệu bài trong SQLite chạy ngay trên trình duyệt bằng [sql.js](https://sql.js.org) · Service Worker cho chạy offline · API serverless trên [Vercel](https://vercel.com) · Supabase lưu hạn mức AI và trải bài · AI: Gemini → Ollama → OpenRouter, tự chuyển khi một nhà cung cấp hết lượt.
+App là PWA một trang viết bằng **React 18 + TypeScript strict**, build bằng **Vite**. Trước đây toàn bộ app nằm trong một file HTML gần 6.000 dòng (HTML + CSS + JS thuần); bản React được port lại từng màn và **so khớp với bản cũ** bằng test, nên hành vi giữ nguyên. Bản cũ đóng băng ở `tests/legacy/witches_tarot.legacy.html`, chỉ dùng làm tham chiếu.
 
-Hướng dẫn deploy, đổi key AI, Supabase, chống spam/DDoS và CSP: **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
+| Lớp | Công nghệ |
+|---|---|
+| Giao diện | Vite · React 18 · TypeScript (`strict`) · React Router · CSS thuần (tách theo phần, giữ nguyên thứ tự của bản cũ) |
+| Trạng thái | Zustand (store app + store riêng của từng màn: trải bài, bốc bài) |
+| Dữ liệu bài | SQLite chạy ngay trên trình duyệt bằng [sql.js](https://sql.js.org) (WebAssembly) · IndexedDB cho nhật ký trải bài |
+| Offline | Service Worker viết bằng TS, sinh lúc build (`scripts/build-sw.mjs`): tên cache là hash nội dung, cache app và cache dữ liệu tách riêng |
+| Backend | Vercel Functions (`api/`) · Supabase chỉ qua hàm RPC có kiểu (POST body JSON, không SQL động) |
+| Test | Vitest + Testing Library (jsdom) · Playwright (Chrome thật) cho smoke, CSP, offline và so ảnh chụp |
+
+### Cấu trúc
+
+```
+src/
+  core/        logic thuần, không React: bốc bài, kiểu trải, SPREAD FACTS, dựng prompt, chia sẻ an toàn, Yes/No, nhật ký
+  services/    IO: sql.js (cardsDb), IndexedDB, localStorage, API lưu trải bài, AI (providers, chat, sse)
+  engines/     mã mệnh lệnh không React: canvas nền sao, bản đồ sao, Web Audio, bánh xe/xào/chia bài — start*() trả về handle { stop() }
+  features/    từng màn: landing, daily, browse, draw, reading, yesno, sky, history, settings
+  components/  phần dùng chung: menu, overlay, lightbox, biểu tượng, nhạc nền…
+  app/         router, layout, store chính, khởi động (nạp DB), cài PWA
+  i18n/        chữ giao diện Việt / English
+  sw/          service worker (routes + handlers thuần, test được)
+shared/prompt.js   system prompt AI — MỘT nguồn duy nhất cho cả trình duyệt và server, test so với golden
+api/               ai.js (AI miễn phí), readings.js (lưu trải bài), llm.js / img.js (proxy), _guard.js (hàng rào chung)
+```
+
+### Phần AI
+
+- **Dựng prompt:** `src/core/prompt.ts` ghép câu hỏi + từng lá (vị trí, xuôi/ngược, **chỉ** ý nghĩa của đúng bộ bài và đúng chiều). System prompt lấy từ `shared/prompt.js`.
+- **SPREAD FACTS:** `src/core/facts.ts` tính bằng code các dữ kiện của trải bài: tỉ lệ Ẩn Chính, nguyên tố trội/thiếu, số lá ngược, số lặp lại, tương tác nguyên tố giữa các lá kề nhau, quintessence. AI nhận chúng làm căn cứ và được dặn không tự đếm lại. Cách này giảm chuyện AI "bịa".
+- **Streaming + tự chuyển provider:** `src/services/ai/chat.ts` thử lần lượt provider chính, các key riêng đã cấu hình (Gemini, ZenMux, Beeknoee, Ollama), rồi AI miễn phí. Chỉ chuyển khi provider lỗi **trước** khi stream được chữ nào, để không ghép hai câu trả lời.
+- **Huỷ đúng lúc:** mỗi lời giải đang mở là một phiên có `AbortSignal` riêng (`features/reading/interpret.ts`). Mở lời giải khác thì lượt gọi cũ bị huỷ và không ghi đè giao diện mới.
+- **AI miễn phí `/api/ai`:**
+  - server giữ key và tự dựng system prompt (bỏ tin `system` của client);
+  - kiểm tra origin và lọc hội thoại (`cleanMessages`);
+  - thử Gemini → Ollama → OpenRouter;
+  - đếm lượt/ngày theo thiết bị, theo mạng (IP đã băm) và toàn site, trong một giao dịch Supabase (`ai_usage_claim`). Nếu mọi provider đều lỗi thì hoàn lượt (`ai_usage_release`).
+
+### Chiến lược test
+
+- **Harness so với bản cũ** (`tests/legacy/harness.ts`): lấy hàm/hằng theo tên từ bản HTML đóng băng, chạy trong sandbox Node (`vm`) và so kết quả với code mới (bốc bài, kiểu trải, SPREAD FACTS, prompt, Yes/No, chia sẻ…). Các test khác đọc thẳng bản đóng băng để so chữ i18n, CSS, SVG và markup từng byte.
+- **So ảnh chụp** (`scripts/parity-screens.mjs`): chụp từng màn trên bản cũ và bản React (Math.random cố định, tắt animation), rồi in % điểm ảnh khác nhau.
+- **Smoke** (`scripts/smoke-flows.mjs`): chạy các luồng chính trên Chrome thật. `/api/ai` và `/api/readings` luôn được giả lập, nên không tốn lượt AI và không ghi dữ liệu.
+- **CSP** (`scripts/csp-check.mjs`): phục vụ `dist/` với đúng header của `vercel.json`. Yêu cầu không có vi phạm CSP nào; `script-src` không có `'unsafe-inline'`, script inline duy nhất được cho phép bằng hash.
+- **Offline / cập nhật PWA** (`scripts/offline-check.mjs`):
+  - máy đã cài bản cũ: cache cũ bị xoá;
+  - bản build chỉ đổi thẻ meta: không tải lại gì;
+  - bản build đổi code: giữ cache dữ liệu;
+  - mất mạng: app vẫn mở.
+- **Sau deploy:** `deploy-*.mjs` kiểm tra `app-version` trên trang thật phải khớp với bản build ở máy, kiểm tra các route, trang SEO và API.
+
+### Lệnh
+
+| Lệnh | Việc |
+|---|---|
+| `npm run dev` | Dev server Vite (dữ liệu bài phục vụ từ gốc repo theo danh sách trắng) |
+| `npm run check` | typecheck + lint (0 cảnh báo) + test — CI chạy lệnh này |
+| `npm run build` | Build `dist/` + chép dữ liệu tĩnh + sinh service worker (cần dữ liệu bài ở máy) |
+| `node scripts/smoke-flows.mjs [BASE]` | Smoke trên dev server, hoặc trên `BASE` có sẵn |
+| `node scripts/csp-check.mjs` · `node scripts/offline-check.mjs` | Kiểm tra CSP / offline trên `dist/` |
+| `node scripts/parity-screens.mjs [màn]` | So ảnh bản cũ ↔ bản React |
+| `node scripts/deploy-preview.mjs` · `node scripts/deploy-prod.mjs` | Deploy prebuilt từ máy lên Vercel Preview / Production (prod chỉ từ `main`) |
+
+**Dữ liệu bài là riêng tư, không có trong repo** (`tarot.db`, `card_en.json`, `la-bai/`, `Data/*`). Vì vậy CI chỉ chạy `npm run check`, còn build và deploy chạy ở máy: `vercel build` rồi `vercel deploy --prebuilt`. Hướng dẫn vận hành (key AI, Supabase, chống spam, CSP): **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
 
 ## 🙏 Ghi công
 

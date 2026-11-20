@@ -1,4 +1,4 @@
-// So ảnh chụp bản cũ (witches_tarot.html) và bản React cho các màn hình của Kế hoạch 2a/2b (Bốc bài cố ý khác — spec §5.8 — nên không so).
+// So ảnh chụp bản cũ (bản sao đóng băng tests/legacy/witches_tarot.legacy.html) và bản React cho các màn hình của Kế hoạch 2a/2b (Bốc bài cố ý khác — spec §5.8 — nên không so).
 // Chạy: node scripts/parity-screens.mjs   (cần dữ liệu bài ở gốc repo + Chrome đã cài; mạng để tải sql.js/fonts cho bản cũ)
 // Ghi ảnh vào .superpowers/parity/<tên>-{legacy,react,diff}.png và in % điểm ảnh khác nhau.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -13,7 +13,7 @@ const OUT = '.superpowers/parity';
 mkdirSync(OUT, { recursive: true });
 const ROOT = resolve('.');
 
-// Bản cũ: chỉ witches_tarot.html + danh sách trắng dữ liệu, chỉ trên 127.0.0.1 (không lộ .env/Data/ ra mạng LAN)
+// Bản cũ: chỉ bản sao đóng băng + danh sách trắng dữ liệu, chỉ trên 127.0.0.1 (không lộ .env/Data/ ra mạng LAN)
 const legacyServer = await serveLegacy(ROOT, 5310);
 const vite = await createVite({ server: { port: 5311, strictPort: true }, logLevel: 'error' });
 await vite.listen();

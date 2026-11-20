@@ -1,7 +1,7 @@
 // Một lần: chép nguyên văn sprite icon (dòng 832) và 2 logo SVG (dòng 868, 915) từ witches_tarot.html.
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const lines = readFileSync('witches_tarot.html', 'utf8').split('\n');
+const lines = readFileSync('tests/legacy/witches_tarot.legacy.html', 'utf8').split('\n');
 const grab = (line, cls) => {
   const a = line.indexOf(`<svg viewBox="0 0 64 64" class="${cls}"`);
   if (a < 0) throw new Error('logo not found: ' + cls);

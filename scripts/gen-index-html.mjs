@@ -1,7 +1,7 @@
 // Một lần: dựng index.html từ <head> của bản cũ (dòng 1–45, nguyên văn) + script theme chạy trước khi vẽ (dòng 833).
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const lines = readFileSync('witches_tarot.html', 'utf8').split('\n');
+const lines = readFileSync('tests/legacy/witches_tarot.legacy.html', 'utf8').split('\n');
 // Favicon data URI cũ có '%' trần (vd cx='50%') — trình duyệt bỏ qua, nhưng Vite giải mã URL và báo lỗi.
 // Đổi riêng các '%' không theo sau bởi 2 chữ số hex thành %25 (giải mã ra đúng SVG cũ).
 const head = lines
