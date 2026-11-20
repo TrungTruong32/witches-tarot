@@ -1,4 +1,4 @@
-// So ảnh chụp bản cũ (witches_tarot.html) và bản React cho các màn hình của Kế hoạch 2a.
+// So ảnh chụp bản cũ (witches_tarot.html) và bản React cho các màn hình của Kế hoạch 2a/2b (Bốc bài cố ý khác — spec §5.8 — nên không so).
 // Chạy: node scripts/parity-screens.mjs   (cần dữ liệu bài ở gốc repo + Chrome đã cài; mạng để tải sql.js/fonts cho bản cũ)
 // Ghi ảnh vào .superpowers/parity/<tên>-{legacy,react,diff}.png và in % điểm ảnh khác nhau.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -78,6 +78,18 @@ const legacyEnter = mode => async page => {
 };
 const reactGo = path => async page => { await page.goto(REACT + path); await waitDb(page); };
 
+// Trải 3 lá "Quá khứ · Hiện tại · Tương lai" bằng ô tự thêm lá (giống nhau, không ngẫu nhiên) → chụp danh sách + bàn trải
+const addThree = async page => {
+  await page.evaluate(() => document.querySelector('.sp-tile[data-k="ppf"]').click());
+  await page.evaluate(() => { document.querySelector('details.manual-add').open = true; });
+  for (const q of ['fool', 'magician', 'tower']) {
+    await page.fill('#pickerInput', q);
+    await page.waitForTimeout(150);
+    await page.press('#pickerInput', 'Enter');
+  }
+  await page.evaluate(() => document.getElementById('spreadBoard')?.scrollIntoView({ block: 'center' }));
+};
+
 const SCREENS = {
   landing: { legacy: async p => { await p.waitForTimeout(300); }, react: async p => { await p.waitForTimeout(300); } },
   daily: { legacy: legacyEnter('daily'), react: reactGo('/hom-nay') },
@@ -90,6 +102,13 @@ const SCREENS = {
     legacy: async p => { await legacyEnter('daily')(p); await p.evaluate(() => document.getElementById('openSite').click()); },
     react: async p => { await reactGo('/hom-nay')(p); await p.evaluate(() => document.getElementById('openSite').click()); },
   },
+  reading: { legacy: legacyEnter('reading'), react: reactGo('/trai-bai') },
+  reading3: { legacy: async p => { await legacyEnter('reading')(p); await addThree(p); }, react: async p => { await reactGo('/trai-bai')(p); await addThree(p); } },
+  history: {
+    legacy: async p => { await legacyEnter('daily')(p); await p.evaluate(() => document.getElementById('modeHistory').click()); await p.waitForTimeout(400); },
+    react: async p => { await reactGo('/nhat-ky')(p); await p.waitForTimeout(400); },
+  },
+  yesno: { legacy: legacyEnter('yesno'), react: reactGo('/yes-no') },
   ai: {
     legacy: async p => { await legacyEnter('daily')(p); await p.evaluate(() => document.getElementById('openSettings').click()); },
     react: async p => { await reactGo('/hom-nay')(p); await p.evaluate(() => document.getElementById('openSettings').click()); },
