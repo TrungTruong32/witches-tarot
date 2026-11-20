@@ -33,10 +33,9 @@ export interface SpreadPickerProps {
 
 export function SpreadPicker({ value, onChange, id = 'spreadPicker' }: SpreadPickerProps) {
   const { pick, lang } = useT();
-  const en = lang === 'en';
   const boxRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const L = (a?: [string, string]) => (a ? (en ? a[1] : a[0]) : '');
+  const L = (a?: [string, string]) => (a ? pick({ vi: a[0], en: a[1] }) : '');
 
   // syncPickerNav: bật/tắt ‹ › và bóng mờ hai đầu theo vị trí cuộn (đổi trực tiếp trên DOM như bản cũ).
   const sync = useCallback(() => {
@@ -82,8 +81,8 @@ export function SpreadPicker({ value, onChange, id = 'spreadPicker' }: SpreadPic
         {SPREADS.map(sp => {
           const ui = SPREAD_UI[sp.k];
           const n = sp.pos ? sp.pos.length : 0, on = sp.k === value;
-          const meta = L(ui?.t) + ' · ' + (n ? n + (en ? (n > 1 ? ' cards' : ' card') : ' lá') : en ? 'any count' : 'số lá tuỳ ý');
-          const badge = on ? (en ? '✓ Selected' : '✓ Đang chọn') : L(ui?.b);
+          const meta = L(ui?.t) + ' · ' + (n ? n + pick({ vi: ' lá', en: n > 1 ? ' cards' : ' card' }) : pick({ vi: 'số lá tuỳ ý', en: 'any count' }));
+          const badge = on ? pick({ vi: '✓ Đang chọn', en: '✓ Selected' }) : L(ui?.b);
           return (
             <button
               key={sp.k}
@@ -96,7 +95,7 @@ export function SpreadPicker({ value, onChange, id = 'spreadPicker' }: SpreadPic
             >
               {badge ? <span className="sp-badge">{badge}</span> : null}
               <div className="sp-art"><SpreadArt k={sp.k} /></div>
-              <div className="sp-name">{L(ui?.n) || (en ? sp.en : sp.vi)}</div>
+              <div className="sp-name">{L(ui?.n) || pick({ vi: sp.vi, en: sp.en })}</div>
               <div className="sp-meta">{meta}</div>
               <div className="sp-desc">{L(sp.use || ui?.use)}</div>
             </button>

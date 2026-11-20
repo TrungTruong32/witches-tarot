@@ -26,8 +26,7 @@ export const SpreadBoard = forwardRef<SpreadBoardHandle, SpreadBoardProps>(funct
   { spreadKey, cards, positions, mode, id = 'spreadBoard' },
   ref,
 ) {
-  const { lang } = useT();
-  const en = lang === 'en';
+  const { pick } = useT();
   const boardRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<(() => void) | null>(null);
 
@@ -102,7 +101,7 @@ export const SpreadBoard = forwardRef<SpreadBoardHandle, SpreadBoardProps>(funct
             className={`spread-flip board-card${it.r ? ' cross' : ''}${mode === 'deal' ? ' await' : ' revealed'}`}
             data-i={i}
             style={{ left: it.left, top: it.top, width: it.width }}
-            title={pos + c.ten + (c.orientation === 'nguoc' ? (en ? ' (reversed)' : ' (ngược)') : '')}
+            title={pos + c.ten + (c.orientation === 'nguoc' ? pick({ vi: ' (ngược)', en: ' (reversed)' }) : '')}
             onClick={e => onCard(e, c)}
           >
             <span className="num">{i + 1}</span>

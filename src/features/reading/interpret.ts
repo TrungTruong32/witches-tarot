@@ -9,6 +9,7 @@ import { spreadFactLines } from '../../core/facts';
 import { buildSystemPrompt, buildUserPrompt, readingDecks } from '../../core/prompt';
 import { defsFor } from '../../core/spreads';
 import type { Lang, Reading, SpreadCard } from '../../core/types';
+import { pickLang } from '../../i18n/useT';
 import { prefersReducedMotion } from '../../lib/media';
 import { chatComplete, providerChain, type ChatResult } from '../../services/ai/chat';
 import { providerLabel } from '../../services/ai/models';
@@ -457,10 +458,9 @@ export function forgetAllReadings(): () => void {
 }
 
 export function noteStatusText(s: NoteStatus, lang: Lang): string {
-  const en = lang === 'en';
-  if (s.kind === 'saving') return en ? 'Saving…' : 'Đang lưu…';
-  if (s.kind === 'saved') return en ? '✓ Saved' : '✓ Đã lưu';
-  if (s.kind === 'failed') return (en ? '⚠️ Save failed: ' : '⚠️ Lưu thất bại: ') + s.msg;
+  if (s.kind === 'saving') return pickLang(lang, { vi: 'Đang lưu…', en: 'Saving…' });
+  if (s.kind === 'saved') return pickLang(lang, { vi: '✓ Đã lưu', en: '✓ Saved' });
+  if (s.kind === 'failed') return pickLang(lang, { vi: '⚠️ Lưu thất bại: ', en: '⚠️ Save failed: ' }) + s.msg;
   return '';
 }
 
@@ -470,7 +470,7 @@ export function noteStatusText(s: NoteStatus, lang: Lang): string {
 export function quotaText(s: Pick<InterpretState, 'quotaFrom' | 'free'>, settings: AiSettings, lang: Lang): string | null {
   const p = s.quotaFrom ?? providerChain(settings)[0];
   if (p !== 'free' || s.free.remaining == null) return null;
-  return lang === 'en' ? `${s.free.remaining} free readings left today` : `Còn ${s.free.remaining} lượt miễn phí hôm nay`;
+  return pickLang(lang, { vi: `Còn ${s.free.remaining} lượt miễn phí hôm nay`, en: `${s.free.remaining} free readings left today` });
 }
 
 // ---------- mở lại lời giải đã có (Task 8: lịch sử / link chia sẻ) ----------

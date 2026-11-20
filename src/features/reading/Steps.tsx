@@ -35,16 +35,15 @@ const CHIPS: readonly QuestionChip[] = [
 
 /** updateSpreadHint: tự do → một dòng; có vị trí → câu "dùng khi" + từng vị trí kèm mô tả. */
 function SpreadHint({ spreadKey, positions }: { spreadKey: string; positions: string[] | null }) {
-  const { lang } = useT();
-  const en = lang === 'en';
+  const { lang, pick } = useT();
   const s = spreadByKey(spreadKey);
   return (
     <div className="hint spread-hint" id="spreadHint">
       {!positions ? (
-        en ? 'Add/draw any number of cards; no position labels.' : 'Thêm/bốc số lá tuỳ ý; không gắn nhãn vị trí.'
+        pick({ vi: 'Thêm/bốc số lá tuỳ ý; không gắn nhãn vị trí.', en: 'Add/draw any number of cards; no position labels.' })
       ) : (
         <>
-          {s?.use ? <div><em>{en ? s.use[1] : s.use[0]}</em></div> : null}
+          {s?.use ? <div><em>{pick({ vi: s.use[0], en: s.use[1] })}</em></div> : null}
           {positions.map((p, i) => {
             const d = posDesc(spreadKey, i, lang);
             return <div key={i}>{i + 1}. <strong>{p}</strong>{d ? ' — ' + d : ''}</div>;
@@ -57,8 +56,7 @@ function SpreadHint({ spreadKey, positions }: { spreadKey: string; positions: st
 
 /** Ô "Đã rút bài thật? Tự thêm từng lá": tìm thông minh trong bộ đang chọn, ↑/↓/Enter/Esc (L2917–2960, L3015). */
 function ManualAdd({ cards }: { cards: SpreadCard[] }) {
-  const { t, lang } = useT();
-  const en = lang === 'en';
+  const { t, pick } = useT();
   const db = useApp(s => s.db);
   const deck = useApp(s => s.deck);
   const addCard = useReading(s => s.addCard);
@@ -120,9 +118,7 @@ function ManualAdd({ cards }: { cards: SpreadCard[] }) {
       <div id="pickerResults" className="picker-results" ref={resultsRef}>
         {!q ? null : !rows.length ? (
           <div className="picker-empty">
-            {en
-              ? 'No matching card. Try e.g. “ace cups”, “1 swords”, “queen pentacles”, “13”, “moon”.'
-              : 'Không thấy lá phù hợp. Thử: “át chén”, “1 kiếm”, “hoàng hậu tiền”, “13”, “mặt trăng”.'}
+            {pick({ vi: 'Không thấy lá phù hợp. Thử: “át chén”, “1 kiếm”, “hoàng hậu tiền”, “13”, “mặt trăng”.', en: 'No matching card. Try e.g. “ace cups”, “1 swords”, “queen pentacles”, “13”, “moon”.' })}
           </div>
         ) : (
           rows.map((card, i) => {
@@ -136,7 +132,7 @@ function ManualAdd({ cards }: { cards: SpreadCard[] }) {
                 onMouseEnter={() => move(i)}
               >
                 <strong>{card.so} - {card.ten}</strong>
-                <span>{card.bo || ''}{dup ? ' · ' + (en ? 'already in spread' : 'đã có trong trải bài') : ''}</span>
+                <span>{card.bo || ''}{dup ? ' · ' + pick({ vi: 'đã có trong trải bài', en: 'already in spread' }) : ''}</span>
               </button>
             );
           })
@@ -148,8 +144,7 @@ function ManualAdd({ cards }: { cards: SpreadCard[] }) {
 
 /** renderCloudNote: trạng thái lưu ẩn danh + link bật/tắt (setCloudSave). */
 function CloudNote() {
-  const { lang } = useT();
-  const en = lang === 'en';
+  const { pick } = useT();
   const on = useApp(s => s.prefs.cloudSave);
   const setPref = useApp(s => s.setPref);
   const onClick = (e: MouseEvent<HTMLDivElement>) => {
@@ -160,17 +155,16 @@ function CloudNote() {
   return (
     <div className="cloud-note" id="cloudNote" onClick={onClick}>
       {on ? (
-        <>{en ? '☁︎ Readings are saved anonymously (no name, email or IP) to improve the app · ' : '☁︎ Trải bài được lưu ẩn danh (không tên, email hay IP) để cải thiện app · '}<a data-cloud-off="">{en ? 'turn off' : 'tắt'}</a></>
+        <>{pick({ vi: '☁︎ Trải bài được lưu ẩn danh (không tên, email hay IP) để cải thiện app · ', en: '☁︎ Readings are saved anonymously (no name, email or IP) to improve the app · ' })}<a data-cloud-off="">{pick({ vi: 'tắt', en: 'turn off' })}</a></>
       ) : (
-        <>{en ? 'Readings stay on this device only · ' : 'Trải bài chỉ lưu trong máy bạn · '}<a data-cloud-on="">{en ? 'turn on anonymous saving' : 'bật lưu ẩn danh'}</a></>
+        <>{pick({ vi: 'Trải bài chỉ lưu trong máy bạn · ', en: 'Readings stay on this device only · ' })}<a data-cloud-on="">{pick({ vi: 'bật lưu ẩn danh', en: 'turn on anonymous saving' })}</a></>
       )}
     </div>
   );
 }
 
 export function Steps() {
-  const { t, lang } = useT();
-  const en = lang === 'en';
+  const { t, lang, pick } = useT();
   const db = useApp(s => s.db);
   const deck = useApp(s => s.deck);
   const question = useReading(s => s.question);
@@ -263,9 +257,10 @@ export function Steps() {
   return (
     <div className="panel reading-steps" ref={stepRef}>
       <div className="ai-hint" id="readingDeckInfo" hidden>
-        {en
-          ? 'Reading with deck: “' + (deck || '—') + '”. Switch deck in the selector next to the card search below (or the “Deck” bar above); the search only shows cards from that deck, and cards already in the spread keep their own deck.'
-          : 'Đang trải bằng bộ: “' + (deck || '—') + '”. Đổi bộ ở ô chọn cạnh ô tìm lá bên dưới (hoặc thanh “Bộ bài” phía trên); ô tìm chỉ hiện lá của bộ đang chọn, lá đã thêm vào trải bài vẫn giữ bộ của nó.'}
+        {pick({
+          vi: 'Đang trải bằng bộ: “' + (deck || '—') + '”. Đổi bộ ở ô chọn cạnh ô tìm lá bên dưới (hoặc thanh “Bộ bài” phía trên); ô tìm chỉ hiện lá của bộ đang chọn, lá đã thêm vào trải bài vẫn giữ bộ của nó.',
+          en: 'Reading with deck: “' + (deck || '—') + '”. Switch deck in the selector next to the card search below (or the “Deck” bar above); the search only shows cards from that deck, and cards already in the spread keep their own deck.',
+        })}
       </div>
       <section className="step">
         <div className="step-head"><span className="step-no">1</span><h3>{t('reading.s1')}</h3><p className="step-desc">{t('reading.d1')}</p></div>
@@ -279,7 +274,7 @@ export function Steps() {
         <label htmlFor="spreadType" className="sr-only">{t('reading.spreadType')}</label>
         {/* select ẩn như bản cũ: giá trị theo store spreadKey; người dùng chọn bằng các ô hình ở trên */}
         <select id="spreadType" className="step-select" hidden tabIndex={-1} aria-hidden="true" value={spreadKey} onChange={e => onSpread(e.target.value)}>
-          {SPREADS.map(s => <option key={s.k} value={s.k}>{en ? s.en : s.vi}</option>)}
+          {SPREADS.map(s => <option key={s.k} value={s.k}>{pick({ vi: s.vi, en: s.en })}</option>)}
         </select>
         <SpreadHint spreadKey={spreadKey} positions={positions} />
       </section>
@@ -294,9 +289,10 @@ export function Steps() {
           question={question}
           onStart={timers.clear}
           onPicked={onPicked}
-          doneMsg={k => en
-            ? '✓ Drew ' + k + ' card' + (k > 1 ? 's' : '') + ' into the spread. Set Upright/Reversed if needed, then tap “Interpret”.'
-            : '✓ Đã bốc ' + k + ' lá vào trải bài. Chỉnh Xuôi/Ngược nếu cần rồi bấm “Diễn giải”.'}
+          doneMsg={k => pick({
+            vi: '✓ Đã bốc ' + k + ' lá vào trải bài. Chỉnh Xuôi/Ngược nếu cần rồi bấm “Diễn giải”.',
+            en: '✓ Drew ' + k + ' card' + (k > 1 ? 's' : '') + ' into the spread. Set Upright/Reversed if needed, then tap “Interpret”.',
+          })}
           leading={
             <label className="count-field" htmlFor="spreadDrawCount"><span>{t('reading.count')}</span>
               <input
@@ -319,7 +315,7 @@ export function Steps() {
         <div className="hint step-sub">{t('reading.flipHint')}</div>
         <SpreadList ref={listRef} cards={cards} spreadKey={spreadKey} positions={positions} seq={reveal === 'seq'} pending={pending} />
         <details id="spreadFacts" className="facts-box" open style={facts.length ? undefined : { display: 'none' }}>
-          <summary>{en ? '📊 Spread facts (computed, sent to the AI)' : '📊 Dữ kiện trải bài (tính tự động, gửi kèm cho AI)'}</summary>
+          <summary>{pick({ vi: '📊 Dữ kiện trải bài (tính tự động, gửi kèm cho AI)', en: '📊 Spread facts (computed, sent to the AI)' })}</summary>
           <div className="facts-body">{facts.map((l, i) => <div key={i}>• {l}</div>)}</div>
         </details>
         <div className="reading-actions">

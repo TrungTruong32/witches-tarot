@@ -17,7 +17,6 @@ interface Props {
 
 export function HistoryItem({ item: it, onLoad, onDelete, onNote }: Props) {
   const { lang, pick } = useT();
-  const en = lang === 'en';
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState(it.note || '');
   const [status, setStatus] = useState('');
@@ -26,28 +25,28 @@ export function HistoryItem({ item: it, onLoad, onDelete, onNote }: Props) {
     alive.current = true;
     return () => { alive.current = false; };
   }, []);
-  const time = new Date(it.ts).toLocaleString(en ? 'en-US' : 'vi-VN');
+  const time = new Date(it.ts).toLocaleString(pick({ vi: 'vi-VN', en: 'en-US' }));
   const cards = (Array.isArray(it.cards) ? it.cards : []).filter(c => c && typeof c === 'object');
   const S = (v: unknown) => (v == null ? '' : String(v));
-  const summary = cards.map(c => S(c.ten) + (c.orientation === 'nguoc' ? (en ? ' (reversed)' : ' (ngược)') : '')).join(', ');
+  const summary = cards.map(c => S(c.ten) + (c.orientation === 'nguoc' ? pick({ vi: ' (ngược)', en: ' (reversed)' }) : '')).join(', ');
   const sdef = typeof it.spread === 'string' && it.spread ? spreadByKey(it.spread) : undefined;
-  const spreadName = sdef && it.spread !== 'free' ? ' · ' + (en ? sdef.en : sdef.vi) : '';
-  const provider = /^free/.test(S(it.provider)) ? (en ? 'Free AI' : 'AI miễn phí') : S(it.provider);
+  const spreadName = sdef && it.spread !== 'free' ? ' · ' + pick({ vi: sdef.vi, en: sdef.en }) : '';
+  const provider = /^free/.test(S(it.provider)) ? pick({ vi: 'AI miễn phí', en: 'Free AI' }) : S(it.provider);
   const pos = Array.isArray(it.positions) ? it.positions : [];
   const facts = Array.isArray(it.facts) ? it.facts : [];
   const followups = Array.isArray(it.followups) ? it.followups.filter(f => f && typeof f === 'object') : [];
 
   const onChange = (value: string) => {
     setNote(value);
-    setStatus(en ? 'Saving…' : 'Đang lưu…');
+    setStatus(pick({ vi: 'Đang lưu…', en: 'Saving…' }));
     onNote(it, value);
     // Gói update để biết khi nào ghi xong (saveNoteDebounced gộp theo id, giữ bản mới nhất)
     saveNoteDebounced(it, value, async r => {
       try {
         await updateReading(r);
-        if (alive.current) setStatus(en ? '✓ Saved' : '✓ Đã lưu');
+        if (alive.current) setStatus(pick({ vi: '✓ Đã lưu', en: '✓ Saved' }));
       } catch (e) {
-        if (alive.current) setStatus((en ? '⚠️ Save failed: ' : '⚠️ Lưu thất bại: ') + (e instanceof Error ? e.message : String(e)));
+        if (alive.current) setStatus(pick({ vi: '⚠️ Lưu thất bại: ', en: '⚠️ Save failed: ' }) + (e instanceof Error ? e.message : String(e)));
         throw e;
       }
     });
@@ -58,14 +57,14 @@ export function HistoryItem({ item: it, onLoad, onDelete, onNote }: Props) {
       <div className="row">
         <div className="info">
           <div className="time">{time + ' · ' + S(it.deck) + spreadName + ' · ' + provider}</div>
-          <div className="q"><strong>{S(it.question) || (en ? '(no question)' : '(không có câu hỏi)')}</strong></div>
+          <div className="q"><strong>{S(it.question) || pick({ vi: '(không có câu hỏi)', en: '(no question)' })}</strong></div>
           <div className="time">{summary}</div>
           {typeof it.note === 'string' && it.note ? <div className="hist-note-preview">{'📝 ' + (it.note.length > 140 ? it.note.slice(0, 140) + '…' : it.note)}</div> : null}
         </div>
         <div className="hist-actions">
-          <button onClick={() => setOpen(o => !o)}>{open ? (en ? 'Hide' : 'Ẩn') : (en ? 'View' : 'Xem')}</button>
-          <button onClick={() => onLoad(it)}>{en ? 'Reload' : 'Tải lại'}</button>
-          <button className="rm" title={en ? 'Delete' : 'Xóa'} onClick={() => onDelete(it)}>✕</button>
+          <button onClick={() => setOpen(o => !o)}>{open ? pick({ vi: 'Ẩn', en: 'Hide' }) : pick({ vi: 'Xem', en: 'View' })}</button>
+          <button onClick={() => onLoad(it)}>{pick({ vi: 'Tải lại', en: 'Reload' })}</button>
+          <button className="rm" title={pick({ vi: 'Xóa', en: 'Delete' })} onClick={() => onDelete(it)}>✕</button>
         </div>
       </div>
       <div className={'hist-detail' + (open ? ' open' : '')}>

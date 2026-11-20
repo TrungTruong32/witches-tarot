@@ -40,7 +40,6 @@ async function safeAll(): Promise<Reading[]> {
 
 export function History() {
   const { t, lang, pick } = useT();
-  const en = lang === 'en';
   const navigate = useNavigate();
   const [items, setItems] = useState<Reading[]>([]);
   const [search, setSearch] = useState('');
@@ -77,16 +76,16 @@ export function History() {
   };
 
   const onDelete = async (it: Reading) => {
-    if (!confirm(en ? 'Delete this reading?' : 'Xóa lượt trải bài này?')) return;
+    if (!confirm(pick({ vi: 'Xóa lượt trải bài này?', en: 'Delete this reading?' }))) return;
     const undo = forgetReading(it.id); // ghi chú / hỏi-tiếp đang dở không được ghi lại bản ghi đã xoá
-    try { await deleteReading(it.id as number); } catch (e) { undo(); alert((en ? 'Delete failed: ' : 'Xóa thất bại: ') + (e instanceof Error ? e.message : String(e))); await refresh(); return; }
+    try { await deleteReading(it.id as number); } catch (e) { undo(); alert(pick({ vi: 'Xóa thất bại: ', en: 'Delete failed: ' }) + (e instanceof Error ? e.message : String(e))); await refresh(); return; }
     forgetCurrent(it.id);
     await refresh();
   };
   const onClear = async () => {
-    if (!confirm(en ? 'Delete ALL reading history in this browser?' : 'Xóa toàn bộ lịch sử trải bài trên trình duyệt này?')) return;
+    if (!confirm(pick({ vi: 'Xóa toàn bộ lịch sử trải bài trên trình duyệt này?', en: 'Delete ALL reading history in this browser?' }))) return;
     const undo = forgetAllReadings();
-    try { await clearReadings(); } catch (e) { undo(); alert((en ? 'Delete failed: ' : 'Xóa thất bại: ') + (e instanceof Error ? e.message : String(e))); await refresh(); return; }
+    try { await clearReadings(); } catch (e) { undo(); alert(pick({ vi: 'Xóa thất bại: ', en: 'Delete failed: ' }) + (e instanceof Error ? e.message : String(e))); await refresh(); return; }
     forgetCurrent();
     await refresh();
   };
@@ -101,10 +100,10 @@ export function History() {
 
   const importFile = async (file: File) => {
     let data: unknown;
-    try { data = JSON.parse(await readText(file)); } catch { alert(en ? 'Not a valid JSON file.' : 'File không phải JSON hợp lệ.'); return; }
+    try { data = JSON.parse(await readText(file)); } catch { alert(pick({ vi: 'File không phải JSON hợp lệ.', en: 'Not a valid JSON file.' })); return; }
     try {
       const m = mergeImport(await safeAll(), data, allDailyNotes());
-      if (!m.valid) { alert(en ? 'This file is not a Witches Tarot journal backup.' : 'File này không phải bản sao lưu nhật ký Witches Tarot.'); return; }
+      if (!m.valid) { alert(pick({ vi: 'File này không phải bản sao lưu nhật ký Witches Tarot.', en: 'This file is not a Witches Tarot journal backup.' })); return; }
       let added = 0;
       let skipped = m.skipped;
       for (const r of m.add) {
@@ -116,7 +115,7 @@ export function History() {
       }
       alert(importSummary(added, notes, skipped, lang));
     } catch (e) {
-      alert((en ? 'Import failed: ' : 'Nhập thất bại: ') + (e instanceof Error ? e.message : String(e)));
+      alert(pick({ vi: 'Nhập thất bại: ', en: 'Import failed: ' }) + (e instanceof Error ? e.message : String(e)));
     }
     await refresh();
   };

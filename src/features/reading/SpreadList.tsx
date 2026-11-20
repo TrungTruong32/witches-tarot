@@ -21,8 +21,7 @@ export interface SpreadListProps {
 }
 
 export const SpreadList = forwardRef<HTMLDivElement, SpreadListProps>(function SpreadList({ cards, spreadKey, positions, seq, pending }, ref) {
-  const { lang } = useT();
-  const en = lang === 'en';
+  const { lang, pick } = useT();
   const setOrientation = useReading(s => s.setOrientation);
   const removeCard = useReading(s => s.removeCard);
   // Ảnh nhỏ đã lật trong lượt 'seq' (theo uid); ngoài 'seq' mọi ảnh đều đã lật.
@@ -58,7 +57,7 @@ export const SpreadList = forwardRef<HTMLDivElement, SpreadListProps>(function S
   return (
     <div id="spreadList" className={pending ? 'pending' : undefined} ref={ref}>
       {!cards.length ? (
-        <div className="empty-spread">{en ? 'No cards yet — tap “Shuffle & draw” in step 3.' : 'Chưa có lá nào — bấm “Xào & bốc” ở bước 3 để rút bài.'}</div>
+        <div className="empty-spread">{pick({ vi: 'Chưa có lá nào — bấm “Xào & bốc” ở bước 3 để rút bài.', en: 'No cards yet — tap “Shuffle & draw” in step 3.' })}</div>
       ) : (
         cards.map((c, i) => {
           const uid = c.uid ?? -1;
@@ -68,7 +67,7 @@ export const SpreadList = forwardRef<HTMLDivElement, SpreadListProps>(function S
               {c.image_url ? (
                 <div
                   className={'spread-flip' + (seq && !shown.has(uid) ? '' : ' revealed')}
-                  title={en ? 'Tap to flip / zoom' : 'Bấm để lật / phóng to'}
+                  title={pick({ vi: 'Bấm để lật / phóng to', en: 'Tap to flip / zoom' })}
                   ref={el => {
                     if (el) flipRefs.current.set(uid, el);
                     else flipRefs.current.delete(uid);
@@ -92,13 +91,13 @@ export const SpreadList = forwardRef<HTMLDivElement, SpreadListProps>(function S
               </div>
               <div className="orient">
                 <button className={'xuoi' + (c.orientation === 'xuoi' ? ' on' : '')} data-o="xuoi" onClick={() => setOrientation(uid, 'xuoi')}>
-                  {en ? 'Upright' : 'Xuôi'}
+                  {pick({ vi: 'Xuôi', en: 'Upright' })}
                 </button>
                 <button className={'nguoc' + (c.orientation === 'nguoc' ? ' on' : '')} data-o="nguoc" onClick={() => setOrientation(uid, 'nguoc')}>
-                  {en ? 'Reversed' : 'Ngược'}
+                  {pick({ vi: 'Ngược', en: 'Reversed' })}
                 </button>
               </div>
-              <button className="rm" title={en ? 'Remove this card' : 'Bỏ lá này'} onClick={() => removeCard(uid)}>✕</button>
+              <button className="rm" title={pick({ vi: 'Bỏ lá này', en: 'Remove this card' })} onClick={() => removeCard(uid)}>✕</button>
             </div>
           );
         })

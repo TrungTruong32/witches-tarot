@@ -18,7 +18,7 @@ import { moonPhase, moonSvg } from '../../core/moon';
 import { defsFor } from '../../core/spreads';
 import type { CardEnMap, Lang, SpreadCard } from '../../core/types';
 import { ensureAudio } from '../../engines/audio';
-import { useT } from '../../i18n/useT';
+import { pickLang, useT } from '../../i18n/useT';
 import { prefersReducedMotion } from '../../lib/media';
 import { useTimers } from '../../lib/useTimers';
 import { useReading } from '../reading/readingStore';
@@ -32,7 +32,7 @@ function DrawCard({ c, i, pos, lang, cardEn, reduce }: { c: SpreadCard; i: numbe
   const ct = cardText(c, lang, cardEn);
   const rev = c.orientation === 'nguoc';
   const meaning = rev ? ct.nghia_nguoc : ct.y_nghia_xuoi;
-  const revTxt = lang === 'en' ? 'Reversed' : 'Ngược', upTxt = lang === 'en' ? 'Upright' : 'Xuôi';
+  const revTxt = pickLang(lang, { vi: 'Ngược', en: 'Reversed' }), upTxt = pickLang(lang, { vi: 'Xuôi', en: 'Upright' });
   return (
     <div className={'draw-card revealed' + (reduce ? '' : ' dealt')} style={{ animationDelay: i * 90 + 'ms' }}>
       <div className="flip revealed">
@@ -58,8 +58,7 @@ function DrawCard({ c, i, pos, lang, cardEn, reduce }: { c: SpreadCard; i: numbe
 }
 
 export function Draw() {
-  const { t, lang } = useT();
-  const en = lang === 'en';
+  const { t, lang, pick } = useT();
   const deck = useApp(s => s.deck);
   const cardEn = useApp(s => s.cardEn);
   const soundOn = useApp(s => s.prefs.soundOn);
@@ -153,9 +152,10 @@ export function Draw() {
     <div className="panel" ref={panelRef}>
       <div id="moonBadge" className="moon-badge" dangerouslySetInnerHTML={{ __html: moonHtml }} />
       <div className="ai-hint" id="drawInfo" style={{ marginBottom: 12 }}>
-        {en
-          ? 'Drawing from deck: “' + (deck || '—') + '”. Shuffle randomly and set Upright/Reversed yourself (cards with no reversed meaning stay Upright). Change deck in the “Deck” bar above.'
-          : 'Bốc từ bộ: “' + (deck || '—') + '”. Xào ngẫu nhiên và tự chọn chiều Xuôi/Ngược (lá không có nghĩa ngược sẽ để Xuôi). Đổi bộ ở thanh “Bộ bài” phía trên.'}
+        {pick({
+          vi: 'Bốc từ bộ: “' + (deck || '—') + '”. Xào ngẫu nhiên và tự chọn chiều Xuôi/Ngược (lá không có nghĩa ngược sẽ để Xuôi). Đổi bộ ở thanh “Bộ bài” phía trên.',
+          en: 'Drawing from deck: “' + (deck || '—') + '”. Shuffle randomly and set Upright/Reversed yourself (cards with no reversed meaning stay Upright). Change deck in the “Deck” bar above.',
+        })}
       </div>
       <SpreadPicker id="drawSpreadPicker" value={spreadKey} onChange={onSpread} />
       <DrawStage
@@ -165,9 +165,10 @@ export function Draw() {
         question={question}
         onStart={onStart}
         onPicked={onPicked}
-        doneMsg={k => en
-          ? '✓ Drew ' + k + ' card' + (k > 1 ? 's' : '') + '. Scroll down for the meanings, or tap “Send to AI Reading”.'
-          : '✓ Đã bốc đủ ' + k + ' lá. Kéo xuống xem ý nghĩa, hoặc bấm “Đưa sang Trải bài AI”.'}
+        doneMsg={k => pick({
+          vi: '✓ Đã bốc đủ ' + k + ' lá. Kéo xuống xem ý nghĩa, hoặc bấm “Đưa sang Trải bài AI”.',
+          en: '✓ Drew ' + k + ' card' + (k > 1 ? 's' : '') + '. Scroll down for the meanings, or tap “Send to AI Reading”.',
+        })}
         leading={positions ? null : (
           <>
             <label htmlFor="drawCount">Số lá:</label>
