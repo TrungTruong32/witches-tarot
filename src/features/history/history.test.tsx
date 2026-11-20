@@ -5,8 +5,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initialState, useApp } from '../../app/store';
 import type { Reading } from '../../core/types';
-import { addReading, allReadings } from '../../services/idb';
-import { initialInterpret, useInterpret } from '../reading/interpret';
+import type { chatComplete } from '../../services/ai/chat';
+import { addReading, allReadings, updateReading } from '../../services/idb';
+import { forgetAllReadings, initialInterpret, runFollowUp, useInterpret } from '../reading/interpret';
 import { initialReading, useReading } from '../reading/readingStore';
 import { History } from './History';
 
@@ -36,6 +37,7 @@ beforeEach(() => {
   useApp.setState({ ...initialState(), decks: ['Witches Tarot'], deck: 'Witches Tarot', dbStatus: 'ready' });
   useReading.setState(initialReading());
   useInterpret.setState(initialInterpret());
+  forgetAllReadings(); // IndexedDB mới mỗi test (id lại từ 1) = như vừa xoá hết lịch sử
   window.scrollTo = vi.fn() as unknown as typeof window.scrollTo;
 });
 afterEach(() => {
@@ -146,6 +148,64 @@ describe('History actions', () => {
     await new Promise(r => setTimeout(r, 700));
     expect(await allReadings()).toHaveLength(2);
     expect((await allReadings()).some(r => r.question === 'Mới nhất')).toBe(false);
+  });
+
+  /** Mở bản ghi "Mới nhất" ở màn Trải bài, bắt đầu hỏi-tiếp với AI giả đang chờ; trả về hàm cho AI trả lời. */
+  async function followUpInFlight() {
+    const target = (await allReadings()).find(r => r.question === 'Mới nhất')!;
+    useReading.setState({ current: target, messages: [{ role: 'assistant', content: target.text }] });
+    let release!: () => void;
+    const gate = new Promise<void>(r => { release = r; });
+    const chat = (async (_m, cb) => { await gate; cb.onToken('đáp'); return { provider: 'free' }; }) as typeof chatComplete;
+    const update = vi.fn(updateReading);
+    let follow!: Promise<void>;
+    act(() => { follow = runFollowUp('Hỏi thêm', { chat, update }); });
+    return { update, finish: async () => { await act(async () => { release(); await follow; }); } };
+  }
+
+  it('a follow-up that finishes after its record was deleted does not write it back', async () => {
+    await seed();
+    renderHist();
+    await waitFor(() => expect(document.querySelectorAll('.hist-item')).toHaveLength(3));
+    const f = await followUpInFlight();
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    fireEvent.click(document.querySelector('.hist-item .rm')!);
+    await waitFor(() => expect(questions()).toEqual(['Ở giữa', 'Cũ nhất']));
+    await f.finish();
+    expect(f.update).not.toHaveBeenCalled();
+    expect(useReading.getState().current).toBeNull();
+    expect((await allReadings()).map(r => r.question).sort()).toEqual(['Cũ nhất', 'Ở giữa']);
+  });
+
+  it('a follow-up that finishes after clear-all does not write its record back', async () => {
+    await seed();
+    renderHist();
+    await waitFor(() => expect(document.querySelectorAll('.hist-item')).toHaveLength(3));
+    const f = await followUpInFlight();
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    fireEvent.click($('clearHistory'));
+    await waitFor(() => expect(document.querySelector('.hist-empty')).not.toBeNull());
+    await f.finish();
+    expect(f.update).not.toHaveBeenCalled();
+    expect(useReading.getState().current).toBeNull();
+    expect(await allReadings()).toHaveLength(0);
+  });
+
+  it('a failed delete keeps the record writable (follow-up still saved)', async () => {
+    await seed();
+    renderHist();
+    await waitFor(() => expect(document.querySelectorAll('.hist-item')).toHaveLength(3));
+    const f = await followUpInFlight();
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    const alert = vi.fn();
+    vi.stubGlobal('alert', alert);
+    const idb = await import('../../services/idb');
+    vi.spyOn(idb, 'deleteReading').mockRejectedValueOnce(new Error('khoá'));
+    fireEvent.click(document.querySelector('.hist-item .rm')!);
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('Xóa thất bại: khoá'));
+    await f.finish();
+    expect(f.update).toHaveBeenCalledTimes(1);
+    expect((await allReadings()).find(r => r.question === 'Mới nhất')!.followups).toEqual([{ q: 'Hỏi thêm', a: 'đáp' }]);
   });
 
   it('clear all asks confirm, empties the store and resets current', async () => {

@@ -7,7 +7,7 @@ import type { Reading } from '../../core/types';
 import { useT } from '../../i18n/useT';
 import { addReading, allReadings, clearReadings, deleteReading } from '../../services/idb';
 import { allDailyNotes, dailyNoteKey, getStr, setStr } from '../../services/storage';
-import { cancelAllNoteSaves, cancelNoteSave } from '../reading/interpret';
+import { forgetAllReadings, forgetReading } from '../reading/interpret';
 import { useReading } from '../reading/readingStore';
 import { loadReading } from '../reading/share';
 import { HistoryItem } from './HistoryItem';
@@ -78,15 +78,15 @@ export function History() {
 
   const onDelete = async (it: Reading) => {
     if (!confirm(en ? 'Delete this reading?' : 'Xóa lượt trải bài này?')) return;
-    cancelNoteSave(it.id); // ghi chú đang chờ lưu không được ghi lại bản ghi đã xoá
-    try { await deleteReading(it.id as number); } catch (e) { alert((en ? 'Delete failed: ' : 'Xóa thất bại: ') + (e instanceof Error ? e.message : String(e))); await refresh(); return; }
+    const undo = forgetReading(it.id); // ghi chú / hỏi-tiếp đang dở không được ghi lại bản ghi đã xoá
+    try { await deleteReading(it.id as number); } catch (e) { undo(); alert((en ? 'Delete failed: ' : 'Xóa thất bại: ') + (e instanceof Error ? e.message : String(e))); await refresh(); return; }
     forgetCurrent(it.id);
     await refresh();
   };
   const onClear = async () => {
     if (!confirm(en ? 'Delete ALL reading history in this browser?' : 'Xóa toàn bộ lịch sử trải bài trên trình duyệt này?')) return;
-    cancelAllNoteSaves();
-    try { await clearReadings(); } catch (e) { alert((en ? 'Delete failed: ' : 'Xóa thất bại: ') + (e instanceof Error ? e.message : String(e))); await refresh(); return; }
+    const undo = forgetAllReadings();
+    try { await clearReadings(); } catch (e) { undo(); alert((en ? 'Delete failed: ' : 'Xóa thất bại: ') + (e instanceof Error ? e.message : String(e))); await refresh(); return; }
     forgetCurrent();
     await refresh();
   };

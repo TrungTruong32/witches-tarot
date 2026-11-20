@@ -120,6 +120,17 @@ function remember(r: Reading): Reading {
 }
 const latestOf = (r: Reading): Reading => (r.id != null ? latest.get(r.id) ?? r : r);
 
+/**
+ * Bản ghi đã xoá ở màn Lịch sử: hỏi-tiếp / ghi chú đang dở của chúng không được ghi lại vào IndexedDB
+ * (updateReading là put — ghi vào id đã xoá sẽ tạo lại bản ghi). Xoá một bản → `forgotten`; xoá hết → tăng `clearEpoch`,
+ * mọi lượt bắt đầu trước đó (kể cả bản ghi lưu sau khi lượt đó bắt đầu) đều coi như đã xoá.
+ * IndexedDB autoIncrement không dùng lại id, nên giữ id trong `forgotten` là an toàn.
+ */
+const forgotten = new Set<number>();
+let clearEpoch = 0;
+/** Bản ghi `id` (lượt bắt đầu ở `epoch`) đã bị xoá → không được ghi lại. */
+const gone = (id: number | undefined, epoch: number) => epoch !== clearEpoch || (id != null && forgotten.has(id));
+
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 function providerCtx(cards: SpreadCard[], signal: AbortSignal): ProviderCtx {
@@ -231,6 +242,7 @@ async function saveReading(record: Reading, d: ReturnType<typeof withDefaults>):
   let saved: Reading | null = null;
   try {
     await d.save(record);
+    if (record.id != null) forgotten.delete(record.id); // id mới (IDB mới trong test có thể cấp lại id cũ)
     saved = remember(record);
   } catch (e) {
     console.warn('Lưu lịch sử thất bại', e);
@@ -269,6 +281,7 @@ export async function runInterpret(deps: InterpretDeps = {}): Promise<void> {
   if (!cards.length || useInterpret.getState().running) return;
   const { id: my, signal } = newSession();
   const live = () => my === session; // false = đã mở lời giải khác (showLoadedAnswer) trong lúc AI đang trả lời
+  const epoch = clearEpoch;
   const decks = readingDecks(cards);
   const deckLabel = decks.length ? decks.join(', ') : app.deck || 'Tarot';
   const messages: ChatMessage[] = [
@@ -306,7 +319,8 @@ export async function runInterpret(deps: InterpretDeps = {}): Promise<void> {
     }
     const saved = await saveReading(record, d);
     if (!live()) return;
-    useReading.getState().setCurrent(saved);
+    // Lịch sử bị xoá hết trong lúc đang lưu → không gắn bản ghi (hỏi-tiếp / ghi chú sau đó không ghi lại nó)
+    useReading.getState().setCurrent(saved && !gone(saved.id, epoch) ? saved : null);
     patch({ chatOpen: true, tts: true, share: true });
   } catch (e) {
     if (!live() || aborted(e, signal)) return; // huỷ vì sang lời giải khác: không báo lỗi, không lưu
@@ -333,6 +347,7 @@ export async function runFollowUp(question: string, deps: InterpretDeps = {}): P
   const signal = sessionAbort.signal;
   const live = () => my === session;
   const owner = r.current; // bản ghi nhật ký của lượt này
+  const epoch = clearEpoch;
   const messages: ChatMessage[] = [...r.messages, { role: 'user', content: q }];
   const idx = useInterpret.getState().follows.length;
   const setView = (v: StreamView) => {
@@ -355,7 +370,7 @@ export async function runFollowUp(question: string, deps: InterpretDeps = {}): P
       st.setMessages([...messages, { role: 'assistant', content: text }]);
       st.setFollowups([...st.followups, { q, a: text }]);
     }
-    if (!text || !owner) return;
+    if (!text || !owner || gone(owner.id, epoch)) return; // bản ghi đã bị xoá trong lúc AI trả lời: không ghi lại
     const base = latestOf(owner);
     const next = remember({ ...base, followups: [...(base.followups || []), { q, a: text }] });
     if (live()) useReading.getState().setCurrent(next);
@@ -388,14 +403,19 @@ const noteTimers = new Map<number, ReturnType<typeof setTimeout>>();
  */
 export function saveNoteDebounced(reading: Reading, value: string, update: typeof updateReading = updateReading): Reading {
   const id = reading.id;
-  if (id == null) return { ...reading, note: value };
+  const epoch = clearEpoch;
+  if (id == null || gone(id, epoch)) return { ...reading, note: value };
   const next = remember({ ...latestOf(reading), note: value });
   const st = useReading.getState();
-  if (st.current?.id === id) st.setCurrent(next);
-  patch({ noteStatus: { kind: 'saving' } });
+  // Trạng thái chung chỉ thuộc ô ghi chú của bản ghi đang mở (ô ở Lịch sử tự hiện trạng thái riêng)
+  if (st.current?.id === id) {
+    st.setCurrent(next);
+    patch({ noteStatus: { kind: 'saving' } });
+  }
   clearTimeout(noteTimers.get(id));
   noteTimers.set(id, setTimeout(async () => {
     noteTimers.delete(id);
+    if (gone(id, epoch)) return;
     // Lưu bản mới nhất (có thể đã thêm hỏi-tiếp trong lúc chờ, kể cả khi bản ghi đã không còn mở)
     // Trạng thái chỉ báo cho ô ghi chú của chính bản ghi này (đã mở bản khác thì thôi)
     const status = (st: NoteStatus) => useReading.getState().current?.id === id && patch({ noteStatus: st });
@@ -409,18 +429,31 @@ export function saveNoteDebounced(reading: Reading, value: string, update: typeo
   return next;
 }
 
-/** Huỷ lần lưu ghi chú đang chờ của một bản ghi (đã xoá thì không được ghi lại). */
-export function cancelNoteSave(id: number | undefined): void {
-  if (id == null) return;
+/**
+ * Gọi TRƯỚC khi xoá bản ghi `id` khỏi IndexedDB: huỷ ghi chú đang chờ, chặn hỏi-tiếp đang dở ghi lại nó.
+ * Trả về hàm hoàn tác (xoá thất bại → bản ghi vẫn còn, ghi chú / hỏi-tiếp lưu tiếp như thường).
+ */
+export function forgetReading(id: number | undefined): () => void {
+  if (id == null) return () => {};
   clearTimeout(noteTimers.get(id));
   noteTimers.delete(id);
   latest.delete(id);
+  forgotten.add(id);
+  return () => { forgotten.delete(id); };
 }
 
-export function cancelAllNoteSaves(): void {
+/** Như forgetReading cho mọi bản ghi (Xóa toàn bộ lịch sử), kể cả bản ghi chưa biết id tại lúc này. */
+export function forgetAllReadings(): () => void {
   noteTimers.forEach(t => clearTimeout(t));
   noteTimers.clear();
   latest.clear();
+  const prev = { epoch: clearEpoch, ids: [...forgotten] };
+  forgotten.clear(); // clearEpoch đã phủ mọi id cũ
+  clearEpoch++;
+  return () => {
+    clearEpoch = prev.epoch;
+    prev.ids.forEach(i => forgotten.add(i));
+  };
 }
 
 export function noteStatusText(s: NoteStatus, lang: Lang): string {

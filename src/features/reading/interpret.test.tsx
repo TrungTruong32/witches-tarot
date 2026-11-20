@@ -19,11 +19,11 @@ import type { Card, Reading as ReadingRecord, SpreadCard } from '../../core/type
 import { chatComplete, type ChatCallbacks, type ChatResult } from '../../services/ai/chat';
 import { PROVIDERS, type ChatMessage, type ProviderCall, type ProviderCtx } from '../../services/ai/providers';
 import { openCardsDb, type CardsDb } from '../../services/cardsDb';
-import { addReading, allReadings } from '../../services/idb';
+import { addReading, allReadings, updateReading } from '../../services/idb';
 import { cloudSaveReading } from '../../services/readingsApi';
 import { aiBgKey, startAiCardsBg } from './aiCardsBg';
 import { streamHtml } from './AiStream';
-import { initialInterpret, runFollowUp, runInterpret, showLoadedAnswer, streamInto, useInterpret, type InterpretDeps, type StreamView } from './interpret';
+import { forgetAllReadings, initialInterpret, runFollowUp, runInterpret, saveNoteDebounced, showLoadedAnswer, streamInto, useInterpret, type InterpretDeps, type StreamView } from './interpret';
 import { Reading } from './Reading';
 import { initialReading, majorNameLookup, useReading } from './readingStore';
 
@@ -540,6 +540,37 @@ describe('Reading note', () => {
     await vi.waitFor(async () => expect((await allReadings())[0]).toMatchObject({ note: 'Ghi chú', followups: [{ q: 'q', a: 'y' }] }));
     expect((await allReadings())[1]).toMatchObject({ text: 'mới', note: '', followups: [] });
     expect($('readingNoteStatus').textContent).toBe(''); // trạng thái của bản cũ không hiện ở bản mới
+  });
+
+  it('a note typed for another record (History) leaves the open reading status alone', async () => {
+    setSpread();
+    renderReading();
+    await act(() => runInterpret({ chat: fakeChat([[['token', 'x']]]).chat, cloud: noCloud }));
+    const update = vi.fn(async () => {});
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    act(() => { saveNoteDebounced({ ...useReading.getState().current!, id: 999 }, 'ghi', update); });
+    expect(useInterpret.getState().noteStatus).toEqual({ kind: 'idle' });
+    expect($('readingNoteStatus').textContent).toBe('');
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(useInterpret.getState().noteStatus).toEqual({ kind: 'idle' });
+  });
+
+  it('history cleared while the answer is being saved: the record is not attached (no later write-back)', async () => {
+    setSpread();
+    renderReading();
+    let release!: () => void;
+    const gate = new Promise<void>(r => { release = r; });
+    const save = vi.fn(async (r: ReadingRecord) => { await gate; return addReading(r); });
+    let run!: Promise<void>;
+    await act(async () => { run = runInterpret({ chat: fakeChat([[['token', 'x']]]).chat, cloud: noCloud, save }); });
+    forgetAllReadings();
+    await act(async () => { release(); await run; });
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(useReading.getState().current).toBeNull();
+    const update = vi.fn(updateReading);
+    await act(() => runFollowUp('q', { chat: fakeChat([[['token', 'y']]]).chat, update }));
+    expect(update).not.toHaveBeenCalled();
   });
 
   it('a failed save shows "⚠️ Lưu thất bại: …"', async () => {
