@@ -24,6 +24,7 @@ export function dealBoard(board: HTMLElement, reduce: boolean, done: () => void)
     }, ms);
     timers.add(id);
   };
+  const anims: Animation[] = [];
   const br = board.getBoundingClientRect();
   const ox = br.left + br.width / 2, oy = br.top - 40;
   const STEP = cards.length > 7 ? 190 : 280, FLY = 560;
@@ -32,7 +33,7 @@ export function dealBoard(board: HTMLElement, reduce: boolean, done: () => void)
     const dx = ox - (r.left + r.width / 2), dy = oy - (r.top + r.height / 2);
     const end = el.classList.contains('cross') ? 'rotate(90deg)' : 'none';
     el.classList.remove('await');
-    el.animate(
+    const an = el.animate(
       [
         { transform: `translate(${dx}px, ${dy}px) rotate(${(i % 2 ? 1 : -1) * 14}deg) scale(.55)`, opacity: 0 },
         { opacity: 1, offset: 0.2 },
@@ -40,6 +41,7 @@ export function dealBoard(board: HTMLElement, reduce: boolean, done: () => void)
       ],
       { duration: FLY, delay: i * STEP, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'backwards' },
     );
+    anims.push(an);
     later(() => {
       el.classList.add('revealed');
       haptic(8);
@@ -50,5 +52,12 @@ export function dealBoard(board: HTMLElement, reduce: boolean, done: () => void)
   return () => {
     timers.forEach(clearTimeout);
     timers.clear();
+    anims.forEach(a => {
+      try {
+        a.cancel();
+      } catch {
+        /* đã huỷ */
+      }
+    });
   };
 }

@@ -3,16 +3,23 @@ import { loadLegacy } from '../../tests/legacy/harness';
 import { deckCards } from '../../tests/fixtures/deck';
 import { toSpreadCard } from '../core/draw';
 import type { SpreadCard } from '../core/types';
-import { ensureAudio, getAudioCtx, setSfxEnabled, sfx } from './audio';
+import { __resetAudioForTests, ensureAudio, getAudioCtx, setSfxEnabled, sfx } from './audio';
 import { burstAt, haptic } from './burst';
 import { dealBoard } from './deal';
 import { startShuffle } from './shuffle';
 import { startWheel, type WheelOpts } from './wheel';
 import { zodiacWheelHTML } from './zodiacWheel';
 
-const animStub = () => ({ cancel: vi.fn() });
+const animCancels: ReturnType<typeof vi.fn>[] = [];
+const animStub = () => {
+  const cancel = vi.fn();
+  animCancels.push(cancel);
+  return { cancel };
+};
 
 beforeEach(() => {
+  __resetAudioForTests();
+  animCancels.length = 0;
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
   (Element.prototype as unknown as { animate: unknown }).animate = vi.fn(animStub);
 });
@@ -321,6 +328,8 @@ describe('dealBoard', () => {
     const cancel = dealBoard(b, false, done);
     flush(300);
     cancel();
+    expect(animCancels).toHaveLength(3);
+    animCancels.forEach(c => expect(c).toHaveBeenCalled());
     expect(vi.getTimerCount()).toBe(0);
     flush(5000);
     expect(done).not.toHaveBeenCalled();
@@ -347,6 +356,8 @@ describe('burst / haptic', () => {
     Object.defineProperty(navigator, 'vibrate', { value: v, configurable: true });
     haptic();
     expect(v).toHaveBeenCalledWith(12);
+    haptic(0);
+    expect(v).toHaveBeenLastCalledWith(12);
     haptic(8);
     expect(v).toHaveBeenCalledWith(8);
     Object.defineProperty(navigator, 'vibrate', {

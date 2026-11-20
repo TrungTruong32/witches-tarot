@@ -12,6 +12,14 @@ let fxSources: AudioScheduledSourceNode[] = []; // nguồn đã hẹn giờ củ
 
 type AudioWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
+/** Chỉ cho test: đưa trạng thái module về ban đầu. */
+export function __resetAudioForTests(): void {
+  audioCtx = noiseBuf = noiseLong = reverbNode = reverbCtx = null;
+  fxSources = [];
+  soundOn = true;
+  soundVol = 0.7;
+}
+
 export function getAudioCtx(): AudioContext | null {
   return audioCtx;
 }
@@ -67,8 +75,8 @@ function longNoise(ctx: AudioContext): AudioBuffer {
 }
 
 // Tiếng vang phòng (impulse response tự sinh: nhiễu stereo tắt dần, tối dần)
-function reverbBus(ctx: AudioContext): ConvolverNode {
-  if (reverbNode && reverbCtx === ctx) return reverbNode;
+export function makeReverb(dest: AudioNode): ConvolverNode {
+  const ctx = audioCtx as AudioContext; // bộ vang mới, đầu ra nối vào dest (vd. master nhạc nền); cần ensureAudio() trước
   const sr = ctx.sampleRate, len = Math.floor(sr * 3.2);
   const ir = ctx.createBuffer(2, len, sr);
   for (let ch = 0; ch < 2; ch++) {
@@ -84,10 +92,14 @@ function reverbBus(ctx: AudioContext): ConvolverNode {
   conv.buffer = ir;
   const out = ctx.createGain();
   out.gain.value = 0.9;
-  conv.connect(out).connect(ctx.destination);
-  reverbNode = conv;
-  reverbCtx = ctx;
+  conv.connect(out).connect(dest);
   return conv;
+}
+function reverbBus(ctx: AudioContext): ConvolverNode {
+  if (reverbNode && reverbCtx === ctx) return reverbNode;
+  reverbNode = makeReverb(ctx.destination);
+  reverbCtx = ctx;
+  return reverbNode;
 }
 
 // Đầu ra cho tiếng xào: khô + chút vang, có panning trái/phải

@@ -9,7 +9,7 @@ export function burstAt(el: Element | null | undefined, n: number): void {
 /** Rung nhẹ trên điện thoại; trình duyệt không hỗ trợ thì bỏ qua. */
 export function haptic(ms = 12): void {
   try {
-    navigator.vibrate?.(ms);
+    navigator.vibrate?.(ms || 12);
   } catch {
     /* không hỗ trợ */
   }

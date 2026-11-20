@@ -192,7 +192,7 @@ export function startShuffle(el: HTMLElement, deckSize: number): { stop(): void 
       showRaf = 0;
       cancelAll(loop.anims);
       loop.anims = [];
-      sfx.stopAll();
+      sfx.stopAll(); // toàn cục: dừng mọi nguồn sfx đang chạy (chỉ một lượt xào tại một thời điểm)
     },
   };
 }

@@ -173,7 +173,8 @@ export function startWheel(fan: HTMLElement, o: WheelOpts): { cancel(): void } {
       sfx.startTicks();
       fan.classList.add('reshuffle');
       later(() => {
-        pool = o.reshufflePool();
+        const next = o.reshufflePool();
+        pool = pool.map((c, i) => next[i] ?? c); // bộ mới ngắn hơn N: giữ lá cũ
         cards.forEach((fc, i) => {
           fc.querySelector('.flip-back')!.innerHTML = backImg(pool[i]);
         });
@@ -199,7 +200,7 @@ export function startWheel(fan: HTMLElement, o: WheelOpts): { cancel(): void } {
       timeouts.clear();
       rafs.forEach(cancelAnimationFrame);
       rafs.clear();
-      sfx.stopTicks();
+      sfx.stopTicks(); // stopAll là toàn cục: cũng dừng mọi nguồn sfx khác đang chạy (chỉ một lượt bốc tại một thời điểm)
     },
   };
 }
