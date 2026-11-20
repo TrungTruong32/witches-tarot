@@ -157,6 +157,8 @@ export function previewExitCode(results) {
  */
 export async function runDeploy({ prod, argv, branchError }) {
   const fail = m => { console.error(m); process.exit(1); };
+  // Bỏ cảnh báo của Node ("(node:123) …Warning…") để dòng lỗi thật không bị đẩy ra khỏi phần đuôi được in
+  const tail = (s, n) => s.split('\n').filter(l => !/^\(node:\d+\) /.test(l)).join('\n').trim().split('\n').slice(-n).join('\n');
   const env = loadEnv();
   const mask = makeMask([env.VERCEL_TOKEN]);
   const branchErr = branchError(git(['branch', '--show-current']).stdout.trim(), argv);
@@ -175,7 +177,7 @@ export async function runDeploy({ prod, argv, branchError }) {
   if (tErr) fail(tErr);
   console.log(`… ${VERCEL_CLI} build ${prod ? '--prod ' : ''}(${head})`);
   const b = npx(vercelArgs(['build'], { prod }), token);
-  if (b.status !== 0) fail('✗ vercel build lỗi:\n' + mask((b.stdout || '') + (b.stderr || '')).trim().split('\n').slice(-15).join('\n'));
+  if (b.status !== 0) fail('✗ vercel build lỗi:\n' + tail(mask((b.stdout || '') + (b.stderr || '')), 40));
 
   const built = builtIndexHtml();
   if (!built) fail(`✗ Không thấy ${BUILT_INDEX} — vercel build không tạo output tĩnh như mong đợi (không dùng dist/ thay thế)`);
@@ -187,7 +189,7 @@ export async function runDeploy({ prod, argv, branchError }) {
   console.log(`… vercel deploy --prebuilt lên ${target} (vài chục giây)…`);
   const d = npx(vercelArgs(['deploy', '--prebuilt'], { prod }), token);
   const out = mask((d.stdout || '') + (d.stderr || ''));
-  if (d.status !== 0) fail('✗ Deploy lỗi:\n' + out.trim().split('\n').slice(-10).join('\n'));
+  if (d.status !== 0) fail('✗ Deploy lỗi:\n' + tail(out, 30));
   const deployed = parseDeployUrl(d.stdout || '') || parseDeployUrl(out);
   console.log('✓ Deploy xong: ' + (deployed || '(không đọc được URL)'));
   const url = prod ? SITE : deployed;
