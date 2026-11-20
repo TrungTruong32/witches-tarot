@@ -1,9 +1,10 @@
 // Bảng route của app. "/" = trang mở đầu; mỗi màn hình khác có đường dẫn riêng (nút Back của trình duyệt dùng được).
-import { useLayoutEffect, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { IconSprite } from '../components/IconSprite';
 import { Lightbox } from '../components/Lightbox';
 import { RitualOverlay } from '../components/spread/RitualOverlay';
+import { setSfxEnabled } from '../engines/audio';
 import { Browse } from '../features/browse/Browse';
 import { ComingSoon } from '../features/ComingSoon';
 import { Daily } from '../features/daily/Daily';
@@ -40,11 +41,20 @@ function ResetOverlaysOnNavigate() {
   return null;
 }
 
+/** Âm thanh lá bài theo cài đặt (thay soundOn/soundVol toàn cục của bản cũ) — một chỗ cho cả app. */
+function SfxPrefs() {
+  const soundOn = useApp(s => s.prefs.soundOn);
+  const soundVol = useApp(s => s.prefs.soundVol);
+  useEffect(() => setSfxEnabled(soundOn, soundVol), [soundOn, soundVol]);
+  return null;
+}
+
 function Root() {
   return (
     <>
       <IconSprite />
       <RootAttrs />
+      <SfxPrefs />
       <ResetOverlaysOnNavigate />
       <Outlet />
       <Lightbox />

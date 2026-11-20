@@ -203,6 +203,40 @@ describe('DrawStage one draw at a time (Review Focus 1)', () => {
   });
 });
 
+describe('DrawStage before the DB is ready', () => {
+  it('disables both draw buttons; clicks claim nothing and call no onStart; enables once ready', () => {
+    useApp.setState({ db: null, dbStatus: 'loading' });
+    const onStart = vi.fn();
+    render(stage('draw', { onStart }));
+    const held = vi.fn();
+    const tk = claimDraw('reading', held);
+    expect(($('drawBtn') as HTMLButtonElement).disabled).toBe(true);
+    expect(($('pickBtn') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click($('drawBtn'));
+    fireEvent.click($('pickBtn'));
+    expect(onStart).not.toHaveBeenCalled();
+    expect(useApp.getState().ritual).toBeNull();
+    expect(held).not.toHaveBeenCalled(); // không giành chỗ của lượt đang giữ
+    expect(isLive(tk)).toBe(true);
+    releaseDraw(tk);
+    act(() => useApp.setState({ db: fakeDb, dbStatus: 'ready' }));
+    expect(($('drawBtn') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('beginDraw guard: dbStatus not ready → nothing starts even if the click lands', () => {
+    useApp.setState({ dbStatus: 'loading' }); // db có nhưng chưa "ready"
+    act(() => useApp.getState().setPref('ritualOff', true));
+    const onStart = vi.fn();
+    render(stage('draw', { onStart }));
+    // gọi thẳng handler React (bỏ qua thuộc tính disabled)
+    const btn = $('drawBtn') as HTMLButtonElement;
+    const key = Object.keys(btn).find(k => k.startsWith('__reactProps'))!;
+    act(() => (btn as unknown as Record<string, { onClick(): void }>)[key]!.onClick());
+    expect(onStart).not.toHaveBeenCalled();
+    expect($('drawOrbit').classList.contains('on')).toBe(false);
+  });
+});
+
 describe('DrawStage labels and scroll (§5.8)', () => {
   it('EN shows the renamed buttons, each with its hint line, for both ctxs', () => {
     useApp.setState({ lang: 'en' });
@@ -232,6 +266,17 @@ describe('DrawStage labels and scroll (§5.8)', () => {
     fireEvent.click($('drawBtn'));
     expect(spy).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' });
     expect(spy.mock.contexts[0]).toBe($('drawOrbit'));
+  });
+
+  it('reduced motion (no shuffle): scrolls the visible wheel with behavior auto', () => {
+    ritualOff();
+    stubReduce();
+    const spy = vi.spyOn(Element.prototype, 'scrollIntoView');
+    render(stage('draw'));
+    fireEvent.click($('pickBtn'));
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith({ block: 'center', behavior: 'auto' });
+    expect(spy.mock.contexts[0]).toBe($('drawFan'));
   });
 
   it('AI Reading keeps legacy behaviour: no scroll when its shuffle starts', () => {

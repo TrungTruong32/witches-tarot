@@ -6,7 +6,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffec
 import { useApp } from '../../app/store';
 import { drawRandomCards } from '../../core/draw';
 import type { SpreadCard } from '../../core/types';
-import { ensureAudio, setSfxEnabled } from '../../engines/audio';
+import { ensureAudio } from '../../engines/audio';
 import { startShuffle } from '../../engines/shuffle';
 import { startWheel } from '../../engines/wheel';
 import { useT } from '../../i18n/useT';
@@ -61,8 +61,7 @@ export const DrawStage = forwardRef<DrawStageHandle, DrawStageProps>(function Dr
   const { ctx, leading, trailing } = props;
   const { t } = useT();
   const ids = IDS[ctx];
-  const soundOn = useApp(s => s.prefs.soundOn);
-  const soundVol = useApp(s => s.prefs.soundVol);
+  const dbReady = useApp(s => s.dbStatus === 'ready' && s.db !== null);
   const [shuffling, setShuffling] = useState(false);
 
   const orbitRef = useRef<HTMLDivElement>(null);
@@ -77,8 +76,6 @@ export const DrawStage = forwardRef<DrawStageHandle, DrawStageProps>(function Dr
     propsRef.current = props;
   });
 
-  // Âm thanh theo cài đặt (thay soundOn/soundVol toàn cục của bản cũ)
-  useEffect(() => setSfxEnabled(soundOn, soundVol), [soundOn, soundVol]);
 
   /** Dừng êm khung xào (resetOrbit/stopOrbit của bản cũ): không chia bài. */
   const clearOrbit = useCallback((run: Run) => {
@@ -144,14 +141,17 @@ export const DrawStage = forwardRef<DrawStageHandle, DrawStageProps>(function Dr
       const reduce = prefersReducedMotion();
       if (reduce || !orbit) {
         startPick(run);
+        // §5.8 (chỉ màn Bốc bài): giảm chuyển động bỏ qua xào → đưa bánh xe (đang hiện) vào giữa màn hình
+        const target = fan && fan.style.display !== 'none' ? fan : orbit;
+        if (ctx === 'draw' && target && isLive(run.token)) target.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
         return;
       }
       const { db, deck } = useApp.getState();
       run.shuffle = startShuffle(orbit, (db && db.count(deck ?? '')) || 78);
       orbit.classList.add('on');
       setShuffling(true);
-      // §5.8 (chỉ màn Bốc bài): đưa khung xào vào giữa màn hình khi bắt đầu xào (giảm chuyển động thì không xào → không cuộn)
-      if (ctx === 'draw') orbit.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      // §5.8 (chỉ màn Bốc bài): đưa khung xào vào giữa màn hình khi bắt đầu xào
+      if (ctx === 'draw') orbit.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
     },
     [ctx, cancelRun, startPick],
   );
@@ -166,8 +166,9 @@ export const DrawStage = forwardRef<DrawStageHandle, DrawStageProps>(function Dr
 
   /** beginDraw: nghi thức trước (nếu chưa tắt), rồi startOrbit. */
   const beginDraw = (mode: Mode) => {
-    ensureAudio(); // cử chỉ người dùng: đánh thức AudioContext
     const st = useApp.getState();
+    if (st.dbStatus !== 'ready' || !st.db) return; // chưa có bộ bài: không giữ chỗ, không gọi onStart
+    ensureAudio(); // cử chỉ người dùng: đánh thức AudioContext
     if (st.prefs.ritualOff) {
       startOrbit(mode);
       return;
@@ -215,13 +216,13 @@ export const DrawStage = forwardRef<DrawStageHandle, DrawStageProps>(function Dr
       <div className={ids.row}>
         {leading}
         <span style={HINT_WRAP}>
-          <button className="btn-primary" id={ids.auto} title={titles.auto} disabled={shuffling} onClick={() => beginDraw('draw')}>
+          <button className="btn-primary" id={ids.auto} title={titles.auto} disabled={shuffling || !dbReady} onClick={() => beginDraw('draw')}>
             {t('draw.auto')}
           </button>
           <span className="hint" style={HINT}>{t('draw.auto.hint')}</span>
         </span>
         <span style={HINT_WRAP}>
-          <button id={ids.pick} title={titles.pick} disabled={shuffling} onClick={() => beginDraw('pick')}>
+          <button id={ids.pick} title={titles.pick} disabled={shuffling || !dbReady} onClick={() => beginDraw('pick')}>
             {t('draw.manual')}
           </button>
           <span className="hint" style={HINT}>{t('draw.manual.hint')}</span>

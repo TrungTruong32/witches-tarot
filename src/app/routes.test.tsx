@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { isSfxEnabled } from '../engines/audio';
 import { AppRoutes, MODE_BY_PATH, PATH_BY_MODE } from './routes';
 import { initPwaInstall } from './pwaInstall';
 import { initialState, useApp } from './store';
@@ -202,6 +203,16 @@ describe('app shell', () => {
     for (const t of ['scroll', 'resize', 'mousemove']) expect(added).toContain(t);
     unmount();
     expect([...live.values()]).toEqual([]);
+  });
+});
+
+describe('sfx prefs', () => {
+  it('Root syncs prefs.soundOn into the audio engine', () => {
+    renderAt('/');
+    act(() => useApp.getState().setPref('soundOn', false));
+    expect(isSfxEnabled()).toBe(false);
+    act(() => useApp.getState().setPref('soundOn', true));
+    expect(isSfxEnabled()).toBe(true);
   });
 });
 
