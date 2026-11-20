@@ -1,12 +1,20 @@
 // Khung app (#appPage) quanh mọi màn hình trừ trang mở đầu. Theo markup bản cũ L909–941.
+import { Suspense, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { DeckSelect } from '../components/DeckSelect';
 import { Logo } from '../components/Logo';
 import { NavMenu } from '../components/NavMenu';
-import { AiSettings } from '../features/settings/AiSettings';
-import { SiteSettings } from '../features/settings/SiteSettings';
 import { useT } from '../i18n/useT';
+import { AiSettings, SiteSettings } from './lazyScreens';
 import { useApp } from './store';
+
+/** Hộp thoại cài đặt nằm ở chunk riêng: chỉ gắn vào DOM từ lần mở đầu tiên (rồi giữ luôn, như bản cũ luôn có trong DOM),
+ *  để vào app không phải tải chunk này ngay. */
+function useOpenedOnce(open: boolean): boolean {
+  const [seen, setSeen] = useState(open);
+  if (open && !seen) setSeen(true);
+  return seen || open;
+}
 
 function BootStatus() {
   const status = useApp(s => s.dbStatus);
@@ -25,6 +33,8 @@ export function AppLayout() {
   const openOverlay = useApp(s => s.openOverlay);
   const closeOverlay = useApp(s => s.closeOverlay);
   const ready = useApp(s => s.dbStatus === 'ready');
+  const aiSeen = useOpenedOnce(useApp(s => s.overlay === 'ai'));
+  const siteSeen = useOpenedOnce(useApp(s => s.overlay === 'site'));
   return (
     <>
       <button className="nav-toggle" id="navToggle" aria-label="Mở menu" onClick={() => openOverlay('nav')}>☰</button>
@@ -45,8 +55,9 @@ export function AppLayout() {
         <BootStatus />
         <Outlet />
       </div>
-      <AiSettings />
-      <SiteSettings />
+      {/* mỗi hộp một Suspense: hộp này đang tải không làm ẩn hộp kia */}
+      <Suspense fallback={null}>{aiSeen && <AiSettings />}</Suspense>
+      <Suspense fallback={null}>{siteSeen && <SiteSettings />}</Suspense>
     </>
   );
 }

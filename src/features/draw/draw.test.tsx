@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { deckCards } from '../../../tests/fixtures/deck';
 import { makeDb, sqlJs } from '../../../tests/fixtures/makeDb';
 import { AppRoutes } from '../../app/routes';
+import { preloadLazyScreens } from '../../app/lazyScreens';
 import { initialState, useApp } from '../../app/store';
 import type { SpreadCard } from '../../core/types';
 import { openCardsDb, type CardsDb } from '../../services/cardsDb';
@@ -14,6 +15,7 @@ const W = 'Witches Tarot';
 
 let db: CardsDb;
 beforeAll(async () => {
+  await preloadLazyScreens(); // màn hình tải lười (React.lazy): nạp trước để render đồng bộ như trước
   db = openCardsDb(await makeDb(deckCards), await sqlJs());
 });
 

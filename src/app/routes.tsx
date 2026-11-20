@@ -1,5 +1,5 @@
 // Bảng route của app. "/" = trang mở đầu; mỗi màn hình khác có đường dẫn riêng (nút Back của trình duyệt dùng được).
-import { useEffect, useLayoutEffect, type ReactNode } from 'react';
+import { Suspense, useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { AmbientMusic } from '../components/AmbientMusic';
 import { Background } from '../components/Background';
@@ -9,13 +9,9 @@ import { RitualOverlay } from '../components/spread/RitualOverlay';
 import { setSfxEnabled } from '../engines/audio';
 import { Browse } from '../features/browse/Browse';
 import { Daily } from '../features/daily/Daily';
-import { Draw } from '../features/draw/Draw';
-import { History } from '../features/history/History';
-import { Sky } from '../features/sky/Sky';
-import { YesNo } from '../features/yesno/YesNo';
 import { Landing } from '../features/landing/Landing';
-import { Reading } from '../features/reading/Reading';
 import { AppLayout } from './AppLayout';
+import { Draw, History, Reading, Sky, YesNo } from './lazyScreens';
 import { MODE_BY_PATH, PATH_BY_MODE, VIEW_ID, type Mode } from './modes';
 import { syncRootAttrs } from './rootAttrs';
 import { useApp } from './store';
@@ -79,11 +75,12 @@ function LandingRoute() {
   return <Landing />;
 }
 
-/** Phần tử gốc của một màn hình: đúng id cũ + hiệu ứng .view-in mỗi lần vào. */
+/** Phần tử gốc của một màn hình: đúng id cũ + hiệu ứng .view-in mỗi lần vào.
+ *  Suspense cho màn hình tải lười (lazyScreens): chunk thường đã nạp sẵn lúc rảnh nên hiếm khi thấy khung trống. */
 export function View({ mode, children }: { mode: Mode; children: ReactNode }) {
   return (
     <div id={VIEW_ID[mode]} className="view-in">
-      {children}
+      <Suspense fallback={null}>{children}</Suspense>
     </div>
   );
 }
