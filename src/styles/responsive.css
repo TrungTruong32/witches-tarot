@@ -21,3 +21,7 @@
       .brand .brand-name { font-size: clamp(1.12rem, 5.6vw, 1.5rem); letter-spacing: 1px; }
       header p { font-size: .88rem; line-height: 1.45; text-wrap: balance; }
     }
+    /* Máy rất hẹp (≤374px): chừa đều hai bên không đủ chỗ → chỉ chừa bên phải, tên app lệch trái một chút */
+    @media (max-width: 374px) {
+      header .brand { max-width: none; margin-right: 58px; }
+    }
