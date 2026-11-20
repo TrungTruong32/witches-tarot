@@ -6,6 +6,9 @@ vi.mock('../services/skyData', () => ({ loadSky: () => loadSky() }));
 
 import { startSkyMap, type SkyMapOpts } from './skyMap';
 import { SKY_CITIES } from './skyScene';
+import { skyMapText } from '../features/sky/skyText';
+
+const VI = skyMapText(p => p.vi), EN = skyMapText(p => p.en);
 
 // rAF giả: giữ hàng đợi, flush() chạy đúng một lượt khung hình
 let pending = new Map<number, FrameRequestCallback>();
@@ -36,7 +39,7 @@ function fakeCtx() {
 
 // Sao ở thiên đỉnh-ish của HCM để chắc chắn nằm trên chân trời
 const SKY: SkyData = { stars: [], lines: [], names: [], consts: [] };
-const OPTS: SkyMapOpts = { lat: 10.82, lon: 106.63, name: 'TP.HCM', layers: { lines: true, grid: false, bodies: true, starsOnly: false }, lang: 'vi', colors: { star: '#fff' } };
+const OPTS: SkyMapOpts = { lat: 10.82, lon: 106.63, name: 'TP.HCM', layers: { lines: true, grid: false, bodies: true, starsOnly: false }, text: VI, colors: { star: '#fff' } };
 
 let fc: ReturnType<typeof fakeCtx>;
 beforeEach(() => {
@@ -73,7 +76,7 @@ describe('startSkyMap', () => {
     expect(onInfo).toHaveBeenLastCalledWith('Sao & chòm sao thật trên bầu trời TP.HCM ngay lúc này. Thiên đỉnh ở giữa, chân trời ở mép. Kéo để xoay, lăn/chụm để phóng to.');
     e.setLocation(16.05, 108.22, 'Đà Nẵng');
     expect(onInfo).toHaveBeenLastCalledWith('Sao & chòm sao thật trên bầu trời Đà Nẵng ngay lúc này. Thiên đỉnh ở giữa, chân trời ở mép. Kéo để xoay, lăn/chụm để phóng to.');
-    e.setLang('en');
+    e.update({ text: EN });
     expect(onInfo).toHaveBeenLastCalledWith('Real stars & constellations above Đà Nẵng right now. Zenith at centre, horizon at the edge. Drag to rotate, scroll/pinch to zoom.');
     e.stop();
   });
@@ -83,7 +86,7 @@ describe('startSkyMap', () => {
     const onInfo = vi.fn();
     const e = startSkyMap(document.createElement('canvas'), OPTS, { onInfo });
     await vi.waitFor(() => expect(onInfo).toHaveBeenLastCalledWith('Không tải được dữ liệu bầu trời — kiểm tra mạng rồi thử lại.'));
-    e.setLang('en');
+    e.update({ text: EN });
     expect(onInfo).toHaveBeenLastCalledWith("Couldn't load the sky data — check your connection and try again.");
     loadSky.mockResolvedValue(SKY);
     e.setLocation(21.03, 105.85, 'Hà Nội');

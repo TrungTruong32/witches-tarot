@@ -1,7 +1,6 @@
 // Bản đồ sao tương tác của màn "Bầu trời" (bản cũ L5124–5325): kéo để xoay, chụm/lăn để phóng, chạm để chọn sao.
 // Dựng cảnh + vẽ thiên thể dùng chung engines/skyScene với nền (khác nhau chỉ ở R, cỡ/độ sáng sao, có nhãn chòm).
 // Khác bản cũ (phán quyết): sky.json lỗi → báo chữ lỗi qua onInfo (bản cũ im lặng); đổi nơi khi đang lỗi thì tải lại.
-import type { Lang } from '../core/types';
 import { loadSky, type SkyData } from '../services/skyData';
 import { drawBody, projectSky, type SkyScene } from './skyScene';
 
@@ -15,17 +14,35 @@ export interface SkyMapOpts {
   /** Tên nơi hiện trong chữ hướng dẫn (#skyInfo). */
   name: string;
   layers: SkyLayers;
-  lang: Lang;
+  text: SkyMapText;
   colors: { star: string };
+}
+
+/** Chữ giao diện — bên gọi dựng theo ngôn ngữ (features/sky/skyText); engine không phụ thuộc ngôn ngữ. */
+export interface SkyMapText {
+  /** Chữ hướng dẫn (#skyInfo) cho một nơi. */
+  info(name: string): string;
+  /** Không tải được sky.json. */
+  fail: string;
+  /** Vẽ giữa canvas khi đang tải. */
+  loading: string;
+  /** Dòng 1 của hộp thông tin khi sao không có tên. */
+  unnamed: string;
+  /** Tiền tố cấp sáng, gồm cả dấu cách cuối. */
+  mag: string;
+  /** Dòng 2 của hộp thông tin khi chọn thiên thể. */
+  solar: string;
+  /** Chữ la bàn: Bắc, Nam, Đông, Tây. */
+  compass: [string, string, string, string];
 }
 
 export interface SkyMapCallbacks { onInfo(text: string): void }
 
 export interface SkyMap {
+  /** Đổi nơi: bỏ chọn, tính lại, báo chữ hướng dẫn; đang lỗi sky.json thì tải lại. */
   setLocation(lat: number, lon: number, name: string): void;
-  setLayers(l: SkyLayers): void;
-  setLang(l: Lang): void;
-  setColors(c: { star: string }): void;
+  /** Cập nhật lớp / chữ / màu (chỉ các khoá được truyền). */
+  update(p: Partial<Pick<SkyMapOpts, 'layers' | 'text' | 'colors'>>): void;
   zoomBy(f: number): void;
   reset(): void;
   clearSelection(): void;
@@ -36,23 +53,12 @@ interface Sel { x: number; y: number; name: string | null; mag: number | null; r
 
 const clampZoom = (z: number) => Math.max(0.6, Math.min(2.6, z));
 
-/** Chữ hướng dẫn updateSkyInfo của bản cũ. */
-export function skyInfoText(lang: Lang, name: string): string {
-  return lang === 'en'
-    ? 'Real stars & constellations above ' + name + ' right now. Zenith at centre, horizon at the edge. Drag to rotate, scroll/pinch to zoom.'
-    : 'Sao & chòm sao thật trên bầu trời ' + name + ' ngay lúc này. Thiên đỉnh ở giữa, chân trời ở mép. Kéo để xoay, lăn/chụm để phóng to.';
-}
-/** Bản cũ không có chữ này (catch im lặng) — phán quyết. */
-export function skyFailText(lang: Lang): string {
-  return lang === 'en' ? "Couldn't load the sky data — check your connection and try again." : 'Không tải được dữ liệu bầu trời — kiểm tra mạng rồi thử lại.';
-}
-
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
 
 export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapCallbacks): SkyMap {
-  let lat = opts.lat, lon = opts.lon, locName = opts.name, lang = opts.lang;
+  let lat = opts.lat, lon = opts.lon, locName = opts.name, text = opts.text;
   let layers: SkyLayers = { ...opts.layers };
   let starCol = opts.colors.star;
   let data: SkyData | null = null, loading = false, failed = false, stopped = false;
@@ -61,7 +67,7 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
   let cx = 0, cy = 0, R = 0;
   let sel: Sel | null = null, selConst: string | null = null;
 
-  const info = () => cb.onInfo(failed ? skyFailText(lang) : skyInfoText(lang, locName));
+  const info = () => cb.onInfo(failed ? text.fail : text.info(locName));
 
   function load() {
     if (data || loading) return;
@@ -96,7 +102,7 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
     const W = cv.width / d, H = cv.height / d; ctx.clearRect(0, 0, W, H);
     if (!data || !scene) {
       ctx.fillStyle = 'rgba(233,227,255,.6)'; ctx.font = '14px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText(failed ? skyFailText(lang) : (lang === 'en' ? 'Loading sky…' : 'Đang tải bầu trời…'), W / 2, H / 2);
+      ctx.fillText(failed ? text.fail : text.loading, W / 2, H / 2);
       ctx.textAlign = 'left'; return;
     }
     const { pts: stars, segs, segsByConst, labels, bodies, consts } = scene;
@@ -140,7 +146,8 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
       for (const l of labels) { const p = rotP(l.x, l.y); ctx.fillText(l.t, p.x + 5, p.y + 3); }
       if (layers.bodies) for (const b of bodies) { const p = rotP(b.x, b.y); ctx.fillStyle = 'rgba(255,240,205,.9)'; ctx.font = '600 11px system-ui, sans-serif'; ctx.fillText(b.name, p.x + b.size * 1.25 + 3, p.y + 3); }
     }
-    const dirs: [string, number, number][] = lang === 'en' ? [['N', 0, -1], ['S', 0, 1], ['E', -1, 0], ['W', 1, 0]] : [['B', 0, -1], ['N', 0, 1], ['Đ', -1, 0], ['T', 1, 0]];
+    const [cN, cS, cE, cW] = text.compass;
+    const dirs: [string, number, number][] = [[cN, 0, -1], [cS, 0, 1], [cE, -1, 0], [cW, 1, 0]];   // Đông trái, Tây phải
     ctx.font = 'bold 14px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(255,225,168,.92)';
     for (const [t0, dx, dy] of dirs) { const p = rotP(cx + dx * R, cy + dy * R); ctx.fillText(t0, p.x, p.y); }
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
@@ -150,8 +157,8 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
       const pulse = 2 + Math.sin(t * 4) * 1.5;
       ctx.strokeStyle = 'rgba(255,225,168,.95)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, rr + 6 + pulse, 0, 6.28); ctx.stroke();
       ctx.strokeStyle = 'rgba(255,225,168,.3)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y, rr + 12 + pulse, 0, 6.28); ctx.stroke();
-      const l1 = sel.name || (lang === 'en' ? 'Unnamed star' : 'Sao chưa đặt tên');
-      const l2 = (sel.mag != null ? (lang === 'en' ? 'Mag ' : 'Cấp sáng ') + sel.mag.toFixed(1) : (lang === 'en' ? 'Solar system' : 'Hệ Mặt Trời')) + (sel.cons ? ' · ' + sel.cons : '');
+      const l1 = sel.name || text.unnamed;
+      const l2 = (sel.mag != null ? text.mag + sel.mag.toFixed(1) : text.solar) + (sel.cons ? ' · ' + sel.cons : '');
       ctx.font = '700 13px system-ui'; const w1 = ctx.measureText(l1).width; ctx.font = '11px system-ui'; const w2 = ctx.measureText(l2).width;
       const bw = Math.max(w1, w2) + 20, bh = 44; let bx = p.x + 16, by = p.y - bh - 6;
       if (bx + bw > W) bx = p.x - bw - 16;
@@ -244,9 +251,11 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
       if (failed) { failed = false; load(); }
       compute(); info();
     },
-    setLayers(l) { layers = { ...l }; },
-    setLang(l) { lang = l; info(); },
-    setColors(c) { starCol = c.star; },
+    update(p) {
+      if (p.layers) layers = { ...p.layers };
+      if (p.colors) starCol = p.colors.star;
+      if (p.text) { text = p.text; info(); }
+    },
     zoomBy(f) { zoom = clampZoom(zoom * f); sel = null; computedAt = 0; },
     reset() { rot = 0; zoom = 1; sel = null; selConst = null; computedAt = 0; },
     clearSelection() { sel = null; selConst = null; },

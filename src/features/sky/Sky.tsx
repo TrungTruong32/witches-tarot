@@ -1,12 +1,13 @@
 // Màn "Bầu trời" (port từ witches_tarot.html: markup L1126–1152, initSkyView/skyStart/skyStop L5124–5325).
 // Vẽ + cử chỉ ở engines/skyMap.ts; ở đây là nút điều khiển, vị trí/GPS, lớp hiển thị, toàn màn hình và #skyInfo.
-import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useApp } from '../../app/store';
 import { DEFAULT_SKY_LAYERS, startSkyMap, type SkyLayers, type SkyMap } from '../../engines/skyMap';
 import { SKY_CITIES } from '../../engines/skyScene';
 import { pickLang, useT } from '../../i18n/useT';
 import { readColors } from '../../lib/themeColors';
 import { getJson, getStr, KEYS, setStr } from '../../services/storage';
+import { skyMapText } from './skyText';
 
 const LOCS = ['hcm', 'hanoi', 'danang', 'cantho', 'gps'];
 const HCM = SKY_CITIES.hcm!;
@@ -40,7 +41,9 @@ type FsDoc = Document & { webkitFullscreenElement?: Element | null; webkitExitFu
 type FsEl = HTMLElement & { webkitRequestFullscreen?: () => void };
 
 export function Sky() {
-  const { t, pick, lang } = useT();
+  const { t, pick } = useT();
+  /** Chữ của engine theo ngôn ngữ đang chọn. */
+  const text = useMemo(() => skyMapText(pick), [pick]);
   const theme = useApp(s => s.prefs.theme);
   const [loc, setLoc] = useState(savedLoc);
   const [layers, setLayers] = useState(savedLayers);
@@ -67,7 +70,7 @@ export function Sky() {
       : SKY_CITIES[locRef.current] ?? HCM;
     const engine = startSkyMap(
       cv,
-      { lat: c[0], lon: c[1], name: c[2], layers: layersRef.current, lang: lang0, colors: readColors() },
+      { lat: c[0], lon: c[1], name: c[2], layers: layersRef.current, text: skyMapText(p => pickLang(lang0, p)), colors: readColors() },
       { onInfo: text => { if (!ownStatus.current) setInfo(text); } },
     );
     engineRef.current = engine;
@@ -79,9 +82,9 @@ export function Sky() {
     };
   }, []);
 
-  useEffect(() => { engineRef.current?.setLang(lang); }, [lang]);
+  useEffect(() => { engineRef.current?.update({ text }); }, [text]);
   // đổi theme khi đang ở màn này → màu sao (--star) theo theme mới; RootAttrs đã áp data-theme trước
-  useLayoutEffect(() => { engineRef.current?.setColors(readColors()); }, [theme]);
+  useLayoutEffect(() => { engineRef.current?.update({ colors: readColors() }); }, [theme]);
 
   function onLoc(e: ChangeEvent<HTMLSelectElement>) {
     const v = e.target.value;
@@ -117,7 +120,7 @@ export function Sky() {
     layersRef.current = next;
     setLayers(next);
     setStr(KEYS.skyLayers, JSON.stringify(next));
-    engineRef.current?.setLayers(next);
+    engineRef.current?.update({ layers: next });
   }
 
   function fullscreen() {

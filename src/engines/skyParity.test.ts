@@ -8,6 +8,7 @@ vi.mock('../services/skyData', () => ({ loadSky: () => loadSky(), onSkyLoaded: (
 
 import { startSkyMap } from './skyMap';
 import { startStarfield } from './starfield';
+import { skyMapText } from '../features/sky/skyText';
 
 // 2026-11-20 15:00 UTC: Mặt Trăng (~80%) và Sao Thổ đều trên chân trời Hà Nội lẫn TP.HCM; LST ≈ 30.5° (HN), 31.3° (HCM)
 const NOW = new Date('2026-11-20T15:00:00Z');
@@ -109,7 +110,7 @@ describe('starfield: bầu trời thật', () => {
 });
 
 describe('skyMap: khung hình', () => {
-  const OPTS = { lat: 10.82, lon: 106.63, name: 'TP.HCM', layers: { lines: true, grid: true, bodies: true, starsOnly: false }, lang: 'vi' as const, colors: { star: '#eee' } };
+  const OPTS = { lat: 10.82, lon: 106.63, name: 'TP.HCM', layers: { lines: true, grid: true, bodies: true, starsOnly: false }, text: skyMapText(p => p.vi), colors: { star: '#eee' } };
 
   it('lưới + chòm + thiên thể, rồi chạm chọn sao ở thiên đỉnh (nổi bật chòm + hộp thông tin) khớp snapshot', async () => {
     const cv = document.createElement('canvas');
@@ -128,7 +129,7 @@ describe('skyMap: khung hình', () => {
     expect(picked.some(l => l.startsWith('fillText(Cấp sáng 1.0 · Bạch Dương,'))).toBe(true);
     expect(picked).toMatchSnapshot('picked');
     // EN: chữ trong hộp + la bàn
-    e.setLang('en');
+    e.update({ text: skyMapText(p => p.en) });
     const en = frame();
     expect(en.some(l => l.startsWith('fillText(Mag 1.0 · Bạch Dương,'))).toBe(true);
     expect(en).toMatchSnapshot('picked-en');
