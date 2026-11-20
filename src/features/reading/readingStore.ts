@@ -1,0 +1,98 @@
+// Trạng thái màn "Trải bài AI" (Zustand riêng, không nằm trong useApp). Không lưu xuống storage —
+// rời màn rồi quay lại vẫn còn (bản cũ chỉ ẩn view). Màn "Bốc bài" (Task 5) đọc/ghi drawSpreadKey + drawResult ở đây.
+import { create, type StoreApi, type UseBoundStore } from 'zustand';
+import { defsFor } from '../../core/spreads';
+import { toSpreadCard } from '../../core/draw';
+import type { Card, Lang, Orientation, Reading as ReadingRecord, SpreadCard } from '../../core/types';
+import type { ChatMessage } from '../../services/ai/providers';
+
+export type Reveal = 'none' | 'seq' | 'deal';
+export type AiBg = 'off' | 'thinking' | 'done';
+
+export interface ReadingState {
+  question: string;
+  spreadKey: string;
+  /** Lá trong trải bài (mỗi lá có uid — đi qua toSpreadCard). Giữ nguyên mảng khi không đổi: SpreadBoard dựng lại khi mảng đổi. */
+  cards: SpreadCard[];
+  /** Cách hiện lá lần vẽ tới: 'seq' = renderSpread(true) (lật lần lượt ở danh sách), 'deal' = chia vào bàn, 'none' = hiện sẵn. */
+  reveal: Reveal;
+  answer: string;
+  provider: string | null;
+  messages: ChatMessage[];
+  followups: { q: string; a: string }[];
+  current: ReadingRecord | null;
+  aiBg: AiBg;
+  drawSpreadKey: string;
+  drawResult: SpreadCard[];
+  setQuestion(q: string): void;
+  setSpreadKey(k: string): void;
+  setCards(c: SpreadCard[], reveal?: Reveal): void;
+  /** Thêm một lá từ DB (Xuôi). false = kiểu trải cố định đã đủ lá. */
+  addCard(c: Card): boolean;
+  removeCard(uid: number): void;
+  setOrientation(uid: number, o: Orientation): void;
+  /** Nút "Xóa trải bài": bỏ hết lá, tắt nền lá-trôi. */
+  clear(): void;
+  setReveal(r: Reveal): void;
+  setAnswer(a: string): void;
+  setProvider(p: string | null): void;
+  setMessages(m: ChatMessage[]): void;
+  setFollowups(f: { q: string; a: string }[]): void;
+  setCurrent(r: ReadingRecord | null): void;
+  setAiBg(m: AiBg): void;
+  setDrawSpreadKey(k: string): void;
+  setDrawResult(c: SpreadCard[]): void;
+}
+
+type Data = Pick<ReadingState,
+  'question' | 'spreadKey' | 'cards' | 'reveal' | 'answer' | 'provider' | 'messages' | 'followups' | 'current' | 'aiBg' | 'drawSpreadKey' | 'drawResult'>;
+
+/** Trạng thái ban đầu (dùng để reset trong test). */
+export function initialReading(): Data {
+  return {
+    question: '',
+    spreadKey: 'free',
+    cards: [],
+    reveal: 'none',
+    answer: '',
+    provider: null,
+    messages: [],
+    followups: [],
+    current: null,
+    aiBg: 'off',
+    drawSpreadKey: 'free',
+    drawResult: [],
+  };
+}
+
+/** Tên các vị trí của kiểu trải đang chọn theo ngôn ngữ (spreadPositions của bản cũ); null = tự do. */
+export function positionsFor(state: Pick<ReadingState, 'spreadKey'>, lang: Lang): string[] | null {
+  return defsFor(state.spreadKey, lang);
+}
+
+// Mọi thay đổi trải bài = renderSpread() không đối số của bản cũ → lá hiện sẵn (reveal 'none').
+export const useReading: UseBoundStore<StoreApi<ReadingState>> = create<ReadingState>()((set, get) => ({
+  ...initialReading(),
+  setQuestion: q => set({ question: q }),
+  setSpreadKey: k => set({ spreadKey: k, reveal: 'none' }),
+  setCards: (c, reveal = 'none') => set({ cards: c, reveal }),
+  addCard: card => {
+    const { cards, spreadKey } = get();
+    const pos = defsFor(spreadKey, 'vi');
+    if (pos && cards.length >= pos.length) return false;
+    set({ cards: [...cards, toSpreadCard({ ...card, orientation: 'xuoi' })], reveal: 'none' });
+    return true;
+  },
+  removeCard: uid => set(s => ({ cards: s.cards.filter(x => x.uid !== uid), reveal: 'none' })),
+  setOrientation: (uid, o) => set(s => ({ cards: s.cards.map(x => (x.uid === uid ? { ...x, orientation: o } : x)), reveal: 'none' })),
+  clear: () => set({ cards: [], reveal: 'none', aiBg: 'off' }),
+  setReveal: r => set({ reveal: r }),
+  setAnswer: a => set({ answer: a }),
+  setProvider: p => set({ provider: p }),
+  setMessages: m => set({ messages: m }),
+  setFollowups: f => set({ followups: f }),
+  setCurrent: r => set({ current: r }),
+  setAiBg: m => set({ aiBg: m }),
+  setDrawSpreadKey: k => set({ drawSpreadKey: k }),
+  setDrawResult: c => set({ drawResult: c }),
+}));

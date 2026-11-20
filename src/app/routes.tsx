@@ -9,6 +9,7 @@ import { Browse } from '../features/browse/Browse';
 import { ComingSoon } from '../features/ComingSoon';
 import { Daily } from '../features/daily/Daily';
 import { Landing } from '../features/landing/Landing';
+import { Reading } from '../features/reading/Reading';
 import { AppLayout } from './AppLayout';
 import { MODE_BY_PATH, PATH_BY_MODE, VIEW_ID, type Mode } from './modes';
 import { syncRootAttrs } from './rootAttrs';
@@ -83,7 +84,7 @@ const SCREENS: Record<Mode, ReactNode> = {
   daily: <Daily />,
   browse: <Browse />,
   draw: <ComingSoon />,
-  reading: <ComingSoon />,
+  reading: <Reading />,
   history: <ComingSoon />,
   yesno: <ComingSoon />,
   sky: <ComingSoon />,
