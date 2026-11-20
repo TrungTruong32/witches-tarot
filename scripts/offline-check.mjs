@@ -1,13 +1,19 @@
-// Kiểm tra PWA offline trên Chrome thật (Playwright) với bản build trong dist/ (chạy `npm run build` trước).
-// 1) Giả lập máy đã cài bản cũ: tạo sẵn cache 'wtarot-v9'.  2) Mở '/', chờ SW mới điều khiển trang.
-// 3) Tắt hẳn máy chủ + setOffline → chỉ cache trả lời được.  4) Mở /tra-cuu, /boc-bai, /nhat-ky: app phải hiện,
-//    danh sách lá nạp từ tarot.db đã cache. Đồng thời: cache cũ wtarot-v9 đã bị xoá.
+// Kiểm tra PWA (SW sinh lúc build) trên Chrome thật (Playwright) với bản build trong dist/ (chạy `npm run build` trước).
+// 1) Giả lập máy đã cài bản cũ: tạo sẵn cache 'wtarot-v9'.  2) Mở '/', chờ SW mới điều khiển trang; wtarot-v9 bị xoá,
+//    còn đúng wtarot-app-* + wtarot-data-*.
+// 3) "Bản build sau" chỉ đổi thẻ app-version → sw.js y hệt (trình duyệt không cập nhật gì, không tải lại tarot.db).
+// 4) "Bản build sau" đổi code (thêm một asset) → SW mới cài: tên cache app đổi, cache data giữ nguyên,
+//    KHÔNG tải lại tarot.db, asset cũ chép từ cache cũ (không đi mạng).
+// 5) Tắt hẳn máy chủ + setOffline → chỉ cache trả lời được. Mở /tra-cuu, /boc-bai, /nhat-ky: app phải hiện,
+//    danh sách lá nạp từ tarot.db đã cache.
 // Chạy: node scripts/offline-check.mjs   → in PASS/FAIL từng bước, thoát mã 1 nếu có bước lỗi.
 import { createServer } from 'node:http';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
+import { buildSw } from './build-sw.mjs';
 
 const DIST = resolve(fileURLToPath(import.meta.url), '..', '..', 'dist');
 const APP_ROUTES = new Set(['/', '/hom-nay', '/tra-cuu', '/boc-bai', '/trai-bai', '/nhat-ky', '/yes-no', '/bau-troi']);
@@ -18,20 +24,34 @@ const MIME = {
   '.txt': 'text/plain',
 };
 
-/** Máy chủ tĩnh tí hon cho dist/: route của app → index.html (như rewrite SPA của Vercel), thư mục → index.html. */
+/** Máy chủ tĩnh tí hon: route của app → index.html (như rewrite SPA của Vercel), thư mục → index.html.
+ *  `site.root` đổi được lúc chạy (giả lập deploy bản mới); `site.hits` ghi lại đường dẫn đã được yêu cầu. */
 export function serveDist(dist, port = 0) {
+  const site = { root: dist, hits: [] };
   const server = createServer((req, res) => {
     let p = decodeURIComponent((req.url || '/').split('?')[0]);
+    site.hits.push(p);
     if (APP_ROUTES.has(p.replace(/\/+$/, '') || '/')) p = '/index.html';
-    let f = resolve(dist, '.' + p);
-    if (f !== dist && !f.startsWith(dist + sep)) { res.statusCode = 403; return res.end(); }
+    const root = site.root;
+    let f = resolve(root, '.' + p);
+    if (f !== root && !f.startsWith(root + sep)) { res.statusCode = 403; return res.end(); }
     if (existsSync(f) && statSync(f).isDirectory()) f = join(f, 'index.html');
     if (!existsSync(f)) { res.statusCode = 404; return res.end('not found'); }
     res.setHeader('Content-Type', MIME[extname(f)] || 'application/octet-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.end(readFileSync(f));
   });
-  return new Promise(ok => server.listen(port, '127.0.0.1', () => ok(server)));
+  return new Promise(ok => server.listen(port, '127.0.0.1', () => ok({ server, site })));
+}
+
+/** Bản sao dist/ (bỏ la-bai cho nhẹ) với index.html đổi thẻ app-version, tuỳ chọn thêm một asset; sinh lại sw.js. */
+async function variant(tmp, name, { meta, extraAsset }) {
+  const dir = join(tmp, name);
+  cpSync(DIST, dir, { recursive: true, filter: src => !src.startsWith(join(DIST, 'la-bai')) });
+  const idx = join(dir, 'index.html');
+  writeFileSync(idx, readFileSync(idx, 'utf8').replace(/(<meta\s+name="app-version"\s+content=")[^"]*/, '$1' + meta));
+  if (extraAsset) writeFileSync(join(dir, 'assets', extraAsset), '// offline-check\n');
+  return { dir, ...(await buildSw(dir)) };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -39,7 +59,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     console.error('Thiếu dist/sw.js — chạy `npm run build` trước.');
     process.exit(1);
   }
-  const server = await serveDist(DIST);
+  const tmp = mkdtempSync(join(tmpdir(), 'offline-check-'));
+  const { server, site } = await serveDist(DIST);
   const BASE = 'http://127.0.0.1:' + server.address().port;
   const browser = await chromium.launch({ channel: 'chrome' });
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
@@ -57,6 +78,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const st = document.getElementById('bootStatus');
     return !!st && getComputedStyle(st).display === 'none';
   }, null, { timeout: 20000 });
+  const cacheKeys = () => page.evaluate(() => caches.keys());
+  let first = { app: '', data: '' };
 
   try {
     await step('Giả lập bản cũ: tạo cache wtarot-v9 trước khi có SW mới', async () => {
@@ -70,11 +93,38 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 20000 });
     });
 
-    await step('activate đã xoá wtarot-v9, chỉ còn đúng một cache wtarot-<hash>', async () => {
-      const keys = await page.evaluate(() => caches.keys());
-      if (keys.includes('wtarot-v9') || keys.length !== 1 || !/^wtarot-[0-9a-f]{16}$/.test(keys[0])) throw new Error('caches: ' + JSON.stringify(keys));
-      const n = await page.evaluate(async k => (await (await caches.open(k)).keys()).length, keys[0]);
-      if (n < 15) throw new Error('precache chỉ có ' + n + ' mục');
+    await step('activate đã xoá wtarot-v9, còn đúng wtarot-app-* + wtarot-data-* (có tarot.db)', async () => {
+      const keys = (await cacheKeys()).sort();
+      const app = keys.find(k => /^wtarot-app-[0-9a-f]{16}$/.test(k));
+      const data = keys.find(k => /^wtarot-data-[0-9a-f]{16}$/.test(k));
+      if (keys.length !== 2 || !app || !data) throw new Error('caches: ' + JSON.stringify(keys));
+      const hasDb = await page.evaluate(async k => !!(await (await caches.open(k)).match('/tarot.db')), data);
+      if (!hasDb) throw new Error('cache data thiếu tarot.db');
+      first = { app, data };
+    });
+
+    await step('Build sau chỉ đổi thẻ app-version → sw.js y hệt (không cập nhật, không tải lại tarot.db)', async () => {
+      const a = await variant(tmp, 'meta-only', { meta: 'offline-check meta-only' });
+      if (a.app !== first.app || a.data !== first.data) throw new Error(`tên cache đổi: ${a.app} ${a.data}`);
+      if (!readFileSync(join(a.dir, 'sw.js')).equals(readFileSync(join(DIST, 'sw.js')))) throw new Error('sw.js khác bản trước');
+    });
+
+    await step('Build sau đổi code → SW mới: cache app mới, cache data giữ nguyên, không tải lại tarot.db/asset cũ', async () => {
+      const b = await variant(tmp, 'code-change', { meta: 'offline-check code-change', extraAsset: 'offline-check-x.js' });
+      if (b.app === first.app || b.data !== first.data) throw new Error(`tên cache: ${b.app} ${b.data}`);
+      site.root = b.dir;
+      site.hits = [];
+      await page.evaluate(async () => { await (await navigator.serviceWorker.getRegistration())?.update(); });
+      // chờ SW mới activate xong: cache app cũ bị xoá, cache app mới có mặt
+      let keys = [];
+      for (let t = Date.now(); Date.now() - t < 20000; await new Promise(r => setTimeout(r, 200))) {
+        keys = (await cacheKeys()).sort();
+        if (keys.includes(b.app) && !keys.includes(first.app)) break;
+      }
+      if (JSON.stringify(keys) !== JSON.stringify([b.app, b.data].sort())) throw new Error('caches: ' + JSON.stringify(keys));
+      const refetched = site.hits.filter(p => p === '/tarot.db' || (p.startsWith('/assets/') && p !== '/assets/offline-check-x.js'));
+      if (refetched.length) throw new Error('tải lại: ' + refetched.join(', '));
+      console.log('      yêu cầu mạng khi cập nhật: ' + site.hits.join(', '));
     });
 
     // Tắt hẳn máy chủ (không chỉ setOffline): chỉ còn cache của SW trả lời được.
@@ -105,12 +155,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       await page.waitForSelector('#historyView', { state: 'attached', timeout: 15000 });
     });
 
-    await step('Offline: không có lỗi JS trên trang', async () => {
+    await step('Không có lỗi JS trên trang', async () => {
       if (errors.length) throw new Error(errors.join(' | '));
     });
   } finally {
     await browser.close();
     if (server.listening) server.close();
+    rmSync(tmp, { recursive: true, force: true });
   }
   console.log(failed ? `\n${failed} bước lỗi` : '\nTất cả PASS');
   process.exit(failed ? 1 : 0);
