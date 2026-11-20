@@ -141,3 +141,16 @@ describe('Browse keeps its place across screens (legacy only hid the view)', () 
     expect(document.querySelector('#cardsList .card-item.active strong')!.textContent).toBe(pickedName);
   });
 });
+
+describe('Browse resets on any deck change, even while not shown (legacy setDeck)', () => {
+  it('deck A → B → A elsewhere still clears the filter and search', async () => {
+    const first = renderBrowse();
+    await userEvent.click(document.querySelectorAll('#categoryTabs .suit-tile')[2]!);
+    fireEvent.change(search(), { target: { value: 'o' } });
+    first.unmount();
+    act(() => { useApp.getState().setDeck('Rider-Waite'); useApp.getState().setDeck('Witches Tarot'); });
+    renderBrowse();
+    expect(document.querySelectorAll('#categoryTabs .suit-tile')[0]!.getAttribute('aria-pressed')).toBe('true');
+    expect(search().value).toBe('');
+  });
+});

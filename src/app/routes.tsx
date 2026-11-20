@@ -1,6 +1,6 @@
 // Bảng route của app. "/" = trang mở đầu; mỗi màn hình khác có đường dẫn riêng (nút Back của trình duyệt dùng được).
-import { useEffect, useLayoutEffect, type ReactNode } from 'react';
-import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
+import { useLayoutEffect, type ReactNode } from 'react';
+import { Navigate, Outlet, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { IconSprite } from '../components/IconSprite';
 import { Lightbox } from '../components/Lightbox';
 import { Browse } from '../features/browse/Browse';
@@ -28,11 +28,14 @@ function RootAttrs() {
 /** Màn hình mới không mang theo menu/hộp thoại/ảnh phóng to của màn trước (vd. bấm Back khi đang mở menu).
  *  Ngoại lệ: `state.openNav` (nút ☰ ở trang mở đầu) vào app với menu mở sẵn. */
 function ResetOverlaysOnNavigate() {
-  const { pathname, state } = useLocation();
-  const openNav = (state as { openNav?: boolean } | null)?.openNav === true;
-  useEffect(() => {
+  const location = useLocation();
+  const navType = useNavigationType();
+  // Chỉ tôn trọng openNav ở đúng bước tiến (PUSH) do nút ☰ tạo; Back/Forward/tải lại (POP) không mở lại menu.
+  const openNav = navType === 'PUSH' && (location.state as { openNav?: boolean } | null)?.openNav === true;
+  // layout effect: đóng trước khi vẽ, không thấy menu/ảnh mở một khung hình rồi mới trượt đi
+  useLayoutEffect(() => {
     useApp.setState({ overlay: openNav ? 'nav' : null, lightbox: null });
-  }, [pathname, openNav]);
+  }, [location.key, openNav]);
   return null;
 }
 

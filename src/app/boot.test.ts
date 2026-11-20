@@ -79,3 +79,13 @@ describe('English card meanings (card_en.json)', () => {
     off();
   });
 });
+
+describe('ensureCardEn robustness', () => {
+  it('a loader that throws synchronously does not break setLang', async () => {
+    const off = watchLangForCardEn(() => { throw new Error('boom'); });
+    expect(() => useApp.getState().setLang('en')).not.toThrow();
+    await new Promise(r => setTimeout(r, 0));
+    expect(useApp.getState().cardEn).toBeNull();
+    off();
+  });
+});

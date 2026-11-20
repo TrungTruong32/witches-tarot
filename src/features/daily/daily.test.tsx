@@ -93,3 +93,29 @@ describe('Daily across midnight', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+describe('Daily midnight timer is robust', () => {
+  it('a timer that fires early (clock moved back) reschedules instead of stopping', () => {
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    vi.setSystemTime(new Date(2026, 0, 5, 23, 59, 58));
+    const { unmount } = render(<Daily />);
+    vi.setSystemTime(new Date(2026, 0, 5, 23, 59, 40)); // đồng hồ bị chỉnh lùi 18 giây
+    act(() => { vi.advanceTimersByTime(2100); }); // hẹn giờ cũ chạy khi vẫn là ngày 5
+    expect(document.getElementById('dailyDate')!.textContent).toBe('(2026-1-5 · Witches Tarot)');
+    act(() => { vi.advanceTimersByTime(20000); });
+    expect(document.getElementById('dailyDate')!.textContent).toBe('(2026-1-6 · Witches Tarot)');
+    unmount();
+  });
+
+  it('coming back to the tab after sleeping past midnight shows the new day', () => {
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 0, 5, 22, 0));
+    const { unmount } = render(<Daily />);
+    vi.setSystemTime(new Date(2026, 0, 6, 7, 0));
+    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+    expect(document.getElementById('dailyDate')!.textContent).toBe('(2026-1-6 · Witches Tarot)');
+    unmount();
+  });
+});

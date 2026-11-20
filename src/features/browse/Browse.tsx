@@ -20,14 +20,14 @@ export function Browse() {
   const searchRef = useRef<HTMLInputElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
 
-  // Đổi bộ bài → về "Tất cả" và xoá ô tìm (như setDeck của bản cũ)
+  // setDeck trong store đã reset browse khi đổi bộ bài. Còn lại: bộ bài do boot khôi phục (chưa qua setDeck)
+  // → browse.deck khác deck → dùng mặc định, và lần sửa đầu tiên ghi kèm bộ bài hiện tại.
+  const fresh = { category: 'all', query: '', picked: null };
   const stale = browse.deck !== deck;
-  const { category, query, picked } = stale ? { category: 'all', query: '', picked: null } : browse;
-  useEffect(() => {
-    if (stale) setBrowse({ deck, category: 'all', query: '', picked: null });
-  }, [stale, deck, setBrowse]);
-  const setQuery = (q: string) => setBrowse({ deck, query: q });
-  const setCategory = (c: string) => setBrowse({ deck, category: c, query: '' });
+  const { category, query, picked } = stale ? fresh : browse;
+  const update = (p: Partial<typeof browse>) => setBrowse({ ...(stale ? fresh : {}), deck, ...p });
+  const setQuery = (q: string) => update({ query: q });
+  const setCategory = (c: string) => update({ category: c, query: '' });
 
   const search = useMemo(() => (db && deck ? createCardSearch(db.query({ deck, category: 'all' })) : null), [db, deck]);
   const rows = useMemo<Card[]>(() => {
@@ -71,7 +71,7 @@ export function Browse() {
           <div id="cardsList" className="cards-list">
             {rows.map(card => (
               <button key={card.id} type="button" className={'card-item' + (selected?.id === card.id ? ' active' : '')}
-                onClick={() => { scrollOnPick.current = true; setBrowse({ deck, picked: { key: listKey, id: card.id } }); }}>
+                onClick={() => { scrollOnPick.current = true; update({ picked: { key: listKey, id: card.id } }); }}>
                 <strong>{card.so} - {card.ten}</strong>
                 <span>{card.bo || ''}</span>
               </button>

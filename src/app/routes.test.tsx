@@ -61,6 +61,26 @@ describe('app shell', () => {
     expect(document.getElementById('navMenu')!.classList.contains('open')).toBe(true);
   });
 
+  it('the burger opens the drawer only on that forward step, never again on Back', async () => {
+    renderAt('/');
+    await userEvent.click(document.getElementById('landingBurger')!);
+    await userEvent.click(document.getElementById('navClose')!);
+    await userEvent.click(document.getElementById('modeBrowse')!);
+    expect(where()).toBe('/tra-cuu');
+    await back();
+    expect(where()).toBe('/hom-nay');
+    expect(document.getElementById('navMenu')!.classList.contains('open')).toBe(false);
+  });
+
+  it('a page loaded with openNav left in history state (reload) does not open the drawer', () => {
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/hom-nay', state: { openNav: true } }]}>
+        <AppRoutes />
+      </MemoryRouter>,
+    );
+    expect(document.getElementById('navMenu')!.classList.contains('open')).toBe(false);
+  });
+
   it('re-clicking the current screen does not add a history entry', async () => {
     renderAt(['/tra-cuu', '/hom-nay']);
     await userEvent.click(document.getElementById('modeDaily')!);

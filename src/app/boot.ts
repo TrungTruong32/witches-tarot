@@ -20,11 +20,20 @@ const fetchCardEn = async (): Promise<CardEnMap> => {
 
 let cardEnInFlight: Promise<void> | null = null;
 
+/** Gọi load ngay (đồng bộ); lỗi ném đồng bộ cũng thành promise bị từ chối, không làm hỏng setLang. */
+function startLoad(load: () => Promise<CardEnMap>): Promise<CardEnMap> {
+  try {
+    return load();
+  } catch (e) {
+    return Promise.reject(e instanceof Error ? e : new Error(String(e)));
+  }
+}
+
 /** Nạp nghĩa tiếng Anh (chỉ cần khi giao diện là EN); lỗi thì giữ nghĩa tiếng Việt và lần sau thử lại.
  *  Nhiều lần gọi cùng lúc dùng chung một lượt tải (như cờ cardEnLoading của bản cũ). */
 export function ensureCardEn(load: () => Promise<CardEnMap> = fetchCardEn): Promise<void> {
   if (useApp.getState().cardEn) return Promise.resolve();
-  cardEnInFlight ??= load()
+  cardEnInFlight ??= startLoad(load)
     .then(cardEn => useApp.setState({ cardEn }), () => { /* không có bản dịch thì hiện nghĩa gốc */ })
     .finally(() => { cardEnInFlight = null; });
   return cardEnInFlight;

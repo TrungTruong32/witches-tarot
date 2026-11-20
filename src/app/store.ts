@@ -138,7 +138,8 @@ export const useApp = create<AppState>()(set => ({
   setDeck: d => {
     if (!d) return;
     setStr(KEYS.deck, d);
-    set({ deck: d });
+    // Như setDeck của bản cũ: Tra cứu về "Tất cả", xoá ô tìm — kể cả khi đổi lúc đang ở màn khác
+    set({ deck: d, browse: { deck: d, category: 'all', query: '', picked: null } });
   },
   saveAiSettings: s => {
     persistAi(s);

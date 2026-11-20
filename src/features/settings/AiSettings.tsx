@@ -49,8 +49,8 @@ export function AiSettings() {
 
   // Mỗi lần mở: đọc lại cài đặt đã lưu, gợi ý sẵn model khuyến nghị, xoá trạng thái cũ
   useEffect(() => {
+    session.current++; // cả lúc mở lẫn lúc đóng: kết quả về khi hộp đã đóng cũng bị bỏ
     if (!open) return;
-    session.current++;
     const s = toForm(useApp.getState().aiSettings);
     setForm(s);
     setTab(s.provider);

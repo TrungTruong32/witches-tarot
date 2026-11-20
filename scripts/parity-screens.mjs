@@ -1,29 +1,20 @@
 // So ảnh chụp bản cũ (witches_tarot.html) và bản React cho các màn hình của Kế hoạch 2a.
 // Chạy: node scripts/parity-screens.mjs   (cần dữ liệu bài ở gốc repo + Chrome đã cài; mạng để tải sql.js/fonts cho bản cũ)
 // Ghi ảnh vào .superpowers/parity/<tên>-{legacy,react,diff}.png và in % điểm ảnh khác nhau.
-import { createServer } from 'node:http';
-import { mkdirSync, readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
-import { extname, join, resolve } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { chromium } from '@playwright/test';
 import { createServer as createVite } from 'vite';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
-import { ROOT_STATIC } from './root-static.mjs';
+import { serveLegacy } from './root-static.mjs';
 
 const OUT = '.superpowers/parity';
 mkdirSync(OUT, { recursive: true });
 const ROOT = resolve('.');
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.db': 'application/octet-stream', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.webmanifest': 'application/manifest+json' };
 
-// Bản cũ: chỉ phục vụ witches_tarot.html + danh sách trắng dữ liệu, và chỉ trên 127.0.0.1 (không lộ .env/Data/ ra mạng LAN)
-const legacyServer = createServer((req, res) => {
-  let p = decodeURIComponent((req.url || '/').split('?')[0]);
-  if (p === '/') p = '/witches_tarot.html';
-  const f = join(ROOT, p);
-  if ((p !== '/witches_tarot.html' && !ROOT_STATIC.test(p)) || !existsSync(f) || statSync(f).isDirectory()) { res.statusCode = 404; return res.end(); }
-  res.setHeader('Content-Type', MIME[extname(f)] || 'application/octet-stream');
-  res.end(readFileSync(f));
-}).listen(5310, '127.0.0.1');
+// Bản cũ: chỉ witches_tarot.html + danh sách trắng dữ liệu, chỉ trên 127.0.0.1 (không lộ .env/Data/ ra mạng LAN)
+const legacyServer = await serveLegacy(ROOT, 5310);
 const vite = await createVite({ server: { port: 5311, strictPort: true }, logLevel: 'error' });
 await vite.listen();
 

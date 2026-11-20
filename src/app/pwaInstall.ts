@@ -26,11 +26,11 @@ export function initPwaInstall(win: Window): () => void {
 export async function promptInstall(): Promise<void> {
   const e = useApp.getState().installPrompt;
   if (!e) return;
-  void e.prompt();
   try {
+    await e.prompt();
     await e.userChoice;
   } catch {
-    /* người dùng huỷ */
+    /* người dùng huỷ, hoặc trình duyệt không cho hiện lời mời */
   }
   useApp.setState({ installPrompt: null });
 }

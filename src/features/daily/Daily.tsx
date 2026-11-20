@@ -7,15 +7,27 @@ import { dailyKey, pickDailyCard } from '../../core/daily';
 import { useT } from '../../i18n/useT';
 import { dailyNoteKey, getStr, setStr } from '../../services/storage';
 
-/** Khoá ngày hiện tại (Y-M-D), tự chuyển sang ngày mới lúc nửa đêm khi trang vẫn mở. */
+/** Khoá ngày hiện tại (Y-M-D), tự chuyển sang ngày mới lúc nửa đêm khi trang vẫn mở.
+ *  Hẹn giờ có thể chạy sớm (đồng hồ bị chỉnh lùi) hoặc trễ (máy ngủ) → luôn hẹn lại, và kiểm tra lại khi quay về tab. */
 function useDayKey(): string {
   const [day, setDay] = useState(dailyKey);
+  const [round, setRound] = useState(0);
   useEffect(() => {
     const now = new Date();
     const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const id = setTimeout(() => setDay(dailyKey()), next.getTime() - now.getTime() + 50);
-    return () => clearTimeout(id);
-  }, [day]);
+    const id = setTimeout(() => {
+      setDay(dailyKey());
+      setRound(r => r + 1); // vẫn cùng ngày thì setDay không đổi gì → round đổi để hẹn giờ lại
+    }, next.getTime() - now.getTime() + 50);
+    const onVisible = () => {
+      if (document.visibilityState !== 'hidden') setDay(dailyKey());
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearTimeout(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [day, round]);
   return day;
 }
 

@@ -159,3 +159,20 @@ describe('AiSettings async safety', () => {
     expect($('ollamaModel').value).toBe('qwen3');
   });
 });
+
+describe('AiSettings late results while closed', () => {
+  it('a model list arriving while the box is closed is dropped, not shown on the next open', async () => {
+    let resolve!: (r: Response) => void;
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise<Response>(r => { resolve = r; }));
+    render(<AiSettings />);
+    open();
+    await userEvent.click($('provBeeknoee'));
+    fireEvent.change($('beeknoeeKey'), { target: { value: 'bk' } });
+    await userEvent.click($('loadBeeknoeeModels'));
+    await userEvent.keyboard('{Escape}');
+    await act(async () => { resolve(new Response(JSON.stringify({ data: [{ id: 'late-model' }] }))); });
+    await new Promise(r => setTimeout(r, 0));
+    open();
+    expect([...document.querySelectorAll('#beeknoeeModelList option')].map(o => o.getAttribute('value'))).not.toContain('late-model');
+  });
+});

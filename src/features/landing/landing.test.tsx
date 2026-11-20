@@ -45,6 +45,11 @@ describe('layoutFan (legacy layoutLandingFan maths)', () => {
 });
 
 describe('Landing fan drop', () => {
+  const realHeight = window.innerHeight;
+  afterEach(() => {
+    vi.restoreAllMocks();
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: realHeight });
+  });
   it('is recomputed when only the viewport height changes (mobile URL bar, split screen)', () => {
     vi.useFakeTimers();
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
@@ -59,7 +64,6 @@ describe('Landing fan drop', () => {
     act(() => { window.dispatchEvent(new Event('resize')); vi.advanceTimersByTime(200); });
     expect(fanEl().style.getPropertyValue('--drop')).toBe(fanDrop(cw, 760, 700).toFixed(0) + 'px');
     expect(fanDrop(cw, 760, 700)).not.toBe(fanDrop(cw, 844, 700));
-    vi.restoreAllMocks();
   });
 });
 
