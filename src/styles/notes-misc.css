@@ -7,4 +7,6 @@
     .hist-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border3); display: none; }
     .hist-detail.open { display: block; }
     .hist-cards { margin: 0 0 10px; color: #d9d2ea; }
+    /* Lời giải trong Nhật ký (mở "Xem"): cùng độ dài dòng với khung lời giải ở Trải bài AI, không chạy hết bề ngang ~150 ký tự trên máy tính */
+    .hist-detail .ai-output, .hist-detail .chat-q { max-width: 37.5rem; }
     .hist-empty { color: var(--muted); }

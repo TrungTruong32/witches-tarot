@@ -3,7 +3,8 @@
     .reading { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); max-width: 1180px; margin: 0 auto; }
     .result-panel.is-empty { display: none; }
     /* Khung lời giải: một cột đọc ~70 ký tự/dòng, căn giữa panel; đầu khung (tiêu đề + nút công cụ) cùng bề rộng để nút nằm sát mép cột */
-    .result-panel { --measure: 41rem; }
+    /* 41rem cho ~77 ký tự/dòng trên máy tính → 37.5rem ≈ 66–70 ký tự. Giữ đơn vị rem (không dùng ch) để đầu khung, chat, ghi chú cùng mép dù cỡ chữ khác nhau */
+    .result-panel { --measure: 37.5rem; }
     .result-panel .reading-head, .result-panel #aiOutput, .result-panel #chatFollow, .result-panel #readingNoteWrap { max-width: var(--measure); margin-left: auto; margin-right: auto; }
     .step-desc { margin: 0; flex-basis: 100%; order: 3; font-size: .84rem; color: var(--muted); line-height: 1.45; }
     .picker-wrap { position: relative; }
