@@ -74,3 +74,22 @@ describe('Daily', () => {
     expect(document.querySelector('#dailyCard .orient-badge')!.textContent).toBe('Upright');
   });
 });
+
+describe('Daily across midnight', () => {
+  it('rolls over to the new day: date, card and journal note all switch together', () => {
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    vi.setSystemTime(new Date(2026, 0, 5, 23, 59, 58));
+    localStorage.setItem('dailyNote:2026-1-6', 'tomorrow note');
+    const { unmount } = render(<Daily />);
+    fireEvent.change(document.getElementById('dailyNote')!, { target: { value: 'today note' } });
+    act(() => { vi.advanceTimersByTime(3000); });
+    expect(document.getElementById('dailyDate')!.textContent).toBe('(2026-1-6 · Witches Tarot)');
+    const expected = pickDailyCard(db.query({ deck: 'Witches Tarot' }), 'Witches Tarot', new Date(2026, 0, 6))!;
+    expect(document.querySelector('#dailyCard .draw-name')!.textContent).toContain(expected.ten);
+    expect((document.getElementById('dailyNote') as HTMLTextAreaElement).value).toBe('tomorrow note');
+    expect(localStorage.getItem('dailyNote:2026-1-5')).toBe('today note');
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});

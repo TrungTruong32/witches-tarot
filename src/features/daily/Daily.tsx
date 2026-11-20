@@ -1,5 +1,5 @@
 // "Lá bài hôm nay": một lá cố định theo ngày + bộ bài (luôn xuôi) và ô nhật ký tự lưu. Theo bản cũ L1094–1103, L2476–2493.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../../app/store';
 import { CorrChips } from '../../components/CorrChips';
 import { cardText } from '../../core/cards';
@@ -7,14 +7,38 @@ import { dailyKey, pickDailyCard } from '../../core/daily';
 import { useT } from '../../i18n/useT';
 import { dailyNoteKey, getStr, setStr } from '../../services/storage';
 
+/** Khoá ngày hiện tại (Y-M-D), tự chuyển sang ngày mới lúc nửa đêm khi trang vẫn mở. */
+function useDayKey(): string {
+  const [day, setDay] = useState(dailyKey);
+  useEffect(() => {
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const id = setTimeout(() => setDay(dailyKey()), next.getTime() - now.getTime() + 50);
+    return () => clearTimeout(id);
+  }, [day]);
+  return day;
+}
+
+/** Ô nhật ký của một ngày; đổi ngày thì dựng lại (key) để đọc ghi chú của ngày mới. */
+function DailyNote({ day }: { day: string }) {
+  const { t } = useT();
+  const [note, setNote] = useState(() => getStr(dailyNoteKey(day), ''));
+  return (
+    <div className="field" style={{ marginTop: '14px' }}>
+      <label htmlFor="dailyNote">{t('daily.note')}</label>
+      <textarea id="dailyNote" placeholder={t('daily.note.ph')} value={note}
+        onChange={e => { setNote(e.target.value); setStr(dailyNoteKey(day), e.target.value); }} />
+    </div>
+  );
+}
+
 export function Daily() {
   const { t, lang } = useT();
   const db = useApp(s => s.db);
   const deck = useApp(s => s.deck);
   const cardEn = useApp(s => s.cardEn);
-  const day = dailyKey();
-  const card = useMemo(() => (db && deck ? pickDailyCard(db.query({ deck }), deck) : null), [db, deck]);
-  const [note, setNote] = useState(() => getStr(dailyNoteKey(day), ''));
+  const day = useDayKey();
+  const card = useMemo(() => (db && deck ? pickDailyCard(db.query({ deck }), deck, day) : null), [db, deck, day]);
   const ct = card ? cardText(card, lang, cardEn) : null;
 
   return (
@@ -48,11 +72,7 @@ export function Daily() {
           </>
         )}
       </div>
-      <div className="field" style={{ marginTop: '14px' }}>
-        <label htmlFor="dailyNote">{t('daily.note')}</label>
-        <textarea id="dailyNote" placeholder={t('daily.note.ph')} value={note}
-          onChange={e => { setNote(e.target.value); setStr(dailyNoteKey(dailyKey()), e.target.value); }} />
-      </div>
+      <DailyNote key={day} day={day} />
     </div>
   );
 }

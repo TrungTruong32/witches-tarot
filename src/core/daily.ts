@@ -13,7 +13,8 @@ export function hashStr(s: string): number {
 }
 
 /** Lá của ngày cho một bộ (`cards` theo thứ tự id như truy vấn cũ). */
-export function pickDailyCard(cards: Card[], deck: string, d: Date = new Date()): Card | null {
+export function pickDailyCard(cards: Card[], deck: string, d: Date | string = new Date()): Card | null {
   if (!cards.length) return null;
-  return cards[hashStr(dailyKey(d) + '|' + deck) % cards.length] ?? null;
+  const day = typeof d === 'string' ? d : dailyKey(d);
+  return cards[hashStr(day + '|' + deck) % cards.length] ?? null;
 }
