@@ -72,6 +72,14 @@ describe('cacheNames', () => {
   });
 });
 
+describe('esbuild', () => {
+  it('là devDependency ghim đúng bản vite đang dùng', () => {
+    const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
+    const installed = JSON.parse(readFileSync(join(__dirname, '../../node_modules/esbuild/package.json'), 'utf8')).version;
+    expect(pkg.devDependencies.esbuild).toBe(installed);
+  });
+});
+
 describe('buildSw', () => {
   it('ghi dist/sw.js với hai tên cache + danh sách đã nhúng', async () => {
     const r = await buildSw(dist);
