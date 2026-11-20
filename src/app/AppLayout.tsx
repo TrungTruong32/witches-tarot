@@ -6,6 +6,7 @@ import { Logo } from '../components/Logo';
 import { NavMenu } from '../components/NavMenu';
 import { useT } from '../i18n/useT';
 import { requestBoot } from './boot';
+import { ChunkErrorBoundary } from './ChunkErrorBoundary';
 import { AiSettings, SiteSettings } from './lazyScreens';
 import { useApp } from './store';
 
@@ -59,8 +60,8 @@ export function AppLayout() {
         <Outlet />
       </div>
       {/* mỗi hộp một Suspense: hộp này đang tải không làm ẩn hộp kia */}
-      <Suspense fallback={null}>{aiSeen && <AiSettings />}</Suspense>
-      <Suspense fallback={null}>{siteSeen && <SiteSettings />}</Suspense>
+      <ChunkErrorBoundary floating><Suspense fallback={null}>{aiSeen && <AiSettings />}</Suspense></ChunkErrorBoundary>
+      <ChunkErrorBoundary floating><Suspense fallback={null}>{siteSeen && <SiteSettings />}</Suspense></ChunkErrorBoundary>
     </>
   );
 }

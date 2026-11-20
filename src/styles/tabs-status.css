@@ -4,3 +4,7 @@
     .status { text-align: center; padding: 40px 18px; color: var(--muted); }
     .status.error { color: #ffb4c6; }
 
+    /* Báo lỗi tải chunk (ChunkErrorBoundary): cùng kiểu .status error; bản nổi cho hộp thoại nằm ngoài khung trang */
+    .chunk-error p { margin: 0 0 12px; }
+    .chunk-error-float { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 170; width: max-content; max-width: calc(100% - 32px);
+      padding: 14px 18px; background: var(--panel); border: 1px solid rgba(255,225,168,.14); border-radius: 18px; }

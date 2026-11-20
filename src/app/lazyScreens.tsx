@@ -10,6 +10,12 @@ export interface LazyScreen {
   preload(): Promise<void>;
 }
 
+let retryGen = 0;
+/** Cho phép mọi màn hình lười đã tải lỗi tải lại ở lần vẽ sau (gọi trước khi dựng lại phần con bị lỗi). */
+export function retryLazyScreens(): void {
+  retryGen++;
+}
+
 /** Như React.lazy, nhưng khi module đã nạp xong (preload) thì vẽ thẳng component — không treo Suspense thêm một nhịp. */
 export function lazyScreen(load: () => Promise<ComponentType>): LazyScreen {
   let Loaded: ComponentType | null = null;
@@ -19,8 +25,18 @@ export function lazyScreen(load: () => Promise<ComponentType>): LazyScreen {
       c => { Loaded = c; },
       e => { pending = null; throw e; }, // lỗi mạng: lần sau thử lại
     ));
-  const Lazy = lazy(() => preload().then(() => ({ default: Loaded as ComponentType })));
-  const Screen = () => createElement(Loaded ?? Lazy);
+  // React.lazy nhớ luôn lỗi đã gặp → sau retryLazyScreens() (nút "Thử lại" của ChunkErrorBoundary) dựng lazy mới
+  // để tải lại thật. Không tự tạo lại ngay khi lỗi: Suspense sẽ vẽ lại và tải lỗi mãi thành vòng lặp.
+  const makeLazy = () => lazy(() => preload().then(() => ({ default: Loaded as ComponentType })));
+  let Lazy = makeLazy();
+  let gen = retryGen;
+  const Screen = () => {
+    if (!Loaded && gen !== retryGen) {
+      gen = retryGen;
+      Lazy = makeLazy();
+    }
+    return createElement(Loaded ?? Lazy);
+  };
   Screen.preload = preload;
   return Screen;
 }

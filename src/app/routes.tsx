@@ -11,6 +11,7 @@ import { Browse } from '../features/browse/Browse';
 import { Daily } from '../features/daily/Daily';
 import { Landing } from '../features/landing/Landing';
 import { AppLayout } from './AppLayout';
+import { ChunkErrorBoundary } from './ChunkErrorBoundary';
 import { Draw, History, Reading, Sky, YesNo } from './lazyScreens';
 import { MODE_BY_PATH, PATH_BY_MODE, VIEW_ID, type Mode } from './modes';
 import { syncRootAttrs } from './rootAttrs';
@@ -80,7 +81,10 @@ function LandingRoute() {
 export function View({ mode, children }: { mode: Mode; children: ReactNode }) {
   return (
     <div id={VIEW_ID[mode]} className="view-in">
-      <Suspense fallback={null}>{children}</Suspense>
+      {/* chunk tải lỗi → báo lỗi + "Thử lại" thay vì app trắng; View có key theo màn hình nên đổi màn là xoá lỗi */}
+      <ChunkErrorBoundary>
+        <Suspense fallback={null}>{children}</Suspense>
+      </ChunkErrorBoundary>
     </div>
   );
 }
