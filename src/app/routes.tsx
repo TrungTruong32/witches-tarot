@@ -8,6 +8,7 @@ import { setSfxEnabled } from '../engines/audio';
 import { Browse } from '../features/browse/Browse';
 import { ComingSoon } from '../features/ComingSoon';
 import { Daily } from '../features/daily/Daily';
+import { Draw } from '../features/draw/Draw';
 import { Landing } from '../features/landing/Landing';
 import { Reading } from '../features/reading/Reading';
 import { AppLayout } from './AppLayout';
@@ -83,7 +84,7 @@ export function View({ mode, children }: { mode: Mode; children: ReactNode }) {
 const SCREENS: Record<Mode, ReactNode> = {
   daily: <Daily />,
   browse: <Browse />,
-  draw: <ComingSoon />,
+  draw: <Draw />,
   reading: <Reading />,
   history: <ComingSoon />,
   yesno: <ComingSoon />,

@@ -36,3 +36,5 @@ Animation/transition tắt, `Math.random` cố định, nền sao động (#bgSt
 
 - **Tab Bốc bài** (spec §5.8, Kế hoạch 2b): dùng chung khối chọn kiểu trải + bàn trải với Trải bài AI, cuộn tự động,
   đổi tên nút ("🎲 Máy bốc ngẫu nhiên" / "✋ Tự tay chọn lá" kèm dòng gợi ý). So ảnh tab Bốc bài sẽ được đánh dấu "khác có chủ ý".
+  **`/boc-bai` cố ý khác bản cũ (spec §5.8, Kế hoạch 2b Task 5):** thêm `#drawSpreadPicker` + bàn trải `#drawBoard`, rút xong cuộn tới bàn rồi chia lá,
+  `.draw-card` hiện sau khi chia, tên kèm vị trí ("1. Quá khứ — …"). Không so ảnh màn này với bản cũ; chỉ dùng lại lớp CSS cũ, không thêm CSS mới.
