@@ -73,18 +73,20 @@ export function versionError(v) {
  * @param {string} site  gốc bản deploy (SITE hoặc URL preview)
  * @param {string} expectedVersion  app-version của bản build ở máy
  * @param {(url: string, init?: RequestInit) => Promise<Response>} fetchFn
- * @param {{ preview?: boolean }} [opts]
+ * @param {{ preview?: boolean, bypass?: string }} [opts]  bypass = secret "Protection Bypass for Automation" của Vercel (tuỳ chọn)
  * @returns {Promise<{ ok: boolean, msg: string, protected?: boolean, warn?: boolean }[]>}
  */
-export async function checkDeployment(site, expectedVersion, fetchFn, { preview = false } = {}) {
+export async function checkDeployment(site, expectedVersion, fetchFn, { preview = false, bypass = '' } = {}) {
   const out = [];
-  const get = (p, init = {}) => fetchFn(site + p, { cache: 'no-store', ...init });
-  const post = p => fetchFn(site + p, { method: 'POST', headers: { origin: site, 'content-type': 'application/json' }, body: '{}' });
+  const bp = bypass ? { 'x-vercel-protection-bypass': bypass } : {};
+  // redirect: 'manual' — Deployment Protection trả 302 sang trang đăng nhập vercel.com; theo redirect thì nhận 200 của trang đó (giả)
+  const get = (p, init = {}) => fetchFn(site + p, { cache: 'no-store', redirect: 'manual', ...init, headers: { ...bp, ...(init.headers || {}) } });
+  const post = p => fetchFn(site + p, { method: 'POST', redirect: 'manual', headers: { ...bp, origin: site, 'content-type': 'application/json' }, body: '{}' });
   /** Chạy một bước; 401/403 trên preview → protected */
   async function step(label, call, judge) {
     let r;
     try { r = await call(); } catch (e) { out.push({ ok: false, msg: `✗ ${label}: lỗi mạng ${e?.message || e}` }); return; }
-    if (preview && (r.status === 401 || r.status === 403)) {
+    if (preview && isProtected(r)) {
       out.push({ ok: true, protected: true, msg: `• ${label}: protected (${r.status}, Deployment Protection) — không kiểm tra được` });
       return;
     }
@@ -95,7 +97,7 @@ export async function checkDeployment(site, expectedVersion, fetchFn, { preview 
     if (r.status !== 200) return { ok: false, msg: `✗ / trả về ${r.status}` };
     const v = readBuiltVersion(await r.text());
     if (v === 'dev') return { ok: false, msg: "✗ / có app-version = 'dev'" };
-    if (v !== expectedVersion) return { ok: false, msg: `✗ / có app-version "${v}", mong đợi "${expectedVersion}" (có thể cache, thử lại sau 1 phút)` };
+    if (expectedVersion != null && v !== expectedVersion) return { ok: false, msg: `✗ / có app-version "${v}", mong đợi "${expectedVersion}" (có thể cache, thử lại sau 1 phút)` };
     return { ok: true, msg: `✓ / đúng app-version "${v}"` };
   });
   await step('/trai-bai', () => get('/trai-bai'), async r => {
@@ -143,6 +145,15 @@ export function buildEnvArgs(version) {
   return ['--build-env', `"APP_VERSION=${version}"`];
 }
 
+/** Phản hồi bị Deployment Protection chặn: 401/403, hoặc chuyển hướng sang trang đăng nhập/SSO của vercel.com. */
+export function isProtected(r) {
+  if (r.status === 401 || r.status === 403) return true;
+  if (r.status >= 300 && r.status < 400) {
+    try { return /(^|\.)vercel\.com$/.test(new URL(r.headers.get('location') || '', 'https://x.invalid').hostname); } catch { return false; }
+  }
+  return false;
+}
+
 /**
  * Mã thoát của deploy-preview sau checkDeployment: 1 = có bước hỏng; 2 = bị Deployment Protection, CHƯA kiểm chứng được gì;
  * 0 = kiểm tra được và ổn (có thể kèm cảnh báo) → chạy tiếp smoke.
@@ -163,7 +174,7 @@ export async function runDeploy({ prod, argv, branchError }) {
   // Bỏ cảnh báo của Node ("(node:123) …Warning…") để dòng lỗi thật không bị đẩy ra khỏi phần đuôi được in
   const tail = (s, n) => s.split('\n').filter(l => !/^\(node:\d+\) /.test(l)).join('\n').trim().split('\n').slice(-n).join('\n');
   const env = loadEnv();
-  const mask = makeMask([env.VERCEL_TOKEN]);
+  const mask = makeMask([env.VERCEL_TOKEN, env.VERCEL_AUTOMATION_BYPASS_SECRET]);
   const branchErr = branchError(git(['branch', '--show-current']).stdout.trim(), argv);
   if (branchErr) fail(branchErr);
   const dirty = git(['status', '--porcelain']).stdout.trim();
@@ -193,7 +204,7 @@ export async function runDeploy({ prod, argv, branchError }) {
   const url = prod ? SITE : deployed;
   if (!url) fail('✗ Không đọc được URL bản preview từ output của vercel deploy');
 
-  const results = await checkDeployment(url, version, fetch, { preview: !prod });
+  const results = await checkDeployment(url, version, fetch, { preview: !prod, bypass: prod ? '' : env.VERCEL_AUTOMATION_BYPASS_SECRET || '' });
   for (const r of results) console.log(r.msg);
   return { url, version, results };
 }

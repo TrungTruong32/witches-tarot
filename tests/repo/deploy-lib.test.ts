@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { computeAppVersion } from '../../scripts/app-version.mjs';
-import { buildEnvArgs, checkDeployment, makeMask, parseDeployUrl, previewExitCode, readBuiltVersion, SCOPE, SITE, tokenError, VERCEL_CLI, vercelArgs, versionError } from '../../scripts/deploy-lib.mjs';
+import { buildEnvArgs, checkDeployment, isProtected, makeMask, parseDeployUrl, previewExitCode, readBuiltVersion, SCOPE, SITE, tokenError, VERCEL_CLI, vercelArgs, versionError } from '../../scripts/deploy-lib.mjs';
 import { deployBranchError, deployBranchErrorFor } from '../../scripts/deploy-guard.mjs';
 
 const VER = 'abc1234 2026-11-20T10:00Z';
@@ -181,5 +181,27 @@ describe('phiên bản cho build trên máy chủ Vercel', () => {
       expect(computeAppVersion(new Date(), dir, { APP_VERSION: 'abc1234 2026-11-20T10:00Z' })).toBe('abc1234 2026-11-20T10:00Z');
       expect(computeAppVersion(new Date(), dir, { APP_VERSION: 'evil; rm' })).toBe('dev');
     } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('Deployment Protection', () => {
+  const res = (status: number, location?: string) => ({ status, headers: { get: (n: string) => (n === 'location' ? location ?? null : null) } });
+  it('isProtected: 401/403 và chuyển hướng sang trang đăng nhập vercel.com', () => {
+    expect(isProtected(res(401))).toBe(true);
+    expect(isProtected(res(302, 'https://vercel.com/sso-api?url=x'))).toBe(true);
+    expect(isProtected(res(308, '/trai-bai'))).toBe(false);
+    expect(isProtected(res(200))).toBe(false);
+  });
+  it('checkDeployment trên preview bị SSO chặn → mọi bước "protected", không bước nào báo ✓ giả', async () => {
+    const f = async () => new Response(null, { status: 302, headers: { location: 'https://vercel.com/sso-api?url=x' } });
+    const r = await checkDeployment('https://p.vercel.app', null, f as typeof fetch, { preview: true });
+    expect(r.every(x => x.protected)).toBe(true);
+    expect(previewExitCode(r)).toBe(2);
+  });
+  it('gửi secret bypass trong header, không theo redirect', async () => {
+    const seen: RequestInit[] = [];
+    const f = async (_u: string, init?: RequestInit) => { seen.push(init!); return new Response('', { status: 200 }); };
+    await checkDeployment('https://p.vercel.app', null, f as typeof fetch, { preview: true, bypass: 'sec' });
+    expect(seen.every(i => (i.headers as Record<string, string>)['x-vercel-protection-bypass'] === 'sec' && i.redirect === 'manual')).toBe(true);
   });
 });

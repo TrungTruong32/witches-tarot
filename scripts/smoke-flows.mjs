@@ -26,7 +26,15 @@ async function watchCsp(c) {
     });
   });
 }
+// Preview có Deployment Protection: secret "Protection Bypass for Automation" (biến môi trường, không in ra) gắn vào
+// MỌI request cùng nguồn với BASE (không gửi cho Google Fonts…). Đăng ký TRƯỚC các mock để mock (đăng ký sau) được ưu tiên.
+const BYPASS = process.env.VERCEL_PROTECTION_BYPASS || '';
+const ORIGIN = new URL(BASE).origin;
+const bypassRoute = c => (BYPASS
+  ? c.route(u => u.origin === ORIGIN, route => route.continue({ headers: { ...route.request().headers(), 'x-vercel-protection-bypass': BYPASS } }))
+  : Promise.resolve());
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' });
+await bypassRoute(ctx);
 await watchCsp(ctx);
 await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
 await ctx.addInitScript(() => {
@@ -160,6 +168,7 @@ try {
 
   await step('Hiệu ứng đầy đủ (không giảm chuyển động): xào → dừng → máy tự bốc → chia vào bàn trải AI', async () => {
     const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'no-preference', serviceWorkers: 'block' });
+    await bypassRoute(ctx2);
     await watchCsp(ctx2);
     await stubVercel(ctx2);
     await ctx2.addInitScript(() => localStorage.setItem('tarotRitual', '0'));
