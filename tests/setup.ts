@@ -11,3 +11,8 @@ if (typeof window !== 'undefined') {
   Element.prototype.scrollIntoView = function scrollIntoView() {};
   Element.prototype.scrollBy = function scrollBy() {};
 }
+
+// jsdom không có canvas 2D (in lỗi "Not implemented" mỗi lần gọi) → trả null im lặng; test cần ctx thì tự spyOn.
+if (typeof HTMLCanvasElement !== 'undefined') {
+  HTMLCanvasElement.prototype.getContext = (() => null) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+}

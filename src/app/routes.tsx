@@ -1,6 +1,7 @@
 // Bảng route của app. "/" = trang mở đầu; mỗi màn hình khác có đường dẫn riêng (nút Back của trình duyệt dùng được).
 import { useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
+import { Background } from '../components/Background';
 import { IconSprite } from '../components/IconSprite';
 import { Lightbox } from '../components/Lightbox';
 import { RitualOverlay } from '../components/spread/RitualOverlay';
@@ -60,6 +61,8 @@ function Root() {
       <RootAttrs />
       <SfxPrefs />
       <ResetOverlaysOnNavigate />
+      {/* sau RootAttrs: layout effect đọc --star/--spark sau khi data-theme đã áp; DOM vẫn là sprite → aura → canvas như bản cũ */}
+      <Background />
       <Outlet />
       <Lightbox />
       <RitualOverlay />

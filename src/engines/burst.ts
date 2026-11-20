@@ -1,4 +1,4 @@
-// Bung hạt lấp lánh tại tâm một phần tử (bản cũ L2118). Starfield (Plan 2c) gắn window.tarotBurst; chưa có thì bỏ qua.
+// Bung hạt lấp lánh tại tâm một phần tử (bản cũ L2118). <Background/> (engines/starfield) gắn window.tarotBurst; chưa có thì bỏ qua.
 export function burstAt(el: Element | null | undefined, n: number): void {
   const fn = (window as unknown as { tarotBurst?: (x: number, y: number, n: number) => void }).tarotBurst;
   if (!el || !fn) return;
