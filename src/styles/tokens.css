@@ -39,3 +39,13 @@
     /* Nền sáng: link dùng --link (khai báo trong khối light ở trên); nút thường khi rê chuột không đổi sang tím đậm (chữ tối sẽ không đọc được) */
     :root[data-theme="light"] button:not(.btn-primary):not(:disabled):hover { background: color-mix(in srgb, var(--accent) 16%, var(--btn)); }
     :root[data-theme="light"] .no-results { color: var(--muted); }
+    /* Nền sáng — hộp thoại Cài đặt AI / Cài đặt trang: nền trắng gần đặc (trắng .68 trên lớp phủ tối thành xám đục), lớp phủ nhạt hơn,
+       chữ gợi ý (.hint #b9b0cf) gần như trắng trên trắng → --muted; tab provider đang chọn nền tím → chữ trắng như .tab-btn.active */
+    :root[data-theme="light"] .modal-overlay { background: color-mix(in srgb, var(--text) 45%, transparent); }
+    :root[data-theme="light"] .modal { background: color-mix(in srgb, var(--input) 94%, transparent); }
+    :root[data-theme="light"] .modal .hint { color: var(--muted); }
+    :root[data-theme="light"] .provider-toggle button.on { color: #fff; }
+    /* dòng "✓ Đã lưu…" xanh nhạt #9fe6b4 trên nền trắng không đọc được → xanh đậm (chỉ theme sáng) */
+    :root[data-theme="light"] .saved-note { color: #2e7d4f; }
+    /* Nền sáng — danh sách lá trong Nhật ký khi mở "Xem" (#d9d2ea gần như trắng) */
+    :root[data-theme="light"] .hist-cards { color: var(--muted); }
