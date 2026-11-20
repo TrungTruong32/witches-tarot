@@ -124,3 +124,20 @@ describe('Browse', () => {
     expect(links).toContain('/la-bai/witches-tarot/the-fool/');
   });
 });
+
+describe('Browse keeps its place across screens (legacy only hid the view)', () => {
+  it('suit filter, search text and the picked card survive leaving and coming back', async () => {
+    const first = renderBrowse();
+    await userEvent.click(document.querySelectorAll('#categoryTabs .suit-tile')[2]!);
+    fireEvent.change(search(), { target: { value: 'o' } });
+    const items = [...document.querySelectorAll<HTMLElement>('#cardsList .card-item')];
+    expect(items.length).toBeGreaterThan(1);
+    await userEvent.click(items[1]!);
+    const pickedName = document.querySelector('#cardsList .card-item.active strong')!.textContent;
+    first.unmount();
+    renderBrowse();
+    expect(document.querySelectorAll('#categoryTabs .suit-tile')[2]!.getAttribute('aria-pressed')).toBe('true');
+    expect(search().value).toBe('o');
+    expect(document.querySelector('#cardsList .card-item.active strong')!.textContent).toBe(pickedName);
+  });
+});

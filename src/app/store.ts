@@ -24,6 +24,16 @@ export interface Prefs {
 
 export type OverlayId = 'nav' | 'ai' | 'site';
 
+/** Chỗ đang xem ở Tra cứu — giữ khi rời màn hình rồi quay lại (bản cũ chỉ ẩn view). Không lưu xuống storage. */
+export interface BrowseState {
+  /** Bộ bài lúc lưu; đổi bộ bài thì Tra cứu về "Tất cả" và xoá ô tìm như bản cũ. */
+  deck: string | null;
+  category: string;
+  query: string;
+  /** Lá người dùng bấm chọn, gắn với danh sách lúc chọn (`deck|category|query`). */
+  picked: { key: string; id: number } | null;
+}
+
 export interface AppState {
   lang: Lang;
   prefs: Prefs;
@@ -38,6 +48,7 @@ export interface AppState {
   lightbox: { url: string; reversed: boolean } | null;
   /** Lời mời cài PWA đã bắt được (xem pwaInstall.ts); null = không có nút Cài ứng dụng. */
   installPrompt: BeforeInstallPromptEvent | null;
+  browse: BrowseState;
   setLang(l: Lang): void;
   setPref<K extends keyof Prefs>(k: K, v: Prefs[K]): void;
   setDeck(d: string): void;
@@ -46,6 +57,7 @@ export interface AppState {
   closeOverlay(): void;
   openLightbox(url: string, reversed: boolean): void;
   closeLightbox(): void;
+  setBrowse(p: Partial<BrowseState>): void;
 }
 
 const vol = (raw: string, fallback: number) => {
@@ -92,7 +104,7 @@ function persistPref<K extends keyof Prefs>(k: K, v: Prefs[K]): void {
   }
 }
 
-type Data = Omit<AppState, 'setLang' | 'setPref' | 'setDeck' | 'saveAiSettings' | 'openOverlay' | 'closeOverlay' | 'openLightbox' | 'closeLightbox'>;
+type Data = Omit<AppState, 'setLang' | 'setPref' | 'setDeck' | 'saveAiSettings' | 'openOverlay' | 'closeOverlay' | 'openLightbox' | 'closeLightbox' | 'setBrowse'>;
 
 /** Trạng thái ban đầu (đọc lại từ storage mỗi lần gọi — dùng cho khởi động và để reset trong test). */
 export function initialState(): Data {
@@ -109,6 +121,7 @@ export function initialState(): Data {
     overlay: null,
     lightbox: null,
     installPrompt: null,
+    browse: { deck: null, category: 'all', query: '', picked: null },
   };
 }
 
@@ -135,4 +148,5 @@ export const useApp = create<AppState>()(set => ({
   closeOverlay: () => set({ overlay: null }),
   openLightbox: (url, reversed) => set({ lightbox: { url, reversed } }),
   closeLightbox: () => set({ lightbox: null }),
+  setBrowse: p => set(st => ({ browse: { ...st.browse, ...p } })),
 }));
