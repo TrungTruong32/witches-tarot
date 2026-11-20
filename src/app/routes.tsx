@@ -9,6 +9,7 @@ import { Browse } from '../features/browse/Browse';
 import { ComingSoon } from '../features/ComingSoon';
 import { Daily } from '../features/daily/Daily';
 import { Draw } from '../features/draw/Draw';
+import { History } from '../features/history/History';
 import { Landing } from '../features/landing/Landing';
 import { Reading } from '../features/reading/Reading';
 import { AppLayout } from './AppLayout';
@@ -86,7 +87,7 @@ const SCREENS: Record<Mode, ReactNode> = {
   browse: <Browse />,
   draw: <Draw />,
   reading: <Reading />,
-  history: <ComingSoon />,
+  history: <History />,
   yesno: <ComingSoon />,
   sky: <ComingSoon />,
 };
