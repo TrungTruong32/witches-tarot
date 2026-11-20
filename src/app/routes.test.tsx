@@ -205,6 +205,16 @@ describe('app shell', () => {
   });
 });
 
+describe('ritual overlay', () => {
+  it('is mounted once in Root (also on the landing page) and shows while the store has a ritual request', () => {
+    renderAt('/');
+    expect(document.querySelectorAll('#ritualOverlay')).toHaveLength(1);
+    expect(document.getElementById('ritualOverlay')!.style.display).toBe('none');
+    act(() => useApp.getState().requestRitual({ question: 'q', start() {} }));
+    expect(document.getElementById('ritualOverlay')!.style.display).toBe('flex');
+  });
+});
+
 describe('lightbox', () => {
   it('opens from the store with the reversed rotation, closes on click and on Esc', async () => {
     renderAt('/hom-nay');

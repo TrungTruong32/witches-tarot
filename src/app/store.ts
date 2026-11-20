@@ -49,6 +49,8 @@ export interface AppState {
   /** Lời mời cài PWA đã bắt được (xem pwaInstall.ts); null = không có nút Cài ứng dụng. */
   installPrompt: BeforeInstallPromptEvent | null;
   browse: BrowseState;
+  /** Nghi thức trước khi xào đang mở (#ritualOverlay): câu hỏi để trích + việc chạy khi bấm Bắt đầu / Bỏ qua. */
+  ritual: RitualRequest | null;
   setLang(l: Lang): void;
   setPref<K extends keyof Prefs>(k: K, v: Prefs[K]): void;
   setDeck(d: string): void;
@@ -58,6 +60,13 @@ export interface AppState {
   openLightbox(url: string, reversed: boolean): void;
   closeLightbox(): void;
   setBrowse(p: Partial<BrowseState>): void;
+  requestRitual(r: RitualRequest): void;
+  closeRitual(): void;
+}
+
+export interface RitualRequest {
+  question: string;
+  start(): void;
 }
 
 const vol = (raw: string, fallback: number) => {
@@ -104,7 +113,7 @@ function persistPref<K extends keyof Prefs>(k: K, v: Prefs[K]): void {
   }
 }
 
-type Data = Omit<AppState, 'setLang' | 'setPref' | 'setDeck' | 'saveAiSettings' | 'openOverlay' | 'closeOverlay' | 'openLightbox' | 'closeLightbox' | 'setBrowse'>;
+type Data = Omit<AppState, 'setLang' | 'setPref' | 'setDeck' | 'saveAiSettings' | 'openOverlay' | 'closeOverlay' | 'openLightbox' | 'closeLightbox' | 'setBrowse' | 'requestRitual' | 'closeRitual'>;
 
 /** Trạng thái ban đầu (đọc lại từ storage mỗi lần gọi — dùng cho khởi động và để reset trong test). */
 export function initialState(): Data {
@@ -122,6 +131,7 @@ export function initialState(): Data {
     lightbox: null,
     installPrompt: null,
     browse: { deck: null, category: 'all', query: '', picked: null },
+    ritual: null,
   };
 }
 
@@ -150,4 +160,6 @@ export const useApp = create<AppState>()(set => ({
   openLightbox: (url, reversed) => set({ lightbox: { url, reversed } }),
   closeLightbox: () => set({ lightbox: null }),
   setBrowse: p => set(st => ({ browse: { ...st.browse, ...p } })),
+  requestRitual: r => set({ ritual: r }),
+  closeRitual: () => set({ ritual: null }),
 }));

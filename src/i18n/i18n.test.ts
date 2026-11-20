@@ -13,6 +13,9 @@ const legacyHtml = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '.
 const legacyDoc = new DOMParser().parseFromString(legacyHtml, 'text/html');
 const { fns: L, ctx } = loadLegacyWithContext<{ t(k: string, fb: string): string }>(['I18N', 't'], { lang: 'vi' });
 
+// Key mới của §5.8 (nút bốc đổi tên + dòng gợi ý) — bản cũ không có nên không so với t() cũ.
+const NEW_KEYS = new Set<I18nKey>(['draw.auto', 'draw.auto.hint', 'draw.manual', 'draw.manual.hint']);
+
 beforeEach(() => useApp.setState({ lang: 'vi' }));
 
 describe('dictionaries', () => {
@@ -26,7 +29,17 @@ describe('dictionaries', () => {
   it('translate() matches the legacy t(key, fallback) in both languages for every key', () => {
     for (const lang of ['vi', 'en'] as const) {
       ctx.lang = lang;
-      for (const k of Object.keys(viDict) as I18nKey[]) expect(translate(lang, k), `${lang} ${k}`).toBe(L.t(k, viDict[k]));
+      for (const k of Object.keys(viDict) as I18nKey[]) {
+        if (NEW_KEYS.has(k)) continue;
+        expect(translate(lang, k), `${lang} ${k}`).toBe(L.t(k, viDict[k]));
+      }
+    }
+  });
+  it('§5.8 keys (not in legacy) have both a VI and an EN text', () => {
+    for (const k of NEW_KEYS) {
+      expect(viDict[k], k).toBeTruthy();
+      expect(en[k], k).toBeTruthy();
+      expect(translate('en', k)).toBe(en[k]);
     }
   });
 });

@@ -3,6 +3,7 @@ import { useLayoutEffect, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { IconSprite } from '../components/IconSprite';
 import { Lightbox } from '../components/Lightbox';
+import { RitualOverlay } from '../components/spread/RitualOverlay';
 import { Browse } from '../features/browse/Browse';
 import { ComingSoon } from '../features/ComingSoon';
 import { Daily } from '../features/daily/Daily';
@@ -47,6 +48,7 @@ function Root() {
       <ResetOverlaysOnNavigate />
       <Outlet />
       <Lightbox />
+      <RitualOverlay />
     </>
   );
 }
