@@ -1,7 +1,7 @@
 // Nền động toàn màn hình (bản cũ L5718–5892): sao trang trí hoặc bầu trời thật, hạt lấp lánh theo chuột, sao băng, tarotBurst.
 // Khác bản cũ (phán quyết): fx tắt → xoá canvas và DỪNG vòng rAF; tab ẩn cũng dừng; lines của sky.json đọc dạng [abbr, poly].
-import { celestialBodies, julianDay, localSiderealDeg, skyProject, type Body } from '../core/astro';
 import { loadSky, type SkyData } from '../services/skyData';
+import { drawBody, projectSky, SKY_CITIES, type SkyScene } from './skyScene';
 
 export interface StarfieldOpts {
   fx: 'on' | 'off';
@@ -17,43 +17,18 @@ export interface Starfield {
   stop(): void;
 }
 
-// Bầu trời thật theo thời gian thực tại một thành phố VN (bảng riêng của nền, khác bản đồ sao)
-const CITIES: Record<string, [number, number]> = { hanoi: [21.03, 105.85], danang: [16.05, 108.22], hcm: [10.82, 106.63] };
-
-export interface SkyScene {
-  pts: { x: number; y: number; sz: number; a: number; ph: number }[];
-  segs: [number, number, number, number][];
-  labels: { x: number; y: number; t: string }[];
-  bodies: (Body & { x: number; y: number })[];
-  R: number;
-  cx: number;
-  cy: number;
-}
+// Bầu trời thật theo thời gian thực tại một thành phố VN: nền chỉ nhận ba thành phố trong Cài đặt (lạ, kể cả Cần Thơ → Hà Nội như bản cũ)
+const BG_CITIES = ['hanoi', 'danang', 'hcm'];
 
 /** Chiếu sao/đường chòm/tên/thiên thể lên vòm (thiên đỉnh ở tâm, R = 0.62·max(W,H)) — computeSky của bản cũ. */
 export function computeSkyScene(sky: SkyData, city: string, date: Date, W: number, H: number): SkyScene {
-  const [lat, lon] = CITIES[city] || CITIES.hanoi!;
-  const jd = julianDay(date);
-  const lst = localSiderealDeg(jd, lon);
-  const R = 0.62 * Math.max(W, H), cx = W / 2, cy = H / 2;
-  const proj = (ra: number, dec: number) => skyProject(ra, dec, lat, lst, R, cx, cy);
-  const pts: SkyScene['pts'] = [];
-  for (const s of sky.stars) {
-    const p = proj(s[0], s[1]);
-    if (p) { const mag = s[2]; pts.push({ x: p.x, y: p.y, sz: Math.max(0.5, 2.5 - 0.42 * mag), a: Math.max(0.28, 1 - 0.15 * mag), ph: (s[0] + s[1] * 3) % 6.28 }); }
-  }
-  const segs: SkyScene['segs'] = [];
-  for (const [, poly] of sky.lines) {
-    for (let i = 0; i < poly.length - 1; i++) {
-      const a = proj(poly[i]![0], poly[i]![1]), b = proj(poly[i + 1]![0], poly[i + 1]![1]);
-      if (a && b) segs.push([a.x, a.y, b.x, b.y]);
-    }
-  }
-  const labels: SkyScene['labels'] = [];
-  for (const n of sky.names) { const p = proj(n[0], n[1]); if (p) labels.push({ x: p.x, y: p.y, t: n[2] }); }
-  const bodies: SkyScene['bodies'] = [];
-  for (const b of celestialBodies(jd)) { const p = proj(b.ra, b.dec); if (p) bodies.push({ ...b, x: p.x, y: p.y }); }
-  return { pts, segs, labels, bodies, R, cx, cy };
+  const [lat, lon] = SKY_CITIES[BG_CITIES.includes(city) ? city : 'hanoi']!;
+  return projectSky(sky, lat, lon, date, {
+    R: 0.62 * Math.max(W, H), cx: W / 2, cy: H / 2,
+    size: mag => Math.max(0.5, 2.5 - 0.42 * mag),
+    alpha: mag => Math.max(0.28, 1 - 0.15 * mag),
+    consts: false,
+  });
 }
 
 interface Star { x: number; y: number; r: number; tw: number; sp: number }
@@ -126,21 +101,9 @@ export function startStarfield(cv: HTMLCanvasElement, initial: StarfieldOpts): S
     }
     // Mặt Trời, Mặt Trăng, hành tinh
     for (const b of s.bodies) {
-      const r = b.size;
-      c.save(); c.shadowColor = b.color; c.shadowBlur = r * 2.2;
-      if (b.kind === 'moon') {
-        c.fillStyle = b.color; c.beginPath(); c.arc(b.x, b.y, r, 0, 6.28); c.fill();
-        c.shadowBlur = 0; c.save(); c.beginPath(); c.arc(b.x, b.y, r, 0, 6.28); c.clip();
-        const f = Math.max(0, Math.min(1, (b.illum || 50) / 100));
-        c.fillStyle = 'rgba(6,6,18,.9)';
-        c.beginPath(); c.arc(b.x + (2 * r * f) * (b.waxing ? -1 : 1), b.y, r, 0, 6.28); c.fill();   // bóng lệch → lộ đúng pha
-        c.restore();
-      } else {
-        c.fillStyle = b.color; c.beginPath(); c.arc(b.x, b.y, r, 0, 6.28); c.fill();
-      }
-      c.restore();
+      drawBody(c, b, b.x, b.y, b.size, 2.2);
       c.fillStyle = 'rgba(255,240,205,.85)'; c.font = '600 11px system-ui, sans-serif';
-      c.fillText(b.name, b.x + r + 3, b.y + 3);
+      c.fillText(b.name, b.x + b.size + 3, b.y + 3);
     }
     c.restore();
   }

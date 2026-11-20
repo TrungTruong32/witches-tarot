@@ -4,7 +4,8 @@ import type { SkyData } from '../services/skyData';
 const loadSky = vi.fn<() => Promise<SkyData>>();
 vi.mock('../services/skyData', () => ({ loadSky: () => loadSky() }));
 
-import { SKY_CITIES, startSkyMap, type SkyMapOpts } from './skyMap';
+import { startSkyMap, type SkyMapOpts } from './skyMap';
+import { SKY_CITIES } from './skyScene';
 
 // rAF giả: giữ hàng đợi, flush() chạy đúng một lượt khung hình
 let pending = new Map<number, FrameRequestCallback>();

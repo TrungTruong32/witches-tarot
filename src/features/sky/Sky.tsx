@@ -2,7 +2,8 @@
 // Vẽ + cử chỉ ở engines/skyMap.ts; ở đây là nút điều khiển, vị trí/GPS, lớp hiển thị, toàn màn hình và #skyInfo.
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useApp } from '../../app/store';
-import { DEFAULT_SKY_LAYERS, SKY_CITIES, startSkyMap, type SkyLayers, type SkyMap } from '../../engines/skyMap';
+import { DEFAULT_SKY_LAYERS, startSkyMap, type SkyLayers, type SkyMap } from '../../engines/skyMap';
+import { SKY_CITIES } from '../../engines/skyScene';
 import { pickLang, useT } from '../../i18n/useT';
 import { prefersReducedMotion } from '../../lib/media';
 import { readColors } from '../../lib/themeColors';

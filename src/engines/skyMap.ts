@@ -1,18 +1,9 @@
 // Bản đồ sao tương tác của màn "Bầu trời" (bản cũ L5124–5325): kéo để xoay, chụm/lăn để phóng, chạm để chọn sao.
-// Phép chiếu dùng chung core/astro (skyProject) — không có bản sao thứ hai của toán. Không dùng computeSkyScene của nền
-// (bảng thành phố, R, cỡ sao khác và không có chòm/tên).
+// Dựng cảnh + vẽ thiên thể dùng chung engines/skyScene với nền (khác nhau chỉ ở R, cỡ/độ sáng sao, có nhãn chòm).
 // Khác bản cũ (phán quyết): sky.json lỗi → báo chữ lỗi qua onInfo (bản cũ im lặng); đổi nơi khi đang lỗi thì tải lại.
-import { celestialBodies, julianDay, localSiderealDeg, skyProject, type Body } from '../core/astro';
 import type { Lang } from '../core/types';
 import { loadSky, type SkyData } from '../services/skyData';
-
-/** [vĩ độ, kinh độ, tên] — SKY_CITIES của bản cũ (có Cần Thơ, khác bảng của nền). */
-export const SKY_CITIES: Record<string, [number, number, string]> = {
-  hcm: [10.82, 106.63, 'TP.HCM'],
-  hanoi: [21.03, 105.85, 'Hà Nội'],
-  danang: [16.05, 108.22, 'Đà Nẵng'],
-  cantho: [10.03, 105.78, 'Cần Thơ'],
-};
+import { drawBody, projectSky, type SkyScene } from './skyScene';
 
 /** Lớp hiển thị — đúng thứ tự khoá của JSON `tarotSkyLayers` bản cũ. */
 export interface SkyLayers { lines: boolean; grid: boolean; bodies: boolean; starsOnly: boolean }
@@ -43,9 +34,7 @@ export interface SkyMap {
   stop(): void;
 }
 
-interface SStar { x: number; y: number; sz: number; a: number; ph: number; mag: number; name: string | null }
 interface Sel { x: number; y: number; name: string | null; mag: number | null; rr: number; cons: string | null }
-type Seg = [number, number, number, number];
 
 const clampZoom = (z: number) => Math.max(0.6, Math.min(2.6, z));
 
@@ -70,10 +59,9 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
   let starCol = opts.colors.star;
   let data: SkyData | null = null, loading = false, failed = false, stopped = false;
   let rot = 0, zoom = 1, computedAt = 0, raf = 0, t = 0;
-  let stars: SStar[] = [], segs: Seg[] = [], segsC: Record<string, Seg[]> = {}, labels: { x: number; y: number; t: string }[] = [];
-  let bodies: (Body & { x: number; y: number })[] = [], consts: { x: number; y: number; t: string; abbr: string }[] = [];
+  let scene: SkyScene | null = null;
   let cx = 0, cy = 0, R = 0;
-  let nameByKey: Record<string, string> | null = null, sel: Sel | null = null, selConst: string | null = null;
+  let sel: Sel | null = null, selConst: string | null = null;
 
   const info = () => cb.onInfo(failed ? skyFailText(lang) : skyInfoText(lang, locName));
 
@@ -94,22 +82,13 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
   function compute() {
     if (!data) return;
     const d = dpr(), W = cv.width / d, H = cv.height / d;
-    const now = new Date(), jd = julianDay(now), lst = localSiderealDeg(jd, lon);
     R = 0.46 * Math.min(W, H) * zoom; cx = W / 2; cy = H / 2;
-    const proj = (ra: number, dec: number) => skyProject(ra, dec, lat, lst, R, cx, cy);
-    if (!nameByKey) { nameByKey = {}; for (const n of (data.names || [])) nameByKey[n[0] + ',' + n[1]] = n[2]; }
-    stars = [];
-    for (const s of data.stars) { const p = proj(s[0], s[1]); if (p) { const m = s[2]; stars.push({ x: p.x, y: p.y, sz: Math.max(0.6, 2.8 - 0.44 * m), a: Math.max(0.3, 1 - 0.14 * m), ph: (s[0] + s[1] * 3) % 6.28, mag: m, name: nameByKey[s[0] + ',' + s[1]] || null }); } }
-    segs = []; segsC = {};
-    for (const [ab, poly] of data.lines) {
-      for (let i = 0; i < poly.length - 1; i++) {
-        const a = proj(poly[i]![0], poly[i]![1]), b = proj(poly[i + 1]![0], poly[i + 1]![1]);
-        if (a && b) { const seg: Seg = [a.x, a.y, b.x, b.y]; segs.push(seg); (segsC[ab] || (segsC[ab] = [])).push(seg); }
-      }
-    }
-    labels = []; for (const n of data.names) { const p = proj(n[0], n[1]); if (p) labels.push({ x: p.x, y: p.y, t: n[2] }); }
-    bodies = []; for (const b of celestialBodies(jd)) { const p = proj(b.ra, b.dec); if (p) bodies.push({ ...b, x: p.x, y: p.y }); }
-    consts = []; if (data.consts) for (const c of data.consts) { const p = proj(c[0], c[1]); if (p) consts.push({ x: p.x, y: p.y, t: c[2], abbr: c[3] }); }
+    scene = projectSky(data, lat, lon, new Date(), {
+      R, cx, cy,
+      size: m => Math.max(0.6, 2.8 - 0.44 * m),
+      alpha: m => Math.max(0.3, 1 - 0.14 * m),
+      consts: true,
+    });
     computedAt = Date.now();
   }
 
@@ -117,11 +96,12 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
     const ctx = cv.getContext('2d'); if (!ctx) return;
     const d = dpr(); ctx.setTransform(d, 0, 0, d, 0, 0);
     const W = cv.width / d, H = cv.height / d; ctx.clearRect(0, 0, W, H);
-    if (!data) {
+    if (!data || !scene) {
       ctx.fillStyle = 'rgba(233,227,255,.6)'; ctx.font = '14px system-ui'; ctx.textAlign = 'center';
       ctx.fillText(failed ? skyFailText(lang) : (lang === 'en' ? 'Loading sky…' : 'Đang tải bầu trời…'), W / 2, H / 2);
       ctx.textAlign = 'left'; return;
     }
+    const { pts: stars, segs, segsByConst, labels, bodies, consts } = scene;
     const th = rot;
     const rotP = (x: number, y: number) => ({ x: cx + (x - cx) * Math.cos(th) - (y - cy) * Math.sin(th), y: cy + (x - cx) * Math.sin(th) + (y - cy) * Math.cos(th) });
     const so = layers.starsOnly;
@@ -138,7 +118,7 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
       for (const s of segs) { ctx.moveTo(s[0], s[1]); ctx.lineTo(s[2], s[3]); } ctx.stroke();
     }
     // Nổi bật cả hình chòm sao đang chọn (kể cả khi lớp "Chòm sao" đang tắt)
-    const cs = selConst ? segsC[selConst] : undefined;
+    const cs = selConst ? segsByConst[selConst] : undefined;
     if (cs && !so) {
       ctx.save(); ctx.strokeStyle = 'rgba(255,225,168,.98)'; ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.shadowColor = 'rgba(255,220,150,.85)'; ctx.shadowBlur = 9;
       ctx.beginPath(); for (const s of cs) { ctx.moveTo(s[0], s[1]); ctx.lineTo(s[2], s[3]); } ctx.stroke();
@@ -150,14 +130,7 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
     for (const p of stars) { ctx.globalAlpha = Math.min(1, p.a * (0.7 + 0.3 * Math.sin(t * 2 + p.ph))); ctx.beginPath(); ctx.arc(p.x, p.y, p.sz, 0, 6.28); ctx.fill(); }
     ctx.globalAlpha = 1;
     if (layers.bodies && !so) for (const b of bodies) {
-      const r = b.size * 1.25; ctx.save(); ctx.shadowColor = b.color; ctx.shadowBlur = r * 2.4;
-      if (b.kind === 'moon') {
-        ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, 6.28); ctx.fill(); ctx.shadowBlur = 0;
-        ctx.save(); ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, 6.28); ctx.clip();
-        const f = Math.max(0, Math.min(1, (b.illum || 50) / 100));
-        ctx.fillStyle = 'rgba(6,6,18,.9)'; ctx.beginPath(); ctx.arc(b.x + (2 * r * f) * (b.waxing ? -1 : 1), b.y, r, 0, 6.28); ctx.fill(); ctx.restore();
-      } else { ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, 6.28); ctx.fill(); }
-      ctx.restore();
+      drawBody(ctx, b, b.x, b.y, b.size * 1.25, 2.4);
     }
     ctx.restore();
     // Nhãn dựng thẳng (vị trí đã xoay) để dễ đọc
@@ -207,7 +180,8 @@ export function startSkyMap(cv: HTMLCanvasElement, opts: SkyMapOpts, cb: SkyMapC
 
   // Chạm chọn sao/thiên thể gần nhất; hiện tên + độ sáng + chòm sao
   function pick(clientX: number, clientY: number) {
-    if (!data) return;
+    if (!scene) return;
+    const { pts: stars, bodies, consts } = scene;
     const r = cv.getBoundingClientRect();
     const sx = clientX - r.left, sy = clientY - r.top;
     const th = rot, dpx = sx - cx, dpy = sy - cy;   // đưa về toạ độ chưa xoay
