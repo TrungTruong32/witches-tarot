@@ -1,6 +1,9 @@
     /* Thiên văn */
     .sky-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
     .sky-controls select, .sky-controls button { padding: 10px 14px; border-radius: 10px; }
+    /* line-height "normal" + ký hiệu ♄ ▦ ⛶ ✦ lấy từ font dự phòng → mỗi nút cao một kiểu (39–50px) trên cùng hàng.
+       Cố định line-height + chiều cao tối thiểu 44px (vùng chạm) → cả hàng bằng nhau */
+    .sky-controls select, .sky-controls button { line-height: 1.2; min-height: 44px; }
     .sky-stage { margin-top: 10px; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,225,168,.18);
       background: radial-gradient(circle at 50% 45%, #1a1530, #0d0a18 75%); box-shadow: inset 0 0 60px rgba(0,0,0,.5); }
     #skyCanvas { display: block; width: 100%; height: min(72vh, 620px); touch-action: none; cursor: grab; }
