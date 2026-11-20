@@ -1,39 +1,35 @@
 // Màn hình Yes/No (port từ witches_tarot.html L1106–1123, drawYesno L2178–2248, chips L4111).
+// Logic một lượt ở yesnoDraw.ts; `deps` (rng, gọi AI) tiêm qua prop cho test, mặc định là thật.
 import { useEffect, useRef, useState } from 'react';
+import { aiCtx } from '../../app/aiCtx';
 import { useApp } from '../../app/store';
-import { cardText } from '../../core/cards';
-import { renderMarkdown } from '../../core/markdown';
+import { IconLabel } from '../../components/Icon';
+import { QuestionChips, type QuestionChip } from '../../components/QuestionChips';
 import type { Card, Lang } from '../../core/types';
-import { firstSentence, localVerdict, parseVerdict, ynClass, yesNoMessages, type YnClass } from '../../core/yesno';
 import { ensureAudio, sfx } from '../../engines/audio';
 import { burstAt, haptic } from '../../engines/burst';
-import { IconLabel } from '../../components/Icon';
-import { useT } from '../../i18n/useT';
+import { pickLang, useT } from '../../i18n/useT';
 import { providerChain, providerReady } from '../../services/ai/chat';
-import { yesNoDeps } from './yesnoDeps';
+import { aiAnswer, drawYesNoCard, localAnswer, type YesNoAnswer, type YesNoDeps } from './yesnoDraw';
 
-const CHIPS = [
+const CHIPS: readonly QuestionChip[] = [
   { k: 'ynchip.opp', ico: 'wand', q: 'Tôi có nên nhận cơ hội / lời đề nghị này không?', qen: 'Should I take this opportunity / offer?' },
   { k: 'ynchip.rel', ico: 'rings', q: 'Mối quan hệ này có tương lai không?', qen: 'Does this relationship have a future?' },
   { k: 'ynchip.time', ico: 'hourglass', q: 'Bây giờ có phải thời điểm tốt để bắt đầu không?', qen: 'Is now a good time to begin?' },
   { k: 'ynchip.gut', ico: 'moon', q: 'Tôi có nên tin vào linh cảm của mình lúc này không?', qen: 'Should I trust my intuition right now?' },
   { k: 'ynchip.them', ico: 'eye', q: 'Người ấy có đang nghĩ về tôi không?', qen: 'Are they thinking about me?' },
-] as const;
+];
 
-
-type Why = { kind: 'loading' } | { kind: 'text'; text: string } | { kind: 'html'; html: string };
-interface Result {
+interface Result extends YesNoAnswer {
   /** Số thứ tự lượt rút: mỗi lượt bung hạt đúng một lần. */
   n: number;
   card: Card;
   rev: boolean;
+  /** Ngôn ngữ lúc rút (tên chiều lá, "Đang hỏi AI…"). */
   lang: Lang;
-  verdict: string;
-  cls: YnClass;
-  why: Why;
 }
 
-export function YesNo() {
+export function YesNo({ deps = {} }: { deps?: YesNoDeps }) {
   const { t, lang } = useT();
   const db = useApp(s => s.db);
   const deck = useApp(s => s.deck);
@@ -53,48 +49,25 @@ export function YesNo() {
 
   async function draw() {
     if (!db) return;
-    const rows = db.query({ deck });
-    if (!rows.length) return;
-    const c = rows[Math.floor(yesNoDeps.rng() * rows.length)] as Card;
-    const rev = yesNoDeps.rng() < 0.5;
+    const drawn = drawYesNoCard(db.query({ deck }), deps.rng);
+    if (!drawn) return;
+    const { card, rev } = drawn;
     const app = useApp.getState();
-    const en = lang === 'en';
-    const ct = cardText(c, lang, app.cardEn);
-    const meaning = rev ? (ct.nghia_nguoc || ct.tu_khoa || '') : (ct.y_nghia_xuoi || ct.tu_khoa || '');
-    const local = localVerdict(c, rev, lang);
     haptic(12); ensureAudio(); sfx.tick();
 
     abortRef.current?.abort();
     const my = ++drawId.current; // cũng là số thứ tự lượt rút
+    const base = { n: my, card, rev, lang };
     const settings = app.aiSettings;
-    const useAI = providerChain(settings).some(p => providerReady(p, settings));
-    if (!useAI) {
-      setRes({ n: my, card: c, rev, lang, verdict: local.verdict, cls: local.cls, why: { kind: 'text', text: firstSentence(meaning) } });
+    if (!providerChain(settings).some(p => providerReady(p, settings))) {
+      setRes({ ...base, ...localAnswer(card, rev, lang, app.cardEn) });
       return;
     }
-    setRes({ n: my, card: c, rev, lang, verdict: '…', cls: 'maybe', why: { kind: 'loading' } });
+    setRes({ ...base, verdict: '…', cls: 'maybe', why: { kind: 'loading' } });
     const ac = new AbortController();
     abortRef.current = ac;
-    let raw = '';
-    try {
-      await yesNoDeps.chat(yesNoMessages(q.trim(), c, rev, lang, app.cardEn), { onToken: tk => { raw += tk; } },
-        { settings, lang, deck: c.deck || app.deck || '', signal: ac.signal });
-    } catch (e) {
-      if (my !== drawId.current || ac.signal.aborted) return;
-      const msg = e instanceof Error ? e.message : String(e);
-      setRes({
-        n: my, card: c, rev, lang, verdict: local.verdict, cls: local.cls,
-        why: { kind: 'text', text: (en ? '⚠️ AI error (' : '⚠️ AI lỗi (') + msg + (en ? '). Using orientation-based verdict: ' : '). Tạm dùng phán quyết theo chiều lá: ') + firstSentence(meaning) },
-      });
-      return;
-    }
-    if (my !== drawId.current) return;
-    const p = parseVerdict(raw);
-    const verdict = p.verdict || local.verdict;
-    setRes({
-      n: my, card: c, rev, lang, verdict, cls: ynClass(verdict),
-      why: p.body ? { kind: 'html', html: renderMarkdown(p.body) } : { kind: 'text', text: firstSentence(meaning) },
-    });
+    const answer = await aiAnswer(q.trim(), card, rev, app.cardEn, aiCtx(card.deck || '', ac.signal), deps);
+    if (answer && my === drawId.current) setRes({ ...base, ...answer });
   }
 
   const r = res;
@@ -107,12 +80,7 @@ export function YesNo() {
           onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void draw(); }} />
         <button className="btn-primary" id="yesnoBtn" data-ico="card" onClick={() => void draw()}><IconLabel icon="card" text={t('yesno.btn')} /></button>
       </div>
-      <div className="q-chips" id="ynChips">
-        {CHIPS.map(c => (
-          <button key={c.k} type="button" className="qchip" data-ico={c.ico} data-q={c.q} data-qen={c.qen}
-            onClick={() => { setQ(lang === 'en' ? c.qen : c.q); qRef.current?.focus(); }}><IconLabel icon={c.ico} text={t(c.k)} /></button>
-        ))}
-      </div>
+      <QuestionChips id="ynChips" chips={CHIPS} onPick={question => { setQ(question); qRef.current?.focus(); }} />
       <div id="yesnoResult" className={'yesno-result' + (r ? ' show' : '')}>
         {r && (
           <>
@@ -122,10 +90,10 @@ export function YesNo() {
                 onClick={() => useApp.getState().openLightbox(r.card.image_url as string, r.rev)} />
             )}
             <div className="yn-card-name">
-              {r.card.ten}{r.rev ? (r.lang === 'en' ? ' (reversed)' : ' (ngược)') : (r.lang === 'en' ? ' (upright)' : ' (xuôi)')}
+              {r.card.ten}{r.rev ? pickLang(r.lang, { vi: ' (ngược)', en: ' (reversed)' }) : pickLang(r.lang, { vi: ' (xuôi)', en: ' (upright)' })}
             </div>
             <div className="yn-why" id="ynWhy">
-              {r.why.kind === 'loading' && <><span className="spinner"></span> {r.lang === 'en' ? 'Asking AI…' : 'Đang hỏi AI…'}</>}
+              {r.why.kind === 'loading' && <><span className="spinner"></span> {pickLang(r.lang, { vi: 'Đang hỏi AI…', en: 'Asking AI…' })}</>}
               {r.why.kind === 'text' && r.why.text}
               {r.why.kind === 'html' && <span dangerouslySetInnerHTML={{ __html: r.why.html }} />}
             </div>

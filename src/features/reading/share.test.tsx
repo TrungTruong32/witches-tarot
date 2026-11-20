@@ -15,7 +15,7 @@ import { openCardsDb, type CardsDb } from '../../services/cardsDb';
 import { initialInterpret, useInterpret } from './interpret';
 import { Reading } from './Reading';
 import { initialReading, useReading } from './readingStore';
-import { __resetSharedHash, exportReadingImage, loadReading } from './share';
+import { exportReadingImage, loadReading, resetForTests as resetShareForTests } from './share';
 
 const W = 'Witches Tarot';
 const R = 'Rider-Waite';
@@ -57,7 +57,7 @@ beforeEach(() => {
   useApp.setState({ ...initialState(), db, decks: db.decks(), deck: W, dbStatus: 'ready' });
   useReading.setState(initialReading());
   useInterpret.setState(initialInterpret());
-  __resetSharedHash();
+  resetShareForTests();
   (Element.prototype as unknown as { animate: unknown }).animate = vi.fn(() => ({ cancel: vi.fn(), playbackRate: 1 }));
   window.scrollTo = vi.fn() as unknown as typeof window.scrollTo;
   legacyLoaded.length = 0;

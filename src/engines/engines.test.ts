@@ -3,7 +3,7 @@ import { loadLegacy } from '../../tests/legacy/harness';
 import { deckCards } from '../../tests/fixtures/deck';
 import { toSpreadCard } from '../core/draw';
 import type { SpreadCard } from '../core/types';
-import { __resetAudioForTests, ensureAudio, getAudioCtx, setSfxEnabled, sfx } from './audio';
+import { ensureAudio, getAudioCtx, resetForTests as resetAudioForTests, setSfxEnabled, sfx } from './audio';
 import { burstAt, haptic } from './burst';
 import { dealBoard } from './deal';
 import { startShuffle } from './shuffle';
@@ -18,7 +18,7 @@ const animStub = () => {
 };
 
 beforeEach(() => {
-  __resetAudioForTests();
+  resetAudioForTests();
   animCancels.length = 0;
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
   (Element.prototype as unknown as { animate: unknown }).animate = vi.fn(animStub);

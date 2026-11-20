@@ -46,8 +46,8 @@ export function sharedToLoadable(s: SharedReading): LoadableReading {
 // Mỗi giá trị hash chỉ nạp một lần trong cả phiên (bản cũ chỉ đọc hash lúc khởi động): rời màn rồi quay lại
 // (hoặc StrictMode gắn lại) không nạp đè lên trải bài người dùng đã đổi.
 const handledHashes = new Set<string>();
-/** Chỉ dùng trong test. */
-export function __resetSharedHash(): void {
+/** Chỉ cho test: quên các hash đã nạp (mỗi test mở lại cùng một link như phiên mới). */
+export function resetForTests(): void {
   handledHashes.clear();
 }
 

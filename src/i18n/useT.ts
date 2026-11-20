@@ -10,6 +10,11 @@ export function translate(lang: Lang, k: I18nKey): string {
   return (lang === 'en' && en[k]) || vi[k];
 }
 
+/** Chọn chữ theo ngôn ngữ — bản thuần của pick() cho code ngoài React (hàm nhận `lang`). */
+export function pickLang(lang: Lang, p: { vi: string; en: string }): string {
+  return lang === 'en' ? p.en : p.vi;
+}
+
 export interface Translator {
   lang: Lang;
   t: (k: I18nKey) => string;
@@ -19,7 +24,7 @@ export interface Translator {
 export function useT(): Translator {
   const lang = useApp(s => s.lang);
   const t = useCallback((k: I18nKey) => translate(lang, k), [lang]);
-  const pick = useCallback((p: { vi: string; en: string }) => (lang === 'en' ? p.en : p.vi), [lang]);
+  const pick = useCallback((p: { vi: string; en: string }) => pickLang(lang, p), [lang]);
   return useMemo(() => ({ lang, t, pick }), [lang, t, pick]);
 }
 

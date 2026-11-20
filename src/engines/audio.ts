@@ -12,8 +12,8 @@ let fxSources: AudioScheduledSourceNode[] = []; // nguồn đã hẹn giờ củ
 
 type AudioWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
-/** Chỉ cho test: đưa trạng thái module về ban đầu. */
-export function __resetAudioForTests(): void {
+/** Chỉ cho test: đưa trạng thái module về ban đầu (AudioContext, bộ đệm, âm lượng). */
+export function resetForTests(): void {
   audioCtx = noiseBuf = noiseLong = reverbNode = reverbCtx = null;
   fxSources = [];
   soundOn = true;

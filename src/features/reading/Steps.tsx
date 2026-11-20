@@ -7,6 +7,7 @@ import type { ReadingEntryState } from '../../app/modes';
 import { useApp } from '../../app/store';
 import { DeckSelect } from '../../components/DeckSelect';
 import { IconLabel } from '../../components/Icon';
+import { QuestionChips, type QuestionChip } from '../../components/QuestionChips';
 import { boardOr, dealAfterPick } from '../../components/spread/dealAfterPick';
 import { DrawStage, type DrawStageHandle } from '../../components/spread/DrawStage';
 import { SpreadBoard, type SpreadBoardHandle } from '../../components/spread/SpreadBoard';
@@ -24,13 +25,13 @@ import { runInterpret, useInterpret } from './interpret';
 import { useReading } from './readingStore';
 import { SpreadList } from './SpreadList';
 
-const CHIPS = [
+const CHIPS: readonly QuestionChip[] = [
   { k: 'chip.love', ico: 'heart', q: 'Tình cảm của tôi thời gian tới sẽ thế nào?', qen: 'How will my love life unfold in the near future?' },
   { k: 'chip.work', ico: 'wand', q: 'Công việc / sự nghiệp của tôi hiện tại ra sao?', qen: 'How is my work / career doing right now?' },
   { k: 'chip.money', ico: 'coin', q: 'Tài chính của tôi thời gian tới thế nào?', qen: 'How will my finances be in the near future?' },
   { k: 'chip.focus', ico: 'compass', q: 'Tôi nên tập trung vào điều gì lúc này?', qen: 'What should I focus on right now?' },
   { k: 'chip.msg', ico: 'eye', q: 'Thông điệp mà vũ trụ muốn nhắn nhủ tôi hôm nay là gì?', qen: 'What message does the universe have for me today?' },
-] as const;
+];
 
 /** updateSpreadHint: tự do → một dòng; có vị trí → câu "dùng khi" + từng vị trí kèm mô tả. */
 function SpreadHint({ spreadKey, positions }: { spreadKey: string; positions: string[] | null }) {
@@ -279,21 +280,7 @@ export function Steps() {
         <div className="step-head"><span className="step-no">1</span><h3>{t('reading.s1')}</h3><p className="step-desc">{t('reading.d1')}</p></div>
         <label htmlFor="questionInput" className="sr-only">{t('reading.question')}</label>
         <textarea id="questionInput" rows={3} placeholder={t('reading.q.ph')} value={question} ref={questionRef} onChange={e => setQuestion(e.target.value)}></textarea>
-        <div className="q-chips">
-          {CHIPS.map(c => (
-            <button
-              key={c.k}
-              type="button"
-              className="qchip"
-              data-ico={c.ico}
-              data-q={en ? c.qen : c.q}
-              data-qen={c.qen}
-              onClick={() => { setQuestion(en ? c.qen : c.q); questionRef.current?.focus(); }}
-            >
-              <IconLabel icon={c.ico} text={t(c.k)} />
-            </button>
-          ))}
-        </div>
+        <QuestionChips chips={CHIPS} onPick={q => { setQuestion(q); questionRef.current?.focus(); }} />
       </section>
       <section className="step">
         <div className="step-head"><span className="step-no">2</span><h3>{t('reading.s2')}</h3><p className="step-desc">{t('reading.d2')}</p></div>
