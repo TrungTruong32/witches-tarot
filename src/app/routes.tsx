@@ -5,6 +5,7 @@ import { IconSprite } from '../components/IconSprite';
 import { Lightbox } from '../components/Lightbox';
 import { Browse } from '../features/browse/Browse';
 import { ComingSoon } from '../features/ComingSoon';
+import { Daily } from '../features/daily/Daily';
 import { Landing } from '../features/landing/Landing';
 import { AppLayout } from './AppLayout';
 import { MODE_BY_PATH, PATH_BY_MODE, VIEW_ID, type Mode } from './modes';
@@ -51,7 +52,7 @@ export function View({ mode, children }: { mode: Mode; children: ReactNode }) {
 }
 
 const SCREENS: Record<Mode, ReactNode> = {
-  daily: <ComingSoon />,
+  daily: <Daily />,
   browse: <Browse />,
   draw: <ComingSoon />,
   reading: <ComingSoon />,
