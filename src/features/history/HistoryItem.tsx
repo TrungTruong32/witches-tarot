@@ -27,12 +27,15 @@ export function HistoryItem({ item: it, onLoad, onDelete, onNote }: Props) {
     return () => { alive.current = false; };
   }, []);
   const time = new Date(it.ts).toLocaleString(en ? 'en-US' : 'vi-VN');
-  const cards = it.cards || [];
-  const summary = cards.map(c => c.ten + (c.orientation === 'nguoc' ? (en ? ' (reversed)' : ' (ngược)') : '')).join(', ');
-  const sdef = it.spread ? spreadByKey(it.spread) : undefined;
+  const cards = (Array.isArray(it.cards) ? it.cards : []).filter(c => c && typeof c === 'object');
+  const S = (v: unknown) => (v == null ? '' : String(v));
+  const summary = cards.map(c => S(c.ten) + (c.orientation === 'nguoc' ? (en ? ' (reversed)' : ' (ngược)') : '')).join(', ');
+  const sdef = typeof it.spread === 'string' && it.spread ? spreadByKey(it.spread) : undefined;
   const spreadName = sdef && it.spread !== 'free' ? ' · ' + (en ? sdef.en : sdef.vi) : '';
-  const provider = /^free/.test(it.provider || '') ? (en ? 'Free AI' : 'AI miễn phí') : (it.provider || '');
-  const pos = it.positions || [];
+  const provider = /^free/.test(S(it.provider)) ? (en ? 'Free AI' : 'AI miễn phí') : S(it.provider);
+  const pos = Array.isArray(it.positions) ? it.positions : [];
+  const facts = Array.isArray(it.facts) ? it.facts : [];
+  const followups = Array.isArray(it.followups) ? it.followups.filter(f => f && typeof f === 'object') : [];
 
   const onChange = (value: string) => {
     setNote(value);
@@ -54,10 +57,10 @@ export function HistoryItem({ item: it, onLoad, onDelete, onNote }: Props) {
     <div className="hist-item">
       <div className="row">
         <div className="info">
-          <div className="time">{time + ' · ' + (it.deck || '') + spreadName + ' · ' + provider}</div>
-          <div className="q"><strong>{it.question || (en ? '(no question)' : '(không có câu hỏi)')}</strong></div>
+          <div className="time">{time + ' · ' + S(it.deck) + spreadName + ' · ' + provider}</div>
+          <div className="q"><strong>{S(it.question) || (en ? '(no question)' : '(không có câu hỏi)')}</strong></div>
           <div className="time">{summary}</div>
-          {it.note ? <div className="hist-note-preview">{'📝 ' + (it.note.length > 140 ? it.note.slice(0, 140) + '…' : it.note)}</div> : null}
+          {typeof it.note === 'string' && it.note ? <div className="hist-note-preview">{'📝 ' + (it.note.length > 140 ? it.note.slice(0, 140) + '…' : it.note)}</div> : null}
         </div>
         <div className="hist-actions">
           <button onClick={() => setOpen(o => !o)}>{open ? (en ? 'Hide' : 'Ẩn') : (en ? 'View' : 'Xem')}</button>
@@ -70,20 +73,20 @@ export function HistoryItem({ item: it, onLoad, onDelete, onNote }: Props) {
           {cards.map((c, i) => (
             <span key={i}>
               {i > 0 ? <br /> : null}
-              {'• '}{pos[i] ? <><em>{pos[i]}</em>{': '}</> : null}{c.ten + ' — ' + orientLabel(c, lang)}
+              {'• '}{pos[i] ? <><em>{S(pos[i])}</em>{': '}</> : null}{S(c.ten) + ' — ' + orientLabel(c, lang)}
             </span>
           ))}
         </div>
-        {it.facts && it.facts.length ? (
+        {facts.length ? (
           <div className="facts-box facts-static">
-            <div className="facts-body">{it.facts.map((l, i) => <div key={i}>{'• ' + l}</div>)}</div>
+            <div className="facts-body">{facts.map((l, i) => <div key={i}>{'• ' + S(l)}</div>)}</div>
           </div>
         ) : null}
-        <div className="ai-output" dangerouslySetInnerHTML={{ __html: renderMarkdown(it.text || '') }} />
-        {(it.followups || []).map((f, i) => (
+        <div className="ai-output" dangerouslySetInnerHTML={{ __html: renderMarkdown(S(it.text)) }} />
+        {followups.map((f, i) => (
           <div key={i}>
-            <div className="chat-q" style={{ marginTop: '10px' }}>{'☌︎ ' + f.q}</div>
-            <div className="chat-a ai-output" dangerouslySetInnerHTML={{ __html: renderMarkdown(f.a || '') }} />
+            <div className="chat-q" style={{ marginTop: '10px' }}>{'☌︎ ' + S(f.q)}</div>
+            <div className="chat-a ai-output" dangerouslySetInnerHTML={{ __html: renderMarkdown(S(f.a)) }} />
           </div>
         ))}
         <div className="field hist-note">

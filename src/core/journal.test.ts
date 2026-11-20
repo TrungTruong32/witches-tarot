@@ -80,6 +80,18 @@ describe('mergeImport', () => {
     expect(r.notes).toEqual({ '2026-01-02': 'mới' });
     expect(mergeImport([], [rec(5, 'z')]).add).toHaveLength(1);
   });
+  it('normalises hostile fields and skips unusable records; valid ones stay deep-equal', () => {
+    const good = rec(10, 'ok');
+    const bad = { ts: 11, cards: [card('A', 'xuoi'), null] };
+    const odd = { ts: 12, question: 5, cards: [{ ten: 'T', bo: 7, orientation: 'weird' }], facts: 'str', followups: [{ q: { x: 1 }, a: 3 }, null, 'z'], positions: 'p', text: null };
+    const r = mergeImport([], { readings: [good, bad, odd], dailyNotes: { '2026-1-5': 'ok', 'evil': 'x', '2026-1-6': { a: 1 } } });
+    expect(r.skipped).toBe(1);
+    const goodRest: Partial<Reading> = { ...good };
+    delete goodRest.id;
+    expect(r.add[0]).toEqual({ ...goodRest, imported: true });
+    expect(r.add[1]).toMatchObject({ question: '5', cards: [{ ten: 'T', bo: '7', orientation: 'xuoi' }], facts: [], followups: [{ q: '', a: '3' }], positions: null, text: '' });
+    expect(r.notes).toEqual({ '2026-1-5': 'ok' });
+  });
   it('rejects non-arrays without throwing', () => {
     for (const bad of [null, undefined, 5, 'x', {}, { readings: 'no' }]) {
       expect(mergeImport([], bad)).toMatchObject({ add: [], notes: {}, skipped: 0, valid: false });

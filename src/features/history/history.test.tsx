@@ -135,6 +135,19 @@ describe('History actions', () => {
     expect(useReading.getState().current).toBeNull();
   });
 
+  it('a pending note save cannot resurrect a deleted record', async () => {
+    await seed();
+    renderHist();
+    await waitFor(() => expect(document.querySelectorAll('.hist-item')).toHaveLength(3));
+    fireEvent.change(document.querySelector('.hist-item .hist-note textarea')!, { target: { value: 'sẽ mất' } });
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    fireEvent.click(document.querySelector('.hist-item .rm')!);
+    await waitFor(() => expect(questions()).toEqual(['Ở giữa', 'Cũ nhất']));
+    await new Promise(r => setTimeout(r, 700));
+    expect(await allReadings()).toHaveLength(2);
+    expect((await allReadings()).some(r => r.question === 'Mới nhất')).toBe(false);
+  });
+
   it('clear all asks confirm, empties the store and resets current', async () => {
     await seed();
     renderHist();
@@ -182,6 +195,26 @@ describe('History import / export', () => {
     expect(localStorage.getItem('dailyNote:2026-1-5')).toBe('hôm nay');
     expect(cloudSaveReading).not.toHaveBeenCalled();
     await waitFor(() => expect(document.querySelectorAll('.hist-item')).toHaveLength(2));
+  });
+
+  it('imports hostile data without crashing and counts skipped/normalised', async () => {
+    renderHist();
+    const alertFn = vi.fn();
+    vi.stubGlobal('alert', alertFn);
+    const data = { readings: [
+      { ts: 1, cards: [card('A'), null], question: 'null card' },
+      { ts: 2, question: 'Lạ', text: 'x', cards: [card('Lạ')], facts: 'chuỗi', followups: [{ q: { o: 1 }, a: 'trả lời' }] },
+    ] };
+    fireEvent.change($('journalImportFile'), { target: { files: [file(data)] } });
+    await waitFor(() => expect(alertFn).toHaveBeenCalledWith('Đã nhập 1 lượt trải bài, bỏ qua 1 bản trùng/lỗi, 0 ghi chú hằng ngày.'));
+    await waitFor(() => expect(document.querySelectorAll('.hist-item')).toHaveLength(1));
+    expect(document.querySelector('.chat-a')!.textContent).toBe('trả lời');
+  });
+
+  it('renders already-stored malformed records without crashing', async () => {
+    await addReading({ ts: 9, cards: [null, { ten: 4 }], facts: 'x', followups: [null, { q: {}, a: [] }], positions: 'p', text: 7, question: 3 } as unknown as Reading);
+    renderHist();
+    await waitFor(() => expect(document.querySelectorAll('.hist-item')).toHaveLength(1));
   });
 
   it('alerts on invalid JSON and on a non-journal file', async () => {

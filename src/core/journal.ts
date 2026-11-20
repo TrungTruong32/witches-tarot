@@ -8,7 +8,7 @@ export function orientLabel(c: Pick<SpreadCard, 'orientation'>, lang: Lang): str
 
 /** Chuỗi để lọc/tìm trong lịch sử. */
 export function readingHaystack(r: Reading): string {
-  return [r.question, r.deck, r.note, r.text, (r.cards || []).map(c => c.ten).join(' ')].join(' \n ').toLowerCase();
+  return [r.question, r.deck, r.note, r.text, (Array.isArray(r.cards) ? r.cards : []).map(c => c?.ten).join(' ')].join(' \n ').toLowerCase();
 }
 
 export function exportStamp(d: Date = new Date()): string {
@@ -56,6 +56,34 @@ export function journalMarkdown(readings: Reading[], dailyNotes: Record<string, 
   return L.join('\n');
 }
 
+
+const str = (v: unknown): string => (typeof v === 'string' ? v : typeof v === 'number' || typeof v === 'boolean' ? String(v) : '');
+const CARD_STR = ['deck', 'ten', 'bo', 'so', 'y_nghia_xuoi', 'nghia_nguoc', 'tu_khoa', 'image_url'] as const;
+
+/** Làm sạch một bản ghi nhập từ file (dữ liệu không tin cậy). null = không dùng được. Bản ghi hợp lệ giữ nguyên (deep-equal). */
+function normalizeReading(raw: unknown): Reading | null {
+  const r = raw as Record<string, unknown> | null;
+  if (!r || typeof r !== 'object' || typeof r.ts !== 'number' || !Number.isFinite(r.ts) || !Array.isArray(r.cards)) return null;
+  const cards: Record<string, unknown>[] = [];
+  for (const c of r.cards as unknown[]) {
+    if (!c || typeof c !== 'object' || typeof (c as { ten?: unknown }).ten !== 'string') return null;
+    const o: Record<string, unknown> = { ...(c as Record<string, unknown>) };
+    for (const k of CARD_STR) if (k in o && typeof o[k] !== 'string') o[k] = str(o[k]);
+    o.orientation = o.orientation === 'nguoc' ? 'nguoc' : 'xuoi';
+    cards.push(o);
+  }
+  const out: Record<string, unknown> = { ...r, cards };
+  for (const k of ['question', 'deck', 'provider', 'text', 'note', 'spread']) if (k in out && typeof out[k] !== 'string') out[k] = str(out[k]);
+  if ('followups' in out) {
+    out.followups = Array.isArray(out.followups)
+      ? (out.followups as unknown[]).filter(f => f && typeof f === 'object').map(f => ({ ...(f as object), q: str((f as { q?: unknown }).q), a: str((f as { a?: unknown }).a) }))
+      : [];
+  }
+  if ('facts' in out) out.facts = Array.isArray(out.facts) ? (out.facts as unknown[]).filter(x => typeof x === 'string') : [];
+  if ('positions' in out) out.positions = Array.isArray(out.positions) ? (out.positions as unknown[]).map(str) : null;
+  return out as unknown as Reading;
+}
+
 /**
  * Gộp file sao lưu vào dữ liệu hiện có: bỏ bản trùng (cùng ts + câu hỏi) hoặc lỗi, đánh dấu imported, bỏ id.
  * `valid` = false khi file không phải mảng / không có `readings` (nơi gọi báo lỗi như bản cũ).
@@ -74,8 +102,8 @@ export function mergeImport(existing: Reading[], file: unknown, existingNotes: R
   const add: Reading[] = [];
   let skipped = 0;
   for (const raw of incoming) {
-    const r = raw as Reading | null;
-    if (!r || typeof r.ts !== 'number' || !Array.isArray(r.cards)) { skipped++; continue; }
+    const r = normalizeReading(raw);
+    if (!r) { skipped++; continue; }
     const key = r.ts + '|' + (r.question || '');
     if (seen.has(key)) { skipped++; continue; }
     const copy: Reading = { ...r, imported: true };
@@ -87,7 +115,9 @@ export function mergeImport(existing: Reading[], file: unknown, existingNotes: R
   const dn = !Array.isArray(file) && obj ? obj.dailyNotes : null;
   if (dn && typeof dn === 'object') {
     for (const d in dn as Record<string, unknown>) {
-      const v = String((dn as Record<string, unknown>)[d] || '');
+      const v0 = (dn as Record<string, unknown>)[d];
+      if (typeof v0 !== 'string' || !/^\d{4}-\d{1,2}-\d{1,2}$/.test(d)) continue;
+      const v = v0;
       if (v.trim() && !existingNotes[d]) notes[d] = v;
     }
   }

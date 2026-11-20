@@ -7,6 +7,7 @@ import type { Reading } from '../../core/types';
 import { useT } from '../../i18n/useT';
 import { addReading, allReadings, clearReadings, deleteReading } from '../../services/idb';
 import { allDailyNotes, dailyNoteKey, getStr, setStr } from '../../services/storage';
+import { cancelAllNoteSaves, cancelNoteSave } from '../reading/interpret';
 import { useReading } from '../reading/readingStore';
 import { loadReading } from '../reading/share';
 import { HistoryItem } from './HistoryItem';
@@ -47,10 +48,12 @@ export function History() {
   const fileRef = useRef<HTMLInputElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const alive = useRef(true);
+  const seq = useRef(0);
 
   const refresh = useCallback(async () => {
+    const my = ++seq.current;
     const list = await safeAll();
-    if (alive.current) setItems(list.sort((a, b) => b.ts - a.ts));
+    if (alive.current && my === seq.current) setItems(list.sort((a, b) => b.ts - a.ts));
   }, []);
 
   useEffect(() => {
@@ -75,13 +78,15 @@ export function History() {
 
   const onDelete = async (it: Reading) => {
     if (!confirm(en ? 'Delete this reading?' : 'Xóa lượt trải bài này?')) return;
-    await deleteReading(it.id as number);
+    cancelNoteSave(it.id); // ghi chú đang chờ lưu không được ghi lại bản ghi đã xoá
+    try { await deleteReading(it.id as number); } catch (e) { alert((en ? 'Delete failed: ' : 'Xóa thất bại: ') + (e instanceof Error ? e.message : String(e))); await refresh(); return; }
     forgetCurrent(it.id);
     await refresh();
   };
   const onClear = async () => {
     if (!confirm(en ? 'Delete ALL reading history in this browser?' : 'Xóa toàn bộ lịch sử trải bài trên trình duyệt này?')) return;
-    await clearReadings();
+    cancelAllNoteSaves();
+    try { await clearReadings(); } catch (e) { alert((en ? 'Delete failed: ' : 'Xóa thất bại: ') + (e instanceof Error ? e.message : String(e))); await refresh(); return; }
     forgetCurrent();
     await refresh();
   };
@@ -97,18 +102,22 @@ export function History() {
   const importFile = async (file: File) => {
     let data: unknown;
     try { data = JSON.parse(await readText(file)); } catch { alert(en ? 'Not a valid JSON file.' : 'File không phải JSON hợp lệ.'); return; }
-    const m = mergeImport(await safeAll(), data, allDailyNotes());
-    if (!m.valid) { alert(en ? 'This file is not a Witches Tarot journal backup.' : 'File này không phải bản sao lưu nhật ký Witches Tarot.'); return; }
-    let added = 0;
-    let skipped = m.skipped;
-    for (const r of m.add) {
-      try { await addReading(r); added++; } catch { skipped++; }
+    try {
+      const m = mergeImport(await safeAll(), data, allDailyNotes());
+      if (!m.valid) { alert(en ? 'This file is not a Witches Tarot journal backup.' : 'File này không phải bản sao lưu nhật ký Witches Tarot.'); return; }
+      let added = 0;
+      let skipped = m.skipped;
+      for (const r of m.add) {
+        try { await addReading(r); added++; } catch { skipped++; }
+      }
+      let notes = 0;
+      for (const d in m.notes) {
+        if (!getStr(dailyNoteKey(d), '')) { setStr(dailyNoteKey(d), m.notes[d] as string); notes++; }
+      }
+      alert(importSummary(added, notes, skipped, lang));
+    } catch (e) {
+      alert((en ? 'Import failed: ' : 'Nhập thất bại: ') + (e instanceof Error ? e.message : String(e)));
     }
-    let notes = 0;
-    for (const d in m.notes) {
-      if (!getStr(dailyNoteKey(d), '')) { setStr(dailyNoteKey(d), m.notes[d] as string); notes++; }
-    }
-    alert(importSummary(added, notes, skipped, lang));
     await refresh();
   };
 

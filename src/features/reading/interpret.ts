@@ -409,6 +409,20 @@ export function saveNoteDebounced(reading: Reading, value: string, update: typeo
   return next;
 }
 
+/** Huỷ lần lưu ghi chú đang chờ của một bản ghi (đã xoá thì không được ghi lại). */
+export function cancelNoteSave(id: number | undefined): void {
+  if (id == null) return;
+  clearTimeout(noteTimers.get(id));
+  noteTimers.delete(id);
+  latest.delete(id);
+}
+
+export function cancelAllNoteSaves(): void {
+  noteTimers.forEach(t => clearTimeout(t));
+  noteTimers.clear();
+  latest.clear();
+}
+
 export function noteStatusText(s: NoteStatus, lang: Lang): string {
   const en = lang === 'en';
   if (s.kind === 'saving') return en ? 'Saving…' : 'Đang lưu…';
