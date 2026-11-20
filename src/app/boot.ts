@@ -8,7 +8,6 @@ import { useApp } from './store';
 
 export interface BootDeps {
   loadDb?: () => Promise<CardsDb>;
-  loadCardEn?: () => Promise<CardEnMap>;
   /** Mặc định: đồng bộ lịch sử cũ sau 2,5 giây (như bản cũ), để không tranh băng thông lúc mở app. */
   scheduleBackfill?: () => void;
 }
@@ -19,14 +18,25 @@ const fetchCardEn = async (): Promise<CardEnMap> => {
   return (await r.json()) as CardEnMap;
 };
 
-/** Nạp nghĩa tiếng Anh (chỉ cần khi giao diện là EN); lỗi thì giữ nghĩa tiếng Việt. */
-export async function ensureCardEn(load: () => Promise<CardEnMap> = fetchCardEn): Promise<void> {
-  if (useApp.getState().cardEn) return;
-  try {
-    useApp.setState({ cardEn: await load() });
-  } catch {
-    /* không có bản dịch thì hiện nghĩa gốc */
-  }
+let cardEnInFlight: Promise<void> | null = null;
+
+/** Nạp nghĩa tiếng Anh (chỉ cần khi giao diện là EN); lỗi thì giữ nghĩa tiếng Việt và lần sau thử lại.
+ *  Nhiều lần gọi cùng lúc dùng chung một lượt tải (như cờ cardEnLoading của bản cũ). */
+export function ensureCardEn(load: () => Promise<CardEnMap> = fetchCardEn): Promise<void> {
+  if (useApp.getState().cardEn) return Promise.resolve();
+  cardEnInFlight ??= load()
+    .then(cardEn => useApp.setState({ cardEn }), () => { /* không có bản dịch thì hiện nghĩa gốc */ })
+    .finally(() => { cardEnInFlight = null; });
+  return cardEnInFlight;
+}
+
+/** Nạp nghĩa EN ngay khi app mở bằng tiếng Anh (song song với tarot.db) và mỗi lần ngôn ngữ chuyển sang EN,
+ *  dù nút nào đổi ngôn ngữ. Gọi một lần khi khởi động; trả về hàm huỷ theo dõi. */
+export function watchLangForCardEn(load: () => Promise<CardEnMap> = fetchCardEn): () => void {
+  if (useApp.getState().lang === 'en') void ensureCardEn(load);
+  return useApp.subscribe((s, prev) => {
+    if (s.lang === 'en' && prev.lang !== 'en') void ensureCardEn(load);
+  });
 }
 
 export async function boot(deps: BootDeps = {}): Promise<void> {
@@ -45,5 +55,4 @@ export async function boot(deps: BootDeps = {}): Promise<void> {
   const deck = decks.includes(saved) ? saved : decks[0] ?? null;
   useApp.setState({ db, decks, deck, dbStatus: 'ready', dbError: '' });
   scheduleBackfill();
-  if (useApp.getState().lang === 'en') await ensureCardEn(deps.loadCardEn);
 }

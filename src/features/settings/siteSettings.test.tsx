@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { initialState, useApp } from '../../app/store';
 import { CARD_BACK_KEYS, cardBackCss } from '../../core/cardBacks';
+import { watchLangForCardEn } from '../../app/boot';
 import { SiteSettings } from './SiteSettings';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -78,6 +79,7 @@ describe('SiteSettings', () => {
 
   it('card-back names and labels follow the language; switching to English loads card_en.json', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ 1: { kw: 'k', up: 'u', rev: 'r' } })));
+    const off = watchLangForCardEn(); // như main.tsx
     render(<SiteSettings />);
     openSite();
     expect(document.querySelector('#cardBackGrid .cb-opt[data-k="zodiac"] .cb-name')!.textContent).toBe('Vòng hoàng đạo');
@@ -87,6 +89,7 @@ describe('SiteSettings', () => {
     expect($('siteOverlay').querySelector('h2')!.textContent).toContain('Site Settings');
     await vi.waitFor(() => expect(useApp.getState().cardEn).not.toBeNull());
     expect(fetchSpy).toHaveBeenCalledWith('/card_en.json');
+    off();
     fetchSpy.mockRestore();
   });
 

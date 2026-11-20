@@ -2,7 +2,6 @@
 // Markup theo bản cũ L1268–1337; hành vi theo initSiteSettings / initCardBack / initTheme (L2389–2471, L5677–5710).
 // Ảnh thu nhỏ mặt lưng: gán thẳng thuộc tính style như bản cũ (nền nhiều lớp url(...) + màu).
 // Mọi thay đổi ghi thẳng vào store (→ localStorage key cũ); nhạc nền/âm thanh/sao nền đọc store (Kế hoạch 2c).
-import { ensureCardEn } from '../../app/boot';
 import { useApp } from '../../app/store';
 import { ModalOverlay } from '../../components/Overlay';
 import { CARD_BACK_KEYS, CARD_BACK_NAMES, cardBackCss } from '../../core/cardBacks';
@@ -36,11 +35,8 @@ export function SiteSettings() {
 
       <div className="field">
         <label htmlFor="langSel">{t('site.lang')}</label>
-        <select id="langSel" value={lang} onChange={e => {
-          const l = e.target.value === 'en' ? 'en' : 'vi';
-          setLang(l);
-          if (l === 'en') void ensureCardEn();
-        }}>
+        {/* Nghĩa lá tiếng Anh tự nạp khi ngôn ngữ chuyển sang EN (watchLangForCardEn trong boot.ts) */}
+        <select id="langSel" value={lang} onChange={e => setLang(e.target.value === 'en' ? 'en' : 'vi')}>
           <option value="vi">Tiếng Việt</option>
           <option value="en">English</option>
         </select>
