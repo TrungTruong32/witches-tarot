@@ -3,6 +3,7 @@ import { useEffect, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { IconSprite } from '../components/IconSprite';
 import { Lightbox } from '../components/Lightbox';
+import { Browse } from '../features/browse/Browse';
 import { ComingSoon } from '../features/ComingSoon';
 import { Landing } from '../features/landing/Landing';
 import { AppLayout } from './AppLayout';
@@ -51,7 +52,7 @@ export function View({ mode, children }: { mode: Mode; children: ReactNode }) {
 
 const SCREENS: Record<Mode, ReactNode> = {
   daily: <ComingSoon />,
-  browse: <ComingSoon />,
+  browse: <Browse />,
   draw: <ComingSoon />,
   reading: <ComingSoon />,
   history: <ComingSoon />,

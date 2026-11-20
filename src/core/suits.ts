@@ -27,3 +27,12 @@ export function seoCardPath(card: Pick<Card, 'deck' | 'ten'>): string {
   const slug = String(card.ten || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   return d && slug ? `/la-bai/${d}/${slug}/` : '';
 }
+
+/** Nhãn dự phòng cho chất bài không có trong SUIT_META. */
+export const BO_LABELS: Record<string, string> = {
+  'Bo An Chinh': 'Ẩn Chính',
+  'Bo Wands': 'Wands - Lửa',
+  'Bo Cups': 'Cups - Nước',
+  'Bo Swords': 'Swords - Khí',
+  'Bo Pentacles': 'Pentacles - Đất',
+};

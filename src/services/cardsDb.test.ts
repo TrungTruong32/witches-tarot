@@ -40,6 +40,19 @@ describe('card DB queries match legacy queryCards', () => {
   }
 });
 
+describe('suit tiles queries match legacy', () => {
+  it('suits / count / topCards', () => {
+    const { fns } = loadLegacyWithContext<{
+      boCounts(d: string): unknown[]; deckTotal(d: string): number; suitTopCards(d: string, bo: string): unknown[];
+    }>(['boCounts', 'deckTotal', 'suitTopCards'], { db: legacyDb });
+    for (const d of ['Witches Tarot', 'Rider-Waite']) {
+      expect(mine.suits(d)).toEqual(JSON.parse(JSON.stringify(fns.boCounts(d))));
+      expect(mine.count(d)).toBe(fns.deckTotal(d));
+      for (const bo of ['Bo An Chinh', 'Bo Cups', 'Bo Nope']) expect(mine.topCards(d, bo)).toEqual(JSON.parse(JSON.stringify(fns.suitTopCards(d, bo))));
+    }
+  });
+});
+
 describe('other lookups', () => {
   it('decks: Witches Tarot first, then alphabetical', () => {
     expect(mine.decks()).toEqual(['Witches Tarot', 'Rider-Waite']);

@@ -22,6 +22,12 @@ export interface CardsDb {
   /** Tên lá Ẩn Chính số n của một bộ (vd. Rider-Waite 15 = "The Devil"); null nếu không có. */
   majorNameIn(deck: string, n: number): string | null;
   byId(id: number): Card | null;
+  /** Số lá theo từng chất của một bộ, theo thứ tự xuất hiện (cho các ô chất bài ở Tra cứu). */
+  suits(deck: string): { bo: string; c: number }[];
+  /** Tổng số lá của một bộ. */
+  count(deck: string): number;
+  /** Ba lá đầu của một chất (ảnh minh hoạ ô chất bài). */
+  topCards(deck: string, bo: string): { ten: string; image_url: string | null }[];
 }
 
 function rows(db: Database, sql: string, params: SqlValue[] = []): Record<string, SqlValue>[] {
@@ -71,6 +77,18 @@ export function openCardsDb(bytes: Uint8Array, SQL: SqlJsStatic): CardsDb {
     },
     byId(id) {
       return (rows(db, 'SELECT * FROM cards WHERE id = ?', [id])[0] as unknown as Card | undefined) ?? null;
+    },
+    suits(deck) {
+      return rows(db, 'SELECT bo, COUNT(*) c FROM cards WHERE deck = ? GROUP BY bo ORDER BY MIN(id)', [deck]) as unknown as { bo: string; c: number }[];
+    },
+    count(deck) {
+      return Number(rows(db, 'SELECT COUNT(*) c FROM cards WHERE deck = ?', [deck])[0]?.c ?? 0);
+    },
+    topCards(deck, bo) {
+      return rows(db, 'SELECT ten, image_url FROM cards WHERE deck = ? AND bo = ? ORDER BY id LIMIT 3', [deck, bo]) as unknown as {
+        ten: string;
+        image_url: string | null;
+      }[];
     },
   };
 }
