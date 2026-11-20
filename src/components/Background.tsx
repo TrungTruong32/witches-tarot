@@ -7,7 +7,7 @@ import { prefersReducedMotion } from '../lib/media';
 type BurstWin = { tarotBurst?: (x: number, y: number, n: number) => void };
 
 /** Màu sao/hạt theo theme hiện tại (CSS --star/--spark); trống thì dùng màu mặc định của bản cũ. */
-function readColors(): StarfieldOpts['colors'] {
+export function readColors(): StarfieldOpts['colors'] {
   const cs = getComputedStyle(document.documentElement);
   return { star: cs.getPropertyValue('--star').trim() || '#e9e3ff', spark: cs.getPropertyValue('--spark').trim() || '#ffe1a8' };
 }

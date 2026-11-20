@@ -7,10 +7,10 @@ import { Lightbox } from '../components/Lightbox';
 import { RitualOverlay } from '../components/spread/RitualOverlay';
 import { setSfxEnabled } from '../engines/audio';
 import { Browse } from '../features/browse/Browse';
-import { ComingSoon } from '../features/ComingSoon';
 import { Daily } from '../features/daily/Daily';
 import { Draw } from '../features/draw/Draw';
 import { History } from '../features/history/History';
+import { Sky } from '../features/sky/Sky';
 import { YesNo } from '../features/yesno/YesNo';
 import { Landing } from '../features/landing/Landing';
 import { Reading } from '../features/reading/Reading';
@@ -93,7 +93,7 @@ const SCREENS: Record<Mode, ReactNode> = {
   reading: <Reading />,
   history: <History />,
   yesno: <YesNo />,
-  sky: <ComingSoon />,
+  sky: <Sky />,
 };
 
 export function AppRoutes() {
