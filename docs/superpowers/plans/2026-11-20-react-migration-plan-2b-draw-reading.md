@@ -510,3 +510,52 @@ Port markup L1106–1123 and `drawYesno` L2178:
 - [ ] **Step 4:** Update the ledger and memory. Commit: `docs: Plan 2b parity report`.
 
 **Order:** 1 → 2 → 3 → 4 → 6 → 5 → 7 → 8 → 9 → 10 → 11. Task 6 comes before Task 5 because Draw hands off into the reading store.
+
+---
+
+## Amendments: facts checked in legacy before execution
+
+These override the task text above wherever they conflict.
+
+- **Share-link sanitising** (Global Constraints, Task 1 `sanitizeShared`, Task 8). Port legacy `loadSharedFromHash` (L4072–4106) exactly. Do not invent new rules.
+  - **Format:** cards are arrays `[id,o,ten,img,bo,so,deck]` or old objects `{i,o,t,u,b,s,k}`.
+  - **DB cards:** a DB hit (`id>=0`, and the deck matches if the link gives one) uses the DB card.
+  - **Non-DB cards:**
+    - `ten` cut to 80, `bo` to 40, `so` to 10;
+    - `image_url` kept only if it matches `/^https:\/\/(www\.)?tarot\.vn\//`;
+    - `deck` only if it is in `SPREAD_SAFE_DECKS = {'Witches Tarot','Rider-Waite'}`.
+  - **Spread type:** `data.p` is a key string, or a legacy label array matched against `defsFor(k,'vi')` (`join('|')`); unknown → `'free'`.
+  - **Text:** `q` clipped to 500, `a` to 14000; at most 15 cards; `deck` only if safe.
+  - **Shared note:** prepend the legacy `.shared-note` (VI/EN text, L4100–4103) above the answer.
+  - **Hash and errors:**
+    - The hash is **not** cleared (legacy keeps it).
+    - A bad or undecodable link silently does nothing (legacy returns false), so there is no error message. Task 8's "bad link" test asserts an empty reading and no throw.
+  - **When the link loads:**
+    - Wait until `dbStatus === 'ready'` and load each `location.hash` value at most once (StrictMode-safe ref).
+    - Add a test where the link is opened while the DB is still loading, then the DB becomes ready.
+  - **Review Focus 2 stays.** A hostile `ten` renders as text. A `javascript:` or non-tarot.vn `image_url` is dropped.
+- **Saved provider label** (Task 7). Legacy `saveReading` (L4243) stores `'free · ' + (freeAiInfo.model || '?')` for the free AI, and `providerLabel(p)` for the others. The Task 7 assertion becomes `provider === 'free · m'`. `#aiQuota` still uses `remaining`.
+  - `cloudSaveReading(reading)` is called unconditionally after the save; the service checks the pref itself. Keep that call site, and check that the existing `readingsApi` does the pref check (Plan 1). If it doesn't, the caller checks.
+- **Landing `autoPick`** (Task 6). Legacy `go()` (L2073–2083):
+  - sets the question;
+  - after 380 ms, scrolls `#spreadPickBtn` into view (`block:'center'`, auto under reduced motion);
+  - and **clicks it**, which starts a manual pick, ritual included.
+  - The test asserts that the pick draw starts (the ritual overlay shows when the ritual is on).
+- **Yes/No** (Task 10, L2136–2230):
+  - **Orientation:** `rev = Math.random() < 0.5` for any card. There is no reversed-meaning rule.
+  - **Meaning:** `rev ? (nghia_nguoc || tu_khoa) : (y_nghia_xuoi || tu_khoa)`, both via `cardText` (EN aware).
+  - **When AI is used:** `aiConfigured() = providerChain(s).some(p => providerReady(p, s))`. The free AI is on by default, so most users go through AI. The "no AI" test must set `freeAi:false` with no keys.
+  - **`localVerdict`** returns `{verdict, cls}`: `YN_MAYBE` → CÓ THỂ/MAYBE (`maybe`); reversed → KHÔNG/NO; otherwise CÓ/YES.
+  - **Verdict parsing:** the regex at L2238, with body = raw minus the matched line. `parseVerdict` returns `{verdict:'', body}` when nothing matches, and the caller then uses `localVerdict`.
+  - **AI error text:** "⚠️ AI lỗi (msg). Tạm dùng phán quyết theo chiều lá: …".
+  - **Spinner text:** "Đang hỏi AI…" / "Asking AI…".
+  - **Ruling:** legacy put `escapeHtml(firstSentence)` into `textContent` (double escape). React renders the plain text instead. This is a deliberate fix.
+- **§5.8 hint lines.** `src/styles/` stays byte-parity with legacy, so there is no new CSS:
+  - each draw button and its hint go in a wrapper `<span style="display:inline-flex;flex-direction:column;gap:2px">`;
+  - the hint uses the existing `.hint` class.
+  - Ruling: inline style is used for the hint until the UI redesign phase.
+- **Ids on Draw** (Task 5). Legacy CSS is class-based for the picker and board (`.spread-picker`, `.spread-board`, `.board-*`, `.sp-*`). Only `#spreadList` is id-styled. The Draw tab uses ids `drawSpreadPicker` and `drawBoard` and does not reuse `#spreadList` (its results are `.draw-results`).
+- **Ritual question.** Legacy quotes `#questionInput` even from Draw, so both DrawStage instances pass `useReading.question`.
+- **Leaving a route mid-draw** cancels that draw (legacy kept running in a hidden view). Ruling: no orphan timers.
+- **Task 11 parity.** On Reading, the step-3 buttons (renamed, with hints) are an expected diff, recorded next to the Draw exception.
+- **Commits** are always gated: `npm run check > .superpowers/check.log 2>&1 && git commit …`.
