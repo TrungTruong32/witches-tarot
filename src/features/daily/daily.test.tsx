@@ -29,8 +29,11 @@ const norm = (html: string) => {
   const d = document.createElement('div');
   d.innerHTML = html;
   d.querySelectorAll<HTMLElement>('[style]').forEach(el => el.setAttribute('style', el.style.cssText));
+  // Thuộc tính tải ảnh là tối ưu hiệu năng (bản cũ dùng loading=lazy), không thuộc phần hiển thị cần khớp
+  for (const a of IMG_PERF_ATTRS) d.querySelectorAll('img').forEach(el => el.removeAttribute(a));
   return d.innerHTML;
 };
+const IMG_PERF_ATTRS = ['loading', 'width', 'height', 'decoding', 'fetchpriority'];
 
 describe('Daily', () => {
   it("shows the day's card exactly like legacy renderDaily", () => {
@@ -48,6 +51,15 @@ describe('Daily', () => {
     expect(norm(document.getElementById('dailyCard')!.innerHTML)).toBe(norm(box.dailyCard!.innerHTML));
     expect(document.getElementById('dailyDate')!.textContent).toBe(box.dailyDate!.textContent);
     expect(document.getElementById('dailyDate')!.textContent).toBe('(2026-1-5 · Witches Tarot)');
+  });
+
+  it('ảnh lá hôm nay (phần tử LCP): tải ngay, ưu tiên cao, giữ chỗ bằng width/height', () => {
+    render(<Daily />);
+    const img = document.querySelector('#dailyCard img.card-image')!;
+    expect(img.hasAttribute('loading')).toBe(false);
+    expect(img.getAttribute('fetchpriority')).toBe('high');
+    expect(img.getAttribute('decoding')).toBe('async');
+    expect([img.getAttribute('width'), img.getAttribute('height')]).toEqual(['307', '512']);
   });
 
   it('saves the journal note under dailyNote:<Y-M-D> and shows it again on remount', () => {

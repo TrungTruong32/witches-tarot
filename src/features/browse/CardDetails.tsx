@@ -1,6 +1,7 @@
 // Chi tiết một lá ở trang Tra cứu (selectCard của bản cũ). Phần chỉ có tiếng Việt thì ẩn khi giao diện EN.
 import { Fragment, forwardRef } from 'react';
 import { useApp } from '../../app/store';
+import { CARD_IMG_H, CARD_IMG_W } from '../../components/cardImage';
 import { CorrChips } from '../../components/CorrChips';
 import { cardText } from '../../core/cards';
 import { seoCardPath } from '../../core/suits';
@@ -48,7 +49,9 @@ export const CardDetails = forwardRef<HTMLDivElement, { card: Card | null }>(fun
     <div id="cardDetails" className="details" ref={ref}>
       {card.image_url && (
         <div className="section card-image-wrapper">
-          <img className="card-image" src={card.image_url} alt={card.ten} loading="lazy" />
+          {/* width/height giữ chỗ đúng tỉ lệ trước khi ảnh tải → không xô trang */}
+          <img className="card-image" src={card.image_url} alt={card.ten} loading="lazy" decoding="async"
+            width={CARD_IMG_W} height={CARD_IMG_H} />
         </div>
       )}
       <div className="section">

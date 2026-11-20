@@ -4,6 +4,7 @@ import { useApp } from '../../app/store';
 import { CorrChips } from '../../components/CorrChips';
 import { cardText } from '../../core/cards';
 import { dailyKey, pickDailyCard } from '../../core/daily';
+import { CARD_IMG_H, CARD_IMG_W, FETCH_HIGH } from '../../components/cardImage';
 import { useT } from '../../i18n/useT';
 import { dailyNoteKey, getStr, setStr } from '../../services/storage';
 
@@ -63,7 +64,9 @@ export function Daily() {
           <>
             {card.image_url && (
               <div className="card-image-wrapper">
-                <img className="card-image" src={card.image_url} alt={card.ten} style={{ maxWidth: '220px' }} loading="lazy" />
+                {/* Ảnh là phần tử LCP của trang: tải ngay, ưu tiên cao; width/height giữ chỗ đúng tỉ lệ → không xô trang */}
+                <img className="card-image" src={card.image_url} alt={card.ten} style={{ maxWidth: '220px' }}
+                  width={CARD_IMG_W} height={CARD_IMG_H} decoding="async" {...FETCH_HIGH} />
               </div>
             )}
             <div className="draw-name" style={{ fontSize: '1.2rem' }}>

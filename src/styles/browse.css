@@ -55,5 +55,7 @@
     @media (max-width: 760px) {
       /* điện thoại: ảnh lá ~44vh → tên lá + mục Từ khóa lọt vào khung nhìn đầu tiên sau khi cuộn;
          ảnh hẹp lại (~215px, căn giữa) nên không còn chạm nút ☰ ở góc phải */
-      #cardDetails .card-image { max-height: 44vh; width: auto; }
+      /* height cố định (thay max-height) để width:auto suy ra từ tỉ lệ width/height của thẻ img ngay cả trước khi ảnh tải
+         → giữ chỗ, không xô trang; ảnh 512px cao nên kết quả như cũ: min(44vh, cao gốc) */
+      #cardDetails .card-image { height: min(44vh, 512px); width: auto; }
     }
